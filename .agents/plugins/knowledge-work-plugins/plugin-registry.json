@@ -1,0 +1,26 @@
+{
+  "source_repository": "anthropics/knowledge-work-plugins",
+  "source_url": "https://github.com/anthropics/knowledge-work-plugins",
+  "format": "claude-code-plugin-marketplace",
+  "note": "Project-level registry for Codex/agent discovery. The GitHub connector did not expose a recursive directory-copy API, so this file records the full visible plugin set and source paths for project-level installation/adaptation.",
+  "plugins": [
+    {"name": "bio-research", "source_path": "bio-research", "target_path": ".agents/plugins/knowledge-work-plugins/bio-research"},
+    {"name": "cowork-plugin-management", "source_path": "cowork-plugin-management", "target_path": ".agents/plugins/knowledge-work-plugins/cowork-plugin-management"},
+    {"name": "customer-support", "source_path": "customer-support", "target_path": ".agents/plugins/knowledge-work-plugins/customer-support"},
+    {"name": "data", "source_path": "data", "target_path": ".agents/plugins/knowledge-work-plugins/data"},
+    {"name": "design", "source_path": "design", "target_path": ".agents/plugins/knowledge-work-plugins/design"},
+    {"name": "engineering", "source_path": "engineering", "target_path": ".agents/plugins/knowledge-work-plugins/engineering"},
+    {"name": "enterprise-search", "source_path": "enterprise-search", "target_path": ".agents/plugins/knowledge-work-plugins/enterprise-search"},
+    {"name": "finance", "source_path": "finance", "target_path": ".agents/plugins/knowledge-work-plugins/finance"},
+    {"name": "human-resources", "source_path": "human-resources", "target_path": ".agents/plugins/knowledge-work-plugins/human-resources"},
+    {"name": "legal", "source_path": "legal", "target_path": ".agents/plugins/knowledge-work-plugins/legal"},
+    {"name": "marketing", "source_path": "marketing", "target_path": ".agents/plugins/knowledge-work-plugins/marketing"},
+    {"name": "operations", "source_path": "operations", "target_path": ".agents/plugins/knowledge-work-plugins/operations"},
+    {"name": "partner-built", "source_path": "partner-built", "target_path": ".agents/plugins/knowledge-work-plugins/partner-built"},
+    {"name": "pdf-viewer", "source_path": "pdf-viewer", "target_path": ".agents/plugins/knowledge-work-plugins/pdf-viewer"},
+    {"name": "product-management", "source_path": "product-management", "target_path": ".agents/plugins/knowledge-work-plugins/product-management"},
+    {"name": "productivity", "source_path": "productivity", "target_path": ".agents/plugins/knowledge-work-plugins/productivity"},
+    {"name": "sales", "source_path": "sales", "target_path": ".agents/plugins/knowledge-work-plugins/sales"},
+    {"name": "small-business", "source_path": "small-business", "target_path": ".agents/plugins/knowledge-work-plugins/small-business"}
+  ]
+}
