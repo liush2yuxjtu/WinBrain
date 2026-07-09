@@ -14,9 +14,15 @@ function assistantMessage(content: string): StudioChatMessage {
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as Partial<ChatRequest>
+  let body: Partial<ChatRequest>
 
-  if (!Array.isArray(body.messages)) {
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  if (!body || !Array.isArray(body.messages)) {
     return NextResponse.json({ error: 'messages must be an array' }, { status: 400 })
   }
 
