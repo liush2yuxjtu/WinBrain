@@ -1,0 +1,82 @@
+name: Playwright PR evidence
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: playwright-pr-evidence-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+jobs:
+  capture:
+    name: Capture screenshots and video
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            npm-shrinkwrap.json
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Install Playwright browsers and system dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        id: playwright
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_TARGET_URL: ${{ vars.PLAYWRIGHT_TARGET_URL }}
+        run: npm run test:e2e
+
+      - name: Upload Playwright evidence artifact
+        id: upload
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-evidence-pr-${{ github.event.pull_request.number }}-run-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+            artifacts/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Update PR body with Playwright evidence links
+        if: ${{ always() && !cancelled() }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+          TEST_OUTCOME: ${{ steps.playwright.outcome }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: node scripts/update-pr-evidence.mjs
+
+      - name: Fail if Playwright failed
+        if: ${{ steps.playwright.outcome == 'failure' }}
+        run: exit 1
