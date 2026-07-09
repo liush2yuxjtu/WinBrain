@@ -47,24 +47,46 @@ async function github(apiPath, options = {}) {
   return response.json();
 }
 
-function walkFiles(directory, prefix = '') {
-  if (!existsSync(directory)) return [];
+function safeStat(filePath) {
+  try {
+    return statSync(filePath);
+  } catch {
+    return null;
+  }
+}
 
-  return readdirSync(directory).flatMap((entry) => {
+function walkFiles(directory, prefix = '') {
+  if (!existsSync(directory) || !safeStat(directory)?.isDirectory()) return [];
+
+  let entries;
+  try {
+    entries = readdirSync(directory);
+  } catch {
+    return [];
+  }
+
+  return entries.flatMap((entry) => {
     const absolute = path.join(directory, entry);
     const relative = prefix ? `${prefix}/${entry}` : entry;
-    const stats = statSync(absolute);
+    const stats = safeStat(absolute);
 
+    if (!stats) return [];
     if (stats.isDirectory()) return walkFiles(absolute, relative);
     if (stats.isFile()) return [relative];
     return [];
   });
 }
 
+function encodedPathSegments(filePath) {
+  return filePath.replace(/\\/g, '/').split('/').filter(Boolean).map(encodeURIComponent);
+}
+
 function rawUrlFor(relativePath) {
-  const encodedMediaPath = mediaPath.split('/').map(encodeURIComponent).join('/');
-  const encodedRelative = relativePath.split('/').map(encodeURIComponent).join('/');
-  return `https://raw.githubusercontent.com/${owner}/${repo}/${mediaRef}/${encodedMediaPath}/${encodedRelative}`;
+  const encodedPath = [
+    ...encodedPathSegments(mediaPath),
+    ...encodedPathSegments(relativePath),
+  ].join('/');
+  return `https://raw.githubusercontent.com/${owner}/${repo}/${mediaRef}/${encodedPath}`;
 }
 
 function renderMediaSection() {
@@ -122,9 +144,12 @@ ${endMarker}`;
 
 const pr = await github(`/pulls/${prNumber}`);
 const currentBody = pr.body || '';
-const pattern = new RegExp(`${startMarker}[\\s\\S]*?${endMarker}`);
-const nextBody = pattern.test(currentBody)
-  ? currentBody.replace(pattern, block)
+const startIndex = currentBody.indexOf(startMarker);
+const endIndex = startIndex === -1
+  ? -1
+  : currentBody.indexOf(endMarker, startIndex + startMarker.length);
+const nextBody = startIndex !== -1 && endIndex !== -1
+  ? currentBody.slice(0, startIndex) + block + currentBody.slice(endIndex + endMarker.length)
   : `${currentBody.trim()}${currentBody.trim() ? '\n\n' : ''}${block}`;
 
 await github(`/pulls/${prNumber}`, {
