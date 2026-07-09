@@ -10,7 +10,7 @@ Project-level skills installed from verified upstream sources. `.agents/` is the
 - `vercel-ai-sdk` — official Vercel AI SDK guidance, condensed from the upstream skill.
 - `skill-creator` — Anthropic skill creation workflow for drafting SKILL.md, evals, and iterative improvements.
 - `knowledge-work-plugins` — mirrored skill trees from `anthropics/knowledge-work-plugins` under `knowledge-work-plugins/upstream/`.
-- `playwright-cli` — project-level browser automation, Chrome installation, frontend screenshot, and video-recording guidance.
+- `playwright-cli` — Microsoft Playwright CLI browser automation and Playwright testing skill, mirrored from `microsoft/playwright-cli`.
 
 ## Source policy
 
@@ -19,6 +19,6 @@ Project-level skills installed from verified upstream sources. `.agents/` is the
 - Anthropic's `claude-plugins-official` marketplace is recorded under both `.agents/plugins/claude-plugins-official/` and `.codex/plugins/claude-plugins-official/` as an upstream registry source.
 - Anthropic's `knowledge-work-plugins` repository is vendored under `.agents/plugins/knowledge-work-plugins/upstream/`; its `skills/` directories are mirrored under `.agents/skills/knowledge-work-plugins/upstream/`.
 - Anthropic's `skill-creator` skill is installed under both `.agents/skills/skill-creator/` and `.codex/skills/skill-creator/`.
-- Playwright CLI support is installed directly in this repository with `package.json`, `playwright.config.ts`, a frontend recorder, and CI artifact upload.
+- The Playwright CLI skill is vendored from `microsoft/playwright-cli` at `skills/playwright-cli/`; this repository also includes project-specific Playwright scripts, config, frontend recorder, and CI artifact upload.
 
 The `user_upload/` tree is intentionally untouched because `user_upload/AGENTS.md` forbids agent edits there.
