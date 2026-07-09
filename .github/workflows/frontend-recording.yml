@@ -31,19 +31,28 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install npm dependencies
+      - name: Install root npm dependencies
+        run: npm install
+
+      - name: Install Business Skill Studio dependencies
+        working-directory: apps/business-skill-studio
         run: npm install
 
       - name: Install Chrome for Playwright
         run: |
           npx playwright install --with-deps chrome
 
-      - name: Record frontend page
+      - name: Record Business Skill Studio frontend
         env:
           PLAYWRIGHT_CHANNEL: chrome
           FRONTEND_URL: ${{ inputs.frontend_url }}
           FRONTEND_START_COMMAND: ${{ inputs.frontend_start_command }}
-        run: npm run record:frontend
+          FRONTEND_RECORD_SCENARIO: business-skill-studio
+        run: |
+          if [ -z "$FRONTEND_URL" ] && [ -z "$FRONTEND_START_COMMAND" ]; then
+            export FRONTEND_START_COMMAND="cd apps/business-skill-studio && npm run dev -- --hostname 127.0.0.1 --port 3000"
+          fi
+          npm run record:frontend
 
       - name: Upload frontend recording artifact
         uses: actions/upload-artifact@v4
@@ -65,9 +74,10 @@ jobs:
               `Download the artifact named \`frontend-playwright-recording\` from this workflow run: ${runUrl}`,
               '',
               'The artifact contains:',
-              '- `frontend-page.png`',
-              '- `summary.md`',
-              '- a Playwright video under `video/`'
+              '- `frontend-page.png` — final full-page screenshot',
+              '- `snapshots/` — staged screenshots of the Business Skill Studio flow',
+              '- `summary.md` — target URL, recording mode, console output, and snapshot list',
+              '- `video/` — Playwright browser video of the recorded flow'
             ].join('\n');
 
             await github.rest.issues.createComment({
