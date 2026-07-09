@@ -9,10 +9,9 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
   actions: read
   pull-requests: write
-  issues: write
 
 jobs:
   capture:
@@ -21,8 +20,10 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Checkout repository
+      - name: Checkout PR head
         uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -48,7 +49,7 @@ jobs:
           PLAYWRIGHT_TARGET_URL: ${{ vars.PLAYWRIGHT_TARGET_URL }}
         run: npm run test:e2e
 
-      - name: Upload Playwright evidence artifact
+      - name: Upload Playwright evidence artifact backup
         id: upload
         if: ${{ always() && !cancelled() }}
         uses: actions/upload-artifact@v5
@@ -61,7 +62,60 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Comment PR with Playwright evidence links
+      - name: Publish Playwright media to PR branch
+        id: publish_media
+        if: ${{ always() && !cancelled() && github.event.pull_request.head.repo.full_name == github.repository }}
+        shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin "${HEAD_BRANCH}"
+
+          dest="pr-evidence/pr-${PR_NUMBER}/playwright/latest"
+          rm -rf "$dest"
+          mkdir -p "$dest"
+
+          if [ -d artifacts/screenshots ]; then
+            mkdir -p "$dest/screenshots"
+            cp -R artifacts/screenshots/. "$dest/screenshots/"
+          fi
+
+          if [ -d test-results ]; then
+            mkdir -p "$dest/videos"
+            find test-results -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) -exec cp {} "$dest/videos/" \; || true
+          fi
+
+          find "$dest" -type f | sort > "$dest/manifest.txt"
+          git add -f "$dest"
+
+          if git diff --cached --quiet; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "chore: publish PR ${PR_NUMBER} Playwright evidence [skip ci]"
+            pushed=false
+            for attempt in 1 2 3; do
+              if git push origin HEAD:"${HEAD_BRANCH}"; then
+                pushed=true
+                break
+              fi
+              git fetch origin "${HEAD_BRANCH}"
+              git rebase "origin/${HEAD_BRANCH}"
+            done
+            if [ "$pushed" != "true" ]; then
+              echo "Failed to push Playwright evidence media after 3 attempts" >&2
+              exit 1
+            fi
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "media_path=$dest" >> "$GITHUB_OUTPUT"
+          echo "media_ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Update PR body with inline Playwright evidence
         if: ${{ always() && !cancelled() }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -72,6 +126,10 @@ jobs:
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
           TEST_OUTCOME: ${{ steps.playwright.outcome }}
           GITHUB_SHA: ${{ github.sha }}
+          EVIDENCE_TITLE: Playwright PR evidence
+          EVIDENCE_MARKER: playwright-evidence
+          EVIDENCE_MEDIA_PATH: ${{ steps.publish_media.outputs.media_path }}
+          EVIDENCE_MEDIA_REF: ${{ steps.publish_media.outputs.media_ref }}
         run: node scripts/update-pr-evidence.mjs
 
       - name: Fail if Playwright failed

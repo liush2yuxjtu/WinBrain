@@ -1,0 +1,9 @@
+pr-evidence/pr-12/business-skill-studio/latest/frontend-page.png
+pr-evidence/pr-12/business-skill-studio/latest/frontend-server.log
+pr-evidence/pr-12/business-skill-studio/latest/manifest.txt
+pr-evidence/pr-12/business-skill-studio/latest/snapshots/00-page-loaded.png
+pr-evidence/pr-12/business-skill-studio/latest/snapshots/01-business-skill-studio-home.png
+pr-evidence/pr-12/business-skill-studio/latest/snapshots/02-after-chat-response.png
+pr-evidence/pr-12/business-skill-studio/latest/snapshots/03-after-skill-draft.png
+pr-evidence/pr-12/business-skill-studio/latest/summary.md
+pr-evidence/pr-12/business-skill-studio/latest/video/66ca8b93c4ed610aa75778cc356a4218.webm
