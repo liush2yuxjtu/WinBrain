@@ -8,7 +8,7 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report",
-    "playwright:install": "playwright install --with-deps chrome",
+    "playwright:install": "playwright install --with-deps chromium",
     "record:frontend": "node tools/record-frontend.mjs",
     "test:frontend": "npm run test:e2e"
   },
