@@ -42,11 +42,9 @@ async function github(path, options = {}) {
   return response.json();
 }
 
-const startMarker = '<!-- playwright-evidence:start -->';
-const endMarker = '<!-- playwright-evidence:end -->';
-
+const commentMarker = '<!-- playwright-evidence-comment -->';
 const statusLabel = outcome === 'success' ? 'passed' : outcome === 'failure' ? 'failed' : outcome;
-const block = `${startMarker}
+const commentBody = `${commentMarker}
 
 ## Playwright evidence
 
@@ -58,22 +56,25 @@ const block = `${startMarker}
 | Commit | \`${sha}\` |
 | Generated | ${generatedAt} |
 
-The artifact contains Playwright HTML report files, screenshots from \`artifacts/screenshots/\`, videos and traces from \`test-results/\`.
+The artifact is uploaded by GitHub Actions and is intentionally not tracked in git. It contains Playwright HTML report files, screenshots from \`artifacts/screenshots/\`, videos and traces from \`test-results/\`.
+`;
 
-${endMarker}`;
+const comments = await github(`/issues/${prNumber}/comments?per_page=100`);
+const existing = comments.find((comment) => comment.body?.includes(commentMarker));
 
-const pr = await github(`/pulls/${prNumber}`);
-const currentBody = pr.body || '';
-const pattern = new RegExp(`${startMarker}[\\s\\S]*?${endMarker}`);
-const nextBody = pattern.test(currentBody)
-  ? currentBody.replace(pattern, block)
-  : `${currentBody.trim()}${currentBody.trim() ? '\n\n' : ''}${block}`;
-
-await github(`/pulls/${prNumber}`, {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ body: nextBody }),
-});
+if (existing) {
+  await github(`/issues/comments/${existing.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body: commentBody }),
+  });
+} else {
+  await github(`/issues/${prNumber}/comments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body: commentBody }),
+  });
+}
 
 const summary = `## Playwright evidence\n\n- Status: ${statusLabel}\n- Workflow run: ${runUrl}\n- Artifact: ${artifactUrl}\n- Commit: ${sha}\n`;
 
@@ -81,4 +82,4 @@ if (process.env.GITHUB_STEP_SUMMARY) {
   appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
 }
 
-console.log(`Updated PR #${prNumber} with Playwright evidence.`);
+console.log(`Upserted Playwright evidence comment for PR #${prNumber}.`);
