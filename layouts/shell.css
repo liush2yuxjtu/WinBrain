@@ -1,0 +1,53 @@
+/**
+ * Shell Layout - 主容器布局
+ * 提供应用的顶层容器结构，支持侧边栏+主内容区域的经典布局
+ */
+
+:root {
+  --shell-bg: linear-gradient(180deg, #f8fbff 0%, #fbfcfb 45%, #fffdf8 100%);
+  --shell-radial-1: radial-gradient(circle at 12% 0%, rgba(214, 220, 239, 0.75), transparent 28%);
+  --shell-radial-2: radial-gradient(circle at 86% 4%, rgba(231, 220, 240, 0.64), transparent 22%);
+}
+
+/**
+ * 主容器
+ * 全屏高度，使用 flexbox 横向布局
+ * 渐变背景提供视觉深度
+ */
+.shell {
+  height: 100%;
+  display: flex;
+  overflow: hidden;
+  background:
+    var(--shell-radial-1),
+    var(--shell-radial-2),
+    var(--shell-bg);
+}
+
+/**
+ * 可访问性：确保容器有合适的语义
+ * 使用 <div class="shell" role="application"> 或适当的 landmark
+ */
+.shell[role="application"] {
+  /* 应用容器标识 */
+}
+
+/**
+ * 响应式：移动端隐藏背景渐变以提升性能
+ */
+@media (max-width: 768px) {
+  .shell {
+    background: #f8fbff;
+  }
+}
+
+/**
+ * 打印样式：去除背景
+ */
+@media print {
+  .shell {
+    background: white;
+    display: block;
+    overflow: visible;
+  }
+}

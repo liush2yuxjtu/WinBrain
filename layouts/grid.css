@@ -1,0 +1,130 @@
+/**
+ * Grid System - 网格布局系统
+ * 灵活的网格系统，支持2列、3列和自定义列数
+ */
+
+:root {
+  --grid-gap: 22px;
+  --grid-gap-sm: 14px;
+  --grid-gap-lg: 32px;
+}
+
+/**
+ * 基础网格容器
+ * 默认单列布局
+ */
+.grid {
+  display: grid;
+  gap: var(--grid-gap);
+}
+
+/**
+ * 两列网格
+ * 等宽列，响应式收缩
+ */
+.grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/**
+ * 三列网格
+ * 等宽列，响应式收缩
+ */
+.grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/**
+ * 四列网格
+ */
+.grid.four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/**
+ * 自动填充网格
+ * 根据容器宽度自动确定列数
+ */
+.grid.auto-fit {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.grid.auto-fill {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+/**
+ * 间距变体
+ */
+.grid.gap-sm {
+  gap: var(--grid-gap-sm);
+}
+
+.grid.gap-lg {
+  gap: var(--grid-gap-lg);
+}
+
+.grid.gap-none {
+  gap: 0;
+}
+
+/**
+ * 非对称布局
+ */
+.grid.sidebar-layout {
+  grid-template-columns: 280px 1fr;
+}
+
+.grid.content-sidebar {
+  grid-template-columns: 1fr 320px;
+}
+
+.grid.thirds {
+  grid-template-columns: 1fr 2fr;
+}
+
+.grid.thirds-reverse {
+  grid-template-columns: 2fr 1fr;
+}
+
+/**
+ * 响应式：平板设备
+ */
+@media (max-width: 960px) {
+  .grid.two,
+  .grid.three,
+  .grid.four,
+  .grid.sidebar-layout,
+  .grid.content-sidebar,
+  .grid.thirds,
+  .grid.thirds-reverse {
+    grid-template-columns: 1fr;
+  }
+
+  .grid {
+    gap: var(--grid-gap-sm);
+  }
+}
+
+/**
+ * 响应式：小屏幕
+ */
+@media (max-width: 640px) {
+  .grid {
+    gap: 12px;
+  }
+}
+
+/**
+ * 打印样式
+ */
+@media print {
+  .grid {
+    display: block;
+  }
+
+  .grid > * {
+    margin-bottom: 1rem;
+    break-inside: avoid;
+  }
+}

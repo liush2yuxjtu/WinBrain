@@ -1,0 +1,171 @@
+/**
+ * Responsive Layout - 响应式布局
+ * 统一的断点和响应式规则
+ */
+
+:root {
+  /* 断点定义 */
+  --breakpoint-xs: 480px;
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 960px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+}
+
+/**
+ * 移动端优先策略
+ * 基础样式适配小屏幕，然后逐步增强
+ */
+
+/* 超小屏幕 (手机竖屏) */
+@media (max-width: 480px) {
+  .shell {
+    font-size: 14px;
+  }
+
+  .hide-xs {
+    display: none !important;
+  }
+}
+
+/* 小屏幕 (手机横屏) */
+@media (max-width: 640px) {
+  .content {
+    padding: 12px;
+  }
+
+  .topbar .top-inner {
+    padding: 10px 12px;
+  }
+
+  .hide-sm {
+    display: none !important;
+  }
+}
+
+/* 中等屏幕 (平板) */
+@media (max-width: 768px) {
+  .hide-md {
+    display: none !important;
+  }
+}
+
+/* 大屏幕 (小笔记本) */
+@media (max-width: 960px) {
+  /* 侧边栏移动端处理 */
+  .sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  /* 网格响应式 */
+  .grid.two,
+  .grid.three,
+  .grid.four {
+    grid-template-columns: 1fr;
+  }
+
+  /* 隐藏装饰性元素 */
+  .hide-lg {
+    display: none !important;
+  }
+}
+
+/* 超大屏幕 */
+@media (min-width: 1280px) {
+  .content {
+    padding: 32px;
+  }
+
+  .show-xl {
+    display: block !important;
+  }
+}
+
+/**
+ * 触摸设备优化
+ */
+@media (hover: none) and (pointer: coarse) {
+  /* 增大可点击区域 */
+  button,
+  a,
+  .nav-item {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* 移除 hover 效果 */
+  .nav-item:hover {
+    transform: none;
+  }
+}
+
+/**
+ * 高对比度模式
+ */
+@media (prefers-contrast: high) {
+  .sidebar {
+    border-right: 2px solid rgba(15, 23, 42, 0.3);
+  }
+
+  .topbar {
+    border-bottom: 2px solid rgba(226, 232, 240, 1);
+  }
+}
+
+/**
+ * 减少动画偏好
+ */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .sidebar {
+    transition: none;
+  }
+}
+
+/**
+ * 暗色模式支持（预留）
+ */
+@media (prefers-color-scheme: dark) {
+  /* 暗色模式变量可以在这里覆盖 */
+  /* 当前设计是亮色专家工作台风格，暗色模式待实现 */
+}
+
+/**
+ * 打印样式
+ */
+@media print {
+  .sidebar,
+  .topbar,
+  .bottom-nav,
+  .hide-print {
+    display: none !important;
+  }
+
+  .main {
+    width: 100%;
+  }
+
+  .content {
+    max-width: none;
+    padding: 0;
+  }
+
+  * {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+}

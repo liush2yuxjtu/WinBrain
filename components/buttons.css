@@ -1,0 +1,100 @@
+/**
+ * 按钮组件
+ * 从旧设计中提取并简化 - 减少阴影层次,保持核心视觉风格
+ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  /* 布局 */
+  padding: 10px 14px;
+  border-radius: 10px;
+
+  /* 边框和背景 */
+  border: 1px solid #dbe4ef;
+  background: #fff;
+
+  /* 文字 */
+  color: #475569;
+  font-weight: 700;
+  font-size: 13px;
+
+  /* 简化的阴影 - 从多层简化为单层 */
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+
+  /* 交互 */
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* 主要按钮 - 使用渐变背景 */
+.btn.primary {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border-color: transparent;
+}
+
+.btn.primary:hover {
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+}
+
+/* 成功/绿色按钮 */
+.btn.green {
+  background: #10b981;
+  color: white;
+  border-color: transparent;
+}
+
+.btn.green:hover {
+  background: #059669;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+}
+
+/* 幽灵按钮 - 轻量样式 */
+.btn.ghost {
+  background: #f8fafc;
+  box-shadow: none;
+  border-color: #e2e8f0;
+}
+
+.btn.ghost:hover {
+  background: #f1f5f9;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+/* 危险/删除按钮 */
+.btn.danger {
+  background: #ef4444;
+  color: white;
+  border-color: transparent;
+}
+
+.btn.danger:hover {
+  background: #dc2626;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+}
+
+/* 禁用状态 */
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
+.btn:disabled:hover {
+  transform: none;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}

@@ -1,0 +1,100 @@
+/**
+ * 导航组件
+ * 从旧设计中提取并简化 - 移除复杂的动画边框,保持核心交互
+ */
+
+.nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+
+  /* 布局 */
+  margin: 6px 0;
+  padding: 8px 12px;
+  border-radius: 9px;
+
+  /* 边框和背景 */
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  background: rgba(255, 255, 255, 0.9);
+
+  /* 简化的阴影 - 从多层简化为单层 */
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+
+  /* 文字 */
+  color: #64748b;
+  font-weight: 650;
+  font-size: 14px;
+
+  /* 交互 */
+  cursor: pointer;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+/* 悬停状态 */
+.nav-item:hover {
+  transform: translateX(2px);
+  color: #1f2937;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+}
+
+/* 激活状态 - 移除复杂的旋转渐变边框 */
+.nav-item.active {
+  color: #202938;
+  background: #fff;
+  border-color: #8b5cf6;
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.15);
+}
+
+/* 导航项图标 */
+.nav-item img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex: 0 0 36px;
+}
+
+/* 右侧箭头 */
+.nav-item .chev {
+  margin-left: auto;
+  color: #94a3b8;
+}
+
+/* 徽章组件 - 用于状态标识 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 7px 12px;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  /* 默认靛蓝色 */
+  background: #eef2ff;
+  color: #4f46e5;
+  border: 1px solid #e0e7ff;
+}
+
+.badge.green {
+  background: #ecfdf5;
+  color: #059669;
+  border-color: #bbf7d0;
+}
+
+.badge.gray {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+.badge.amber {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
