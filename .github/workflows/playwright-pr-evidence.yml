@@ -12,6 +12,7 @@ permissions:
   contents: read
   actions: read
   pull-requests: write
+  issues: write
 
 jobs:
   capture:
@@ -60,7 +61,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Update PR body with Playwright evidence links
+      - name: Comment PR with Playwright evidence links
         if: ${{ always() && !cancelled() }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
