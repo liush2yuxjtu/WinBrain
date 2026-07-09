@@ -36,7 +36,10 @@ function extractTextFromSdkMessage(message: unknown): string {
 async function collectAgentSdkOutput(result: unknown): Promise<string> {
   if (!result) return ''
 
-  const maybeAsync = result as AsyncIterable<unknown>
+  const resolved = await Promise.resolve(result)
+  if (!resolved) return ''
+
+  const maybeAsync = resolved as AsyncIterable<unknown>
   if (typeof maybeAsync[Symbol.asyncIterator] === 'function') {
     const chunks: string[] = []
     for await (const message of maybeAsync) {
@@ -45,12 +48,11 @@ async function collectAgentSdkOutput(result: unknown): Promise<string> {
     return chunks.join('').trim()
   }
 
-  const maybeArray = await Promise.resolve(result)
-  if (Array.isArray(maybeArray)) {
-    return maybeArray.map(extractTextFromSdkMessage).join('').trim()
+  if (Array.isArray(resolved)) {
+    return resolved.map(extractTextFromSdkMessage).join('').trim()
   }
 
-  return extractTextFromSdkMessage(maybeArray).trim()
+  return extractTextFromSdkMessage(resolved).trim()
 }
 
 export async function runAgentChat(input: ChatRequest): Promise<{ text: string; usedAgentSdk: boolean; warnings: string[] }> {
