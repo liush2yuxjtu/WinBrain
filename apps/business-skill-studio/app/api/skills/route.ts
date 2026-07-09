@@ -10,9 +10,15 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as Partial<SkillSaveRequest>
+  let body: Partial<SkillSaveRequest>
 
-  if (!body.skillName || !body.skillMarkdown) {
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  if (!body || !body.skillName || !body.skillMarkdown) {
     return NextResponse.json({ error: 'skillName and skillMarkdown are required' }, { status: 400 })
   }
 
