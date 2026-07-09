@@ -43,14 +43,18 @@ export async function listSkills(): Promise<StoredSkillSummary[]> {
     .map(async (entry) => {
       const skillPath = path.join(root, entry.name, 'SKILL.md')
       const stats = await stat(skillPath).catch(() => null)
+      if (!stats) return null
+
       return {
         name: entry.name,
         path: path.dirname(skillPath),
-        updatedAt: stats?.mtime.toISOString() || new Date(0).toISOString()
+        updatedAt: stats.mtime.toISOString()
       }
     }))
 
-  return summaries.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  return summaries
+    .filter((summary): summary is StoredSkillSummary => summary !== null)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
 export async function readSkill(skillName: string): Promise<string | null> {
