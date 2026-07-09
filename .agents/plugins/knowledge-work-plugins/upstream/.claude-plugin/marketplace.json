@@ -1,0 +1,947 @@
+{
+  "name": "knowledge-work-plugins",
+  "owner": {
+    "name": "Anthropic"
+  },
+  "plugins": [
+    {
+      "name": "productivity",
+      "displayName": "Productivity",
+      "source": "./productivity",
+      "description": "Manage tasks, plan your day, and build up memory of important context about your work. Syncs with your calendar, email, and chat to keep everything organized and on track."
+    },
+    {
+      "name": "enterprise-search",
+      "displayName": "Enterprise Search",
+      "source": "./enterprise-search",
+      "description": "Search across all of your company's tools in one place. Find anything across email, chat, documents, and wikis without switching between apps."
+    },
+    {
+      "name": "cowork-plugin-management",
+      "displayName": "Plugin Management",
+      "source": "./cowork-plugin-management",
+      "description": "Create, customize, and manage plugins tailored to your organization's tools and workflows. Configure MCP servers, adjust plugin behavior, and adapt templates to match how your team works."
+    },
+    {
+      "name": "sales",
+      "displayName": "Sales",
+      "source": "./sales",
+      "description": "Prospect, craft outreach, and build deal strategy faster. Prep for calls, manage your pipeline, and write personalized messaging that moves deals forward."
+    },
+    {
+      "name": "finance",
+      "displayName": "Finance",
+      "source": "./finance",
+      "description": "Streamline finance and accounting workflows, from journal entries and reconciliation to financial statements and variance analysis. Speed up audit prep, month-end close, and keeping your books clean."
+    },
+    {
+      "name": "data",
+      "displayName": "Data",
+      "source": "./data",
+      "description": "Write SQL, explore datasets, and generate insights faster. Build visualizations and dashboards, and turn raw data into clear stories for stakeholders."
+    },
+    {
+      "name": "legal",
+      "displayName": "Legal",
+      "source": "./legal",
+      "description": "Speed up contract review, NDA triage, and compliance workflows for in-house legal teams. Draft legal briefs, organize precedent research, and manage institutional knowledge."
+    },
+    {
+      "name": "marketing",
+      "displayName": "Marketing",
+      "source": "./marketing",
+      "description": "Create content, plan campaigns, and analyze performance across marketing channels. Maintain brand voice consistency, track competitors, and report on what's working."
+    },
+    {
+      "name": "customer-support",
+      "displayName": "Customer Support",
+      "source": "./customer-support",
+      "description": "Triage tickets, draft responses, escalate issues, and build your knowledge base. Research customer context and turn resolved issues into self-service content."
+    },
+    {
+      "name": "product-management",
+      "displayName": "Product Management",
+      "source": "./product-management",
+      "description": "Write feature specs, plan roadmaps, and synthesize user research faster. Keep stakeholders updated and stay ahead of the competitive landscape."
+    },
+    {
+      "name": "bio-research",
+      "displayName": "Bio Research",
+      "source": "./bio-research",
+      "description": "Connect to preclinical research tools and databases (literature search, genomics analysis, target prioritization) to accelerate early-stage life sciences R&D"
+    },
+    {
+      "name": "slack-by-salesforce",
+      "displayName": "Slack",
+      "source": "./partner-built/slack",
+      "description": "Slack integration for searching messages, sending communications, managing canvases, and more",
+      "author": {
+        "name": "Salesforce"
+      }
+    },
+    {
+      "name": "apollo",
+      "displayName": "Apollo.io",
+      "source": "./partner-built/apollo",
+      "description": "Prospect, enrich leads, and load outreach sequences with Apollo.io — one-click MCP server integration for Claude Code and Cowork.",
+      "author": {
+        "name": "Apollo.io"
+      }
+    },
+    {
+      "name": "common-room",
+      "displayName": "Common Room",
+      "source": "./partner-built/common-room",
+      "description": "Turn Common Room into your GTM copilot. Research accounts and contacts, prep for calls with attendee profiles and talking points, and draft personalized outreach across email, LinkedIn, and phone.",
+      "author": {
+        "name": "Common Room"
+      }
+    },
+    {
+      "name": "engineering",
+      "displayName": "Engineering",
+      "source": "./engineering",
+      "description": "Streamline engineering workflows — standups, code review, architecture decisions, incident response, and technical documentation. Works with your existing tools or standalone."
+    },
+    {
+      "name": "human-resources",
+      "displayName": "Human Resources",
+      "source": "./human-resources",
+      "description": "Streamline people operations — recruiting, onboarding, performance reviews, compensation analysis, and policy guidance. Maintain compliance and keep your team running smoothly."
+    },
+    {
+      "name": "design",
+      "displayName": "Design",
+      "source": "./design",
+      "description": "Accelerate design workflows — critique, design system management, UX writing, accessibility audits, research synthesis, and dev handoff. From exploration to pixel-perfect specs."
+    },
+    {
+      "name": "operations",
+      "displayName": "Operations",
+      "source": "./operations",
+      "description": "Optimize business operations — vendor management, process documentation, change management, capacity planning, and compliance tracking. Keep your organization running efficiently."
+    },
+    {
+      "name": "small-business",
+      "displayName": "Small Business",
+      "source": "./small-business",
+      "description": "Pre-built small business workflows (including payroll planning, month-end close, weekly briefs, and growth campaigns) using your QuickBooks, PayPal, HubSpot, Docusign, Gsuite, O365, Canva, and other connected tools. You approve every step that touches money or customers."
+    },
+    {
+      "name": "brand-voice",
+      "displayName": "Brand Voice",
+      "source": "./partner-built/brand-voice",
+      "description": "Discover your brand voice from existing documents and conversations, generate enforceable guidelines, and validate AI-generated content against your established tone and positioning.",
+      "author": {
+        "name": "Tribe AI"
+      }
+    },
+    {
+      "name": "tavily",
+      "displayName": "Tavily",
+      "description": "Build AI applications with real-time web data using Tavily's search, extract, crawl, and research APIs.",
+      "category": "development",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/tavily-ai/skills.git",
+        "sha": "ea5e8201b0d3ed9c10b70b71187589bd761fe2d2"
+      },
+      "homepage": "https://www.tavily.com/"
+    },
+    {
+      "name": "vanta-mcp-plugin",
+      "displayName": "Vanta",
+      "description": "The Vanta plugin connects Claude to Vanta's security and compliance platform through the Vanta MCP server. List failing compliance tests, get test-specific remediation context, and fix failing tests with code changes — directly from your Claude session.",
+      "category": "security",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/VantaInc/vanta-mcp-plugin.git",
+        "sha": "345d86b55faa649e955b7ea5569cf52d8425c2d5"
+      },
+      "homepage": "https://help.vanta.com/en/articles/14094979-connecting-to-vanta-mcp#h_887ce3f337"
+    },
+    {
+      "name": "zoom-plugin",
+      "displayName": "Zoom",
+      "source": "./partner-built/zoom-plugin",
+      "description": "Plan, build, and debug Zoom integrations across REST APIs, Meeting SDK, Video SDK, webhooks, bots, and MCP workflows. Search meetings, retrieve recordings, access transcripts, and design AI-powered Zoom experiences.",
+      "author": {
+        "name": "Zoom"
+      }
+    },
+    {
+      "name": "bigdata-com",
+      "displayName": "Bigdata.com",
+      "description": "Official Bigdata.com plugin providing financial research, analytics, and intelligence tools powered by Bigdata MCP.",
+      "author": {
+        "name": "RavenPack"
+      },
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/Bigdata-com/bigdata-plugins-marketplace.git",
+        "path": "plugins/bigdata-com",
+        "ref": "main",
+        "sha": "76a043a08c0a10eb73756d04031a613568017067"
+      }
+    },
+    {
+      "name": "miro",
+      "displayName": "Miro",
+      "description": "Secure access to Miro boards. Enables AI to read board context, create diagrams, and generate code with enterprise-grade security.",
+      "author": {
+        "name": "Miro"
+      },
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/miroapp/miro-ai.git",
+        "path": "claude-plugins/miro",
+        "ref": "main",
+        "sha": "85c2c7347542b3ce185eb1d2793f8d79ad485c63"
+      }
+    },
+    {
+      "name": "planetscale",
+      "displayName": "PlanetScale",
+      "description": "An authenticated hosted MCP server that accesses your PlanetScale organizations, databases, branches, schema, and Insights data. Query against your data, surface slow queries, and get organizational and account information.",
+      "category": "database",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/planetscale/claude-plugin.git",
+        "sha": "849552445a90b17f2b17267593d0a10d41d4b316"
+      },
+      "homepage": "https://planetscale.com/"
+    },
+    {
+      "name": "adspirer-ads-agent",
+      "displayName": "Adspirer",
+      "description": "Cross-platform ad management for Google Ads, Meta Ads, TikTok Ads, and LinkedIn Ads. 91 tools for keyword research, campaign creation, performance analysis, and budget optimization.",
+      "category": "productivity",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/amekala/adspirer-mcp-plugin.git",
+        "sha": "c40623f1aa7b568e960d3f2e2558a6fcf10e6c18"
+      },
+      "homepage": "https://www.adspirer.com"
+    },
+    {
+      "name": "sanity-plugin",
+      "displayName": "Sanity",
+      "description": "Sanity content platform integration with MCP server, agent skills, and slash commands. Query and author content, build and optimize GROQ queries, design schemas, and set up Visual Editing.",
+      "category": "development",
+      "author": {
+        "name": "Sanity"
+      },
+      "source": {
+        "source": "url",
+        "url": "https://github.com/sanity-io/agent-toolkit.git",
+        "sha": "6c81e246ed9d63588ca1fb624f29ac804184d1be"
+      },
+      "homepage": "https://www.sanity.io"
+    },
+    {
+      "name": "zoominfo",
+      "displayName": "ZoomInfo",
+      "description": "Search companies and contacts, enrich leads, find lookalikes, and get AI-ranked contact recommendations. Pre-built skills chain multiple ZoomInfo tools into complete B2B sales workflows.",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/Zoominfo/zoominfo-mcp-plugin.git",
+        "sha": "b836604c5474f245c4dfc0ed610cd9dfcfeee35e"
+      },
+      "homepage": "https://zoominfo.com"
+    },
+    {
+      "name": "mintlify",
+      "displayName": "Mintlify",
+      "description": "Build beautiful documentation sites with Mintlify. Convert non-markdown files into properly formatted MDX pages, add and modify content with correct component use, and automate documentation updates.",
+      "category": "development",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/mintlify/mintlify-claude-plugin.git",
+        "sha": "acd6d2e0128c4f235d55cfb8d8c91ecbdd5df8cc"
+      },
+      "homepage": "https://www.mintlify.com/"
+    },
+    {
+      "name": "daloopa",
+      "displayName": "Daloopa",
+      "description": "Financial analysis skills powered by Daloopa's institutional-grade data",
+      "category": "finance",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/daloopa/plugin.git",
+        "sha": "a4d8e1ee1a85f291c36c07dbcb23d1ca0cd182b5"
+      },
+      "homepage": "https://github.com/daloopa/plugin"
+    },
+    {
+      "name": "zapier",
+      "displayName": "Zapier",
+      "description": "Connect 8,000+ apps to your AI workflow. Discover, enable, and execute Zapier actions directly from your client.",
+      "category": "productivity",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/zapier/zapier-mcp.git",
+        "path": "plugins/zapier",
+        "ref": "main",
+        "sha": "11bfb606bd1984beef15f6e16257f99ee47c7f29"
+      },
+      "homepage": "https://github.com/zapier/zapier-mcp/tree/main/plugins/zapier"
+    },
+    {
+      "name": "intercom",
+      "displayName": "Intercom",
+      "description": "Intercom integration for Claude Code. Search conversations, analyze customer support patterns, look up contacts and companies, and install the Intercom Messenger. Connect your Intercom workspace to get real-time insights from customer data.",
+      "category": "productivity",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/intercom/claude-plugin-external.git",
+        "sha": "62773a7d4b8aac31545d6888fe6479be3bc53804"
+      },
+      "homepage": "https://github.com/intercom/claude-plugin-external"
+    },
+    {
+      "name": "cockroachdb",
+      "description": "CockroachDB plugin for Claude Code — explore schemas, write optimized SQL, debug queries, and manage distributed database clusters directly from your AI coding agent.",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/cockroachdb/claude-plugin.git",
+        "sha": "c511ba806b1797b1737fc4cbffbe3dba8697b1f2"
+      },
+      "homepage": "https://github.com/cockroachdb/claude-plugin"
+    },
+    {
+      "name": "prisma",
+      "displayName": "Prisma",
+      "description": "Prisma MCP integration for Postgres database management, schema migrations, SQL queries, and connection string management. Provision Prisma Postgres databases, run migrations, and interact with your data directly.",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/prisma/claude-plugin.git",
+        "sha": "815dbc4a045a29e3b81510ba0e3ab806f1baaf0e"
+      },
+      "homepage": "https://prisma.io"
+    },
+    {
+      "name": "fastly-agent-toolkit",
+      "displayName": "Fastly",
+      "description": "Fastly development tools and platform skills",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/fastly/fastly-agent-toolkit.git",
+        "sha": "ea3623d5facc7053eaa802f5fc483dd7121a39aa"
+      },
+      "homepage": "https://github.com/fastly/fastly-agent-toolkit/blob/main/README.md"
+    },
+    {
+      "name": "cloudinary",
+      "displayName": "Cloudinary",
+      "description": "Use Cloudinary directly in Claude. Manage assets, apply transformations, optimize media, and more through natural conversation.",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/cloudinary-devs/cloudinary-plugin.git",
+        "sha": "7b443d7dbd607bfe4850d8cfcab6ba4cbf1a57c3"
+      },
+      "homepage": "https://cloudinary.com/documentation"
+    },
+    {
+      "name": "nimble",
+      "displayName": "Nimble",
+      "description": "Nimble web data toolkit — search, extract, map, crawl the web and work with structured data agents",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/Nimbleway/agent-skills.git",
+        "sha": "fdd3d17713f591b2643d90c35f44546f97458163"
+      },
+      "homepage": "https://docs.nimbleway.com/integrations/agent-skills/plugin-installation"
+    },
+    {
+      "name": "brightdata-plugin",
+      "displayName": "Bright Data",
+      "description": "Web scraping, Google search, structured data extraction, and MCP server integration powered by Bright Data. Includes 7 skills: scrape any webpage as markdown (with bot detection/CAPTCHA bypass), search Google with structured JSON results, extract data from 40+ websites (Amazon, LinkedIn, Instagram, TikTok, YouTube, and more), orchestrate Bright Data's 60+ MCP tools, built-in best practices for Web Unlocker, SERP API, Web Scraper API, and Browser API, Python SDK best practices for the brightda...",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/brightdata/skills.git",
+        "sha": "e825f02fbcd7a89087fd1053a57ddcd45113370f"
+      },
+      "homepage": "https://docs.brightdata.com"
+    },
+    {
+      "name": "searchfit-seo",
+      "displayName": "SearchFit SEO",
+      "description": "Free AI-powered SEO toolkit — audit websites, plan content strategy, optimize pages, generate schema markup, cluster keywords, and track AI visibility. Works with any website or codebase.",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/searchfit/searchfit-seo.git",
+        "sha": "ced1a99a9fadfc10aa573a05829fc1bd357d4e4c"
+      },
+      "homepage": "https://searchfit.ai"
+    },
+    {
+      "name": "atlan",
+      "displayName": "Atlan",
+      "description": "Atlan data catalog plugin for Claude Code. Search, explore, govern, and manage your data assets through natural language. Powered by the Atlan MCP server with semantic search, lineage traversal, glossary management, data quality rules, and more.",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/atlanhq/agent-toolkit.git",
+        "sha": "86bb1ad27f80e189b328333d2271b360ae579f2b"
+      },
+      "homepage": "https://docs.atlan.com/"
+    },
+    {
+      "name": "ai-firstify",
+      "displayName": "AI-Firstify",
+      "description": "AI-first project auditor and re-engineer based on the 9 design principles and 7 design patterns from the TechWolf AI-First Bootcamp",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/techwolf-ai/ai-first-toolkit.git",
+        "path": "plugins/ai-firstify",
+        "ref": "main",
+        "sha": "f6380c947b04ae0817c2723fbf589784d4501357"
+      },
+      "homepage": "https://ai-first.techwolf.ai"
+    },
+    {
+      "name": "product-tracking-skills",
+      "displayName": "Product Tracking",
+      "description": "AI agent skills that make SaaS products data-ready for product analytics — from codebase scan to tracking plan to working instrumentation code.",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/Accoil/product-tracking-skills.git",
+        "sha": "341f8cf47d8b5dda550222152377c50aee34c723"
+      },
+      "homepage": "https://www.accoil.com/product-tracking"
+    },
+    {
+      "name": "postiz",
+      "displayName": "Postiz",
+      "description": "Social media automation CLI for scheduling posts, managing integrations, uploading media, and tracking analytics across 28+ platforms including X, LinkedIn, Reddit, YouTube, TikTok, Instagram, and more",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/gitroomhq/postiz-agent.git",
+        "sha": "41c5a9dbd6b2776863e7c05c22e7a385c208321c"
+      },
+      "homepage": "https://postiz.com/agent"
+    },
+    {
+      "name": "figma",
+      "displayName": "Figma",
+      "description": "Figma design platform integration. Access design files, extract component information, read design tokens, and translate designs into code. Bridge the gap between design and development workflows.",
+      "category": "design",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/figma/mcp-server-guide.git",
+        "sha": "a72c41ef5cd8ea88c96dd4b2e73311463b1cf6bc"
+      },
+      "homepage": "https://github.com/figma/mcp-server-guide"
+    },
+    {
+      "name": "adobe-for-creativity",
+      "displayName": "Adobe for Creativity",
+      "description": "Brings together Adobe Creative Cloud tools for images, vectors, design, and video. Edit multiple assets at once, adapt for different platforms, and complete multi-step creative workflows for polished results.",
+      "category": "design",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/adobe/skills.git",
+        "path": "plugins/creative-cloud/adobe-for-creativity",
+        "ref": "main",
+        "sha": "778ea719f56f4ca1af96a8d07838243349bea5b0"
+      },
+      "homepage": "https://github.com/adobe/skills/tree/main/plugins/creative-cloud/adobe-for-creativity"
+    },
+    {
+      "name": "pdf-viewer",
+      "displayName": "PDF Viewer",
+      "source": "./pdf-viewer",
+      "description": "View, annotate, and sign PDFs in a live interactive viewer. Mark up contracts, fill forms with visual feedback, stamp approvals, and place signatures — then download the annotated copy."
+    },
+    {
+      "name": "box",
+      "displayName": "Box",
+      "description": "Work with your Box content directly from Claude Code — search files, organize folders, collaborate with your team, and use Box AI to answer questions, summarize documents, and extract data without leaving your workflow.",
+      "category": "productivity",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/box/box-for-ai.git",
+        "sha": "172a8273f5d532c13ef6a3057e50c30e5368a2aa"
+      },
+      "homepage": "https://github.com/box/box-for-ai"
+    },
+    {
+      "name": "lseg",
+      "displayName": "LSEG",
+      "description": "Price bonds, analyze yield curves, evaluate FX carry trades, value options, and build macro dashboards using LSEG financial data and analytics.",
+      "category": "finance",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/LSEG-API-Samples/lseg-claude-plugin.git",
+        "sha": "44422c8ad8366d27d872363981b459912b0db2f4"
+      },
+      "homepage": "https://github.com/LSEG-API-Samples/lseg-claude-plugin"
+    },
+    {
+      "name": "sp-global",
+      "displayName": "S&P Global",
+      "description": "S&P Global - Financial data and analytics skills including company tearsheets, earnings previews, and transaction summaries",
+      "category": "finance",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/kensho-technologies/spglobal-agent-skills.git",
+        "path": "plugins/spglobal-plugin",
+        "ref": "main",
+        "sha": "6add941c4c084ca50ae23bc3df28b5a10a218c93"
+      },
+      "homepage": "https://kensho.com"
+    },
+    {
+      "name": "carta-cap-table",
+      "description": "Carta Cap Table plugin — skills and hooks for querying cap tables, grants, SAFEs, 409A valuations, waterfall scenarios, and more",
+      "category": "productivity",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/carta/plugins.git",
+        "path": "plugins/carta-cap-table",
+        "ref": "main",
+        "sha": "4eceb972f7954ea5b00f7df66b7adca11bdd5425"
+      },
+      "homepage": "https://carta.com"
+    },
+    {
+      "name": "carta-crm",
+      "description": "Manage the Carta CRM conversationally — search, add, update, and enrich investors, companies, contacts, deals, notes, and fundraisings via the Carta CRM MCP Server",
+      "category": "productivity",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/carta/plugins.git",
+        "path": "plugins/carta-crm",
+        "ref": "main",
+        "sha": "d73a3615864a5590ad6105df1b3e1b26324d1813"
+      },
+      "homepage": "https://carta.com"
+    },
+    {
+      "name": "carta-investors",
+      "description": "Carta Investors plugin — skills for querying investors data, performance benchmarks, regulatory reporting, AGM deck generation, brand extraction, and more via the Carta MCP server",
+      "category": "productivity",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/carta/plugins.git",
+        "path": "plugins/carta-investors",
+        "ref": "main",
+        "sha": "4eceb972f7954ea5b00f7df66b7adca11bdd5425"
+      },
+      "homepage": "https://carta.com"
+    },
+    {
+      "name": "airtable",
+      "description": "Airtable is the database and operations layer for your agents — whether running product, marketing, sales, ops, HR, or a custom business app. It combines structured data with multiplayer visual surfaces (grid, kanban, calendar, gallery, timeline) humans and agents share — plus sync integrations to Jira, Salesforce, Zendesk, Google Drive, and Databricks. Makes Claude fluent in Airtable: bases and schema, records, and collaboration UI. Bundles the official Airtable MCP server.",
+      "author": {
+        "name": "Airtable"
+      },
+      "category": "productivity",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/Airtable/skills.git",
+        "path": "plugins/airtable",
+        "ref": "main",
+        "sha": "295ab93b7d765912ee1a0dc7f1abb0ecaf73f138"
+      },
+      "homepage": "https://www.airtable.com"
+    },
+    {
+      "name": "desktop-commander",
+      "description": "MCP server for terminal commands, process management, and file operations across text, code, PDF, DOCX, Excel, images, and structured data.",
+      "category": "productivity",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/wonderwhy-er/DesktopCommanderMCP.git",
+        "path": "plugins/claude",
+        "ref": "main",
+        "sha": "0ad919bc188947fc55b1bf269df62f4b14b3880c"
+      },
+      "homepage": "https://desktopcommander.app"
+    },
+    {
+      "name": "qodo-skills",
+      "description": "Shift-left code review skills that bring Qodo's quality standards and code review capabilities into your local development workflow. Catch issues before commit, enforce organizational standards, and resolve PR feedback directly in your agent.",
+      "category": "development",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/qodo-ai/qodo-skills.git",
+        "sha": "e7b677142bbb41eb8fd1cf4b50b2e759bb0c4f03"
+      },
+      "homepage": "https://qodo.ai"
+    },
+    {
+      "name": "servicenow-sdk",
+      "description": "Create, edit, and deploy ServiceNow applications with the Fluent SDK effortlessly through Claude. Helps developers build, extend, and manage ServiceNow applications, workflows, and agents using the ServiceNow SDK.",
+      "category": "development",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/ServiceNow/sdk.git",
+        "path": "providers/claude/plugin",
+        "ref": "main",
+        "sha": "4aadc235ad57a7442e42529869e68ff19c59596c"
+      },
+      "homepage": "https://servicenow.github.io/sdk/"
+    },
+    {
+      "name": "twilio-developer-kit",
+      "description": "Twilio Skills provide procedural knowledge for AI coding agents — which APIs to use, in what order, and what to avoid. Covers SMS, Voice, WhatsApp, Verify, SendGrid, Compliance, and 30+ products.",
+      "author": {
+        "name": "Twilio"
+      },
+      "category": "development",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/twilio/ai.git",
+        "sha": "aa67a6d476107d6742f31a53d68b10749552930f"
+      },
+      "homepage": "https://www.twilio.com"
+    },
+    {
+      "name": "vibe-prospecting",
+      "description": "Vibe Prospecting connects Claude to live B2B company and contact data so users can search, match, enrich, filter, and export prospects at scale. It turns natural-language requests into structured GTM workflows for lead generation, CRM enrichment, company research, executive discovery, and multi-step prospecting automation inside Claude Cowork and Claude Code.",
+      "category": "productivity",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/explorium-ai/vibeprospecting-plugin.git",
+        "sha": "14cb2971a99661382f5a56a9caa7c2d526c4e444"
+      },
+      "homepage": "https://www.vibeprospecting.ai/product/claude-plugin"
+    },
+    {
+      "name": "base44",
+      "description": "Build and deploy Base44 full-stack apps with CLI project management and JavaScript/TypeScript SDK development skills",
+      "category": "development",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/base44/skills.git",
+        "sha": "d04c22ea298c8e370a9dd2e7c3e8c0aa6c0623eb"
+      },
+      "homepage": "https://docs.base44.com"
+    },
+    {
+      "name": "wix",
+      "description": "Build, manage, and deploy Wix sites and apps. Includes CLI development skills and Wix MCP server for site management, eCommerce, CMS, dashboard extensions, and more.",
+      "category": "development",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/wix/skills.git",
+        "sha": "afe99e49d0f2a8b87fe83278dedb5fcee993ca48"
+      },
+      "homepage": "https://dev.wix.com/docs/wix-cli/guides/development/about-wix-skills"
+    },
+    {
+      "name": "datadog",
+      "displayName": "Datadog",
+      "description": "Use Datadog directly in Claude Code through a preconfigured Datadog MCP server. Query logs, metrics, traces, dashboards, and more through natural conversation. This plugin is in preview.",
+      "category": "monitoring",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/datadog-labs/claude-code-plugin.git",
+        "sha": "c5c062abba0df33f6bfc2c0fd0f8d17857e3fa2c"
+      },
+      "homepage": "https://docs.datadoghq.com/bits_ai/mcp_server/setup?tab=claudecode"
+    },
+    {
+      "name": "airwallex-agentos",
+      "displayName": "Airwallex AgentOS",
+      "description": "Bring Airwallex's global financial infrastructure to Claude. Orchestrate actions across your account in plain language, e.g., set up invoices from a PO, onboard suppliers from invoices, and check current cash position across currencies. AgentOS bundles pre-built finance Skills with MCP servers. A public CLI connects your agent to Airwallex's capabilities.",
+      "category": "productivity",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/airwallex/airwallex-marketplace.git",
+        "path": "plugins/airwallex-agentos",
+        "ref": "master",
+        "sha": "683a7536f9445c07439d087607b44b0383b8c41d"
+      },
+      "homepage": "https://www.airwallex.com/docs"
+    },
+    {
+      "name": "langfuse",
+      "displayName": "Langfuse",
+      "description": "Skills for working with Langfuse, the open-source LLM engineering platform for tracing, prompt management, and evaluation.",
+      "category": "monitoring",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/langfuse/skills.git",
+        "sha": "b2df647aef80678abc2f2c45faa867b2853e862c"
+      },
+      "homepage": "https://langfuse.com"
+    },
+    {
+      "name": "valtown",
+      "displayName": "Val Town",
+      "description": "Build and deploy on Val Town. Bundles the Val Town MCP server and platform skills (HTTP vals, cron/intervals, SQLite, email, OAuth, React UI, third-party integrations, templates).",
+      "category": "deployment",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/val-town/plugins.git",
+        "path": "plugin",
+        "ref": "main",
+        "sha": "1bd1c3f93161d88908dc0838aa81980ff1b2e4f7"
+      },
+      "homepage": "https://val.town"
+    },
+    {
+      "name": "learn-with-coursera",
+      "displayName": "Learn with Coursera",
+      "description": "Turn any learning intent into a personalized Coursera experience. Asks three quick questions (topic, familiarity, preferred format), searches Coursera's catalog, and delivers the right next step — a course, hands-on project, short video, or live roleplay — then maps a path forward. Requires the Coursera connector for catalog tools.",
+      "category": "learning",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/coursera/skills.git",
+        "path": "skills",
+        "ref": "main",
+        "sha": "ac28fd6ebf8584e3ee196159bd6d4514fa07de0f"
+      },
+      "strict": false,
+      "skills": [
+        "./learn-with-coursera"
+      ]
+    },
+    {
+      "name": "monday-crm",
+      "displayName": "monday CRM",
+      "description": "Run your monday CRM in plain language. Build a pipeline from scratch, start the day with a ranked deal briefing, spin up a forecast dashboard, audit board health, clean up messy data in bulk, and turn meeting notes into deal updates. Every skill writes back into monday as a real update, doc, or dashboard. Built on the official monday MCP connector.",
+      "category": "productivity",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/mondaycom/mcp.git",
+        "path": "plugins/monday-crm",
+        "ref": "master",
+        "sha": "95500b9c91003aff49762e63bc93144166e0da7b"
+      },
+      "homepage": "https://monday.com"
+    },
+    {
+      "name": "monday-com",
+      "displayName": "monday.com",
+      "description": "The official monday.com plugin for Claude Cowork. Manage boards, items, docs, and forms across work management, CRM, dev, service, and campaigns. Full read and write access via OAuth.",
+      "category": "productivity",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/mondaycom/monday-claude-cowork-plugin.git",
+        "sha": "ce381e93a0a6c2ed3b9942ff1803b8078ba89389"
+      },
+      "homepage": "https://monday.com"
+    },
+    {
+      "name": "lusha",
+      "displayName": "Lusha",
+      "description": "Prospect, enrich, and build call-ready lead lists using Lusha's B2B intelligence platform — verified phone numbers, company signals, and lookalike targeting.",
+      "category": "productivity",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/lusha-oss/lusha-mcp-plugin.git",
+        "sha": "f42bb8f65b3a62fd59711578b8e0446bca644e4b"
+      },
+      "homepage": "https://www.lusha.com"
+    },
+    {
+      "name": "auth0",
+      "displayName": "Auth0",
+      "description": "Essential Auth0 skills including quickstarts, migration from other providers, and Multi-Factor Authentication (MFA).",
+      "category": "security",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/auth0/agent-skills.git",
+        "path": "plugins/auth0",
+        "ref": "main",
+        "sha": "1ee3e4cc6f43dafa6bcffcc24bb04a94d1a6dc85"
+      },
+      "homepage": "https://github.com/auth0/agent-skills"
+    },
+    {
+      "name": "buildkite",
+      "displayName": "Buildkite",
+      "description": "Official Buildkite skills for Claude Code, Cursor, and other AI coding agents — pipelines, migration, preflight, agent runtime, CLI, and API",
+      "category": "deployment",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/buildkite/skills.git",
+        "sha": "24242e53c688546fb39e40a7f1f769dbbcd77400"
+      },
+      "homepage": "https://github.com/buildkite/skills"
+    },
+    {
+      "name": "clickhouse",
+      "displayName": "ClickHouse",
+      "description": "ClickHouse Claude Code plugin: skills (ClickHouse best practices), rules and MCP.",
+      "category": "database",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/ClickHouse/clickhouse-claude-code-plugin.git",
+        "sha": "e98bda0a36613cd220243a83535dcc37e14295ab"
+      },
+      "homepage": "https://github.com/ClickHouse/clickhouse-claude-code-plugin"
+    },
+    {
+      "name": "datarobot-agent-skills",
+      "displayName": "DataRobot Agent Skills",
+      "description": "DataRobot skills for AI/ML workflows — model training, deployment, predictions, feature engineering, monitoring, explainability, data preparation, App Framework CI/CD, and external agent monitoring.",
+      "category": "development",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/datarobot-oss/datarobot-agent-skills.git",
+        "sha": "c4a9729d617aa32e7e9e35c6b30cc97ae81ee47e"
+      },
+      "homepage": "https://datarobot.com"
+    },
+    {
+      "name": "qdrant-skills",
+      "displayName": "Qdrant",
+      "description": "Agent skills for Qdrant vector search: scaling, performance optimization, search quality, monitoring, deployment, model migration, version upgrades, and SDK usage",
+      "category": "database",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/qdrant/skills.git",
+        "sha": "c6ec1242a20bde524e9e4a73ee5540fb22b99235"
+      },
+      "homepage": "https://skills.qdrant.tech"
+    },
+    {
+      "name": "qt-development-skills",
+      "displayName": "Qt Development Skills",
+      "description": "Agentic engineering skills for Qt software development, including Qt C++/QML code review, QML coding, and Qt C++/QML code documentation. These skills use AI and can make mistakes. Always double-check the output carefully.",
+      "category": "development",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/TheQtCompanyRnD/agent-skills.git",
+        "sha": "6e3411d7e58965aa31fa3803c398511f27b29216"
+      },
+      "homepage": "https://github.com/TheQtCompanyRnD/agent-skills"
+    },
+    {
+      "name": "exa",
+      "displayName": "Exa",
+      "description": "Exa AI web search, deep research, and content extraction. Provides MCP tools and research skills for comprehensive web search, people discovery, company research, academic papers, and more.",
+      "category": "productivity",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/exa-labs/exa-mcp-server.git",
+        "sha": "9c69a3b45b228243215c59673e54c5bf321bb416"
+      },
+      "homepage": "https://exa.ai/docs/reference/exa-mcp"
+    },
+    {
+      "name": "dropbox",
+      "displayName": "Dropbox",
+      "description": "The Dropbox plugin for Claude connects your Dropbox files directly to Claude, so you can search, organize, save generated content, and create sharing links without switching tools. It respects your existing Dropbox permissions, and Claude only works with files you already have access to.",
+      "category": "productivity",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/dropbox/dropbox-ai-plugins.git",
+        "path": "claude",
+        "ref": "main",
+        "sha": "4135e81caf8275b4c97caef244479e0dcb6fb823"
+      },
+      "homepage": "https://www.dropbox.com"
+    },
+    {
+      "name": "canva",
+      "displayName": "Canva",
+      "description": "Create, edit, review, resize, and brand-check Canva designs with the Canva MCP server.",
+      "category": "design",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/canva-sdks/canva-skills.git",
+        "path": "plugins/canva",
+        "ref": "main",
+        "sha": "b56291ea0a36d0a941e1478b47959be5f1771dee"
+      },
+      "homepage": "https://www.canva.com"
+    },
+    {
+      "name": "pixeltable",
+      "displayName": "Pixeltable",
+      "description": "Build multimodal AI applications with Pixeltable -- tables, computed columns, embedding search, UDFs, tool-calling agents, and 25+ AI provider integrations.",
+      "category": "development",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/pixeltable/pixeltable-skill.git",
+        "sha": "933c15b55a49aa375ce0300c074bdf43b68571b9"
+      },
+      "homepage": "https://docs.pixeltable.com"
+    },
+    {
+      "name": "grafana-assistant",
+      "displayName": "Grafana Assistant",
+      "description": "Skills and rules for developing and using the Grafana Assistant app and CLI.",
+      "category": "monitoring",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/grafana/ai-marketplace.git",
+        "path": "plugins/grafana-assistant",
+        "ref": "main",
+        "sha": "a5c72f2d74c640e9675eb0249526447968535015"
+      },
+      "homepage": "https://grafana.com"
+    },
+    {
+      "name": "grafana-cloud-mcp",
+      "displayName": "Grafana Cloud MCP",
+      "description": "Hosted MCP server for AI-assisted Grafana Cloud observability — no local installation required.",
+      "category": "monitoring",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/grafana/ai-marketplace.git",
+        "path": "plugins/grafana-cloud-mcp",
+        "ref": "main",
+        "sha": "a5c72f2d74c640e9675eb0249526447968535015"
+      },
+      "homepage": "https://grafana.com"
+    },
+    {
+      "name": "grasp",
+      "displayName": "Grasp",
+      "description": "Deal-work workflows powered by Grasp company lookup, table creation, import, buyer, transaction, table enrichment, contact, and market research tools.",
+      "category": "productivity",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/grasp-ai/grasp-mcp-plugin.git",
+        "sha": "3331cc8b908e038df5ec1b199c55b2f763943511"
+      },
+      "homepage": "https://www.grasp-ai.com/"
+    },
+    {
+      "name": "honeycomb",
+      "displayName": "Honeycomb",
+      "description": "Skills, agents, and workflows for Honeycomb observability — query patterns, production investigations, SLOs, OpenTelemetry instrumentation, and Beeline migration. Designed to complement the Honeycomb MCP server.",
+      "category": "monitoring",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/honeycombio/agent-skill.git",
+        "path": "honeycomb",
+        "ref": "main",
+        "sha": "53e6bb80242d4667dd730e7cc2150a4a2f9a83bf"
+      },
+      "homepage": "https://github.com/honeycombio/agent-skill"
+    },
+    {
+      "name": "b12-claude-plugin",
+      "displayName": "B12",
+      "description": "B12 plugin with two skills: Website Generator (create a B12 website from a brief description) and B12 Website Editor (edit a live B12 website using Claude's browser access in Claude Cowork).",
+      "category": "design",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/b12io/b12-claude-plugin.git",
+        "sha": "a53638c2b23b82c6be7c4e5b1e3cecd6a59f9fb8"
+      },
+      "homepage": "https://github.com/b12io/b12-claude-plugin"
+    },
+    {
+      "name": "signoz",
+      "displayName": "SigNoz",
+      "description": "Official SigNoz plugin for MCP setup, docs, queries, dashboards, and alerts",
+      "category": "monitoring",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/SigNoz/agent-skills.git",
+        "path": "plugins/signoz",
+        "ref": "main",
+        "sha": "c86f50a83d52894fb989628b6401824a4238fba4"
+      },
+      "homepage": "https://signoz.io/docs/ai/agent-skills"
+    }
+  ]
+}
