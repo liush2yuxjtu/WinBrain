@@ -1,0 +1,15 @@
+{
+  "name": "winbrain",
+  "private": true,
+  "version": "0.1.0",
+  "description": "WinBrain project with Playwright PR evidence automation.",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report",
+    "playwright:install": "playwright install --with-deps"
+  },
+  "devDependencies": {
+    "@playwright/test": "latest"
+  }
+}
