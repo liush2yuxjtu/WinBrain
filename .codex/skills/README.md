@@ -9,6 +9,7 @@ Project-level skills installed from verified upstream sources. `.agents/` is the
 - `vercel-ai-gateway` — official Vercel AI Gateway guidance, condensed from the upstream skill.
 - `vercel-ai-sdk` — official Vercel AI SDK guidance, condensed from the upstream skill.
 - `skill-creator` — Anthropic skill creation workflow for drafting SKILL.md, evals, and iterative improvements.
+- `playwright-cli` — project browser automation, screenshots, video recording, and PR evidence guidance.
 - `knowledge-work-plugins` — mirrored skill trees from `anthropics/knowledge-work-plugins` under `.agents/skills/knowledge-work-plugins/upstream/`.
 
 ## Source policy
