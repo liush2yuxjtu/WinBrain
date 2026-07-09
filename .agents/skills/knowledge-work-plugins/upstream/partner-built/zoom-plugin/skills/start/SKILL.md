@@ -1,5 +1,5 @@
 ---
-name: start
+name: zoom-start
 description: Start here for any Zoom integration or app idea. Use when you need to choose the right Zoom surface, shape the architecture, or route into the correct implementation skill without reading the whole Zoom doc set first.
 ---
 

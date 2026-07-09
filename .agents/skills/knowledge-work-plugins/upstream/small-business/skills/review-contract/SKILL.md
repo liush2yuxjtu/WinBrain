@@ -1,5 +1,5 @@
 ---
-name: review-contract
+name: smb-review-contract
 description: Reviews a contract in plain English, surfaces red flags with severity ratings, and produces a marked-up docx/PDF with suggested redlines. Accepts optional file path or DocuSign envelope ID.
 allowed-tools: Read, WebFetch, Bash
 ---
