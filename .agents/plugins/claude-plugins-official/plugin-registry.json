@@ -1,0 +1,270 @@
+{
+  "source_repository": "anthropics/claude-plugins-official",
+  "source_url": "https://github.com/anthropics/claude-plugins-official",
+  "format": "claude-code-plugin-marketplace",
+  "source_pinned_commit": "c78da81119b6295856638784432e4f85902123d6",
+  "vendored_files_root": ".agents/plugins/claude-plugins-official/upstream/plugins/",
+  "skills_mirror_root": ".agents/skills/claude-plugins-official/upstream/",
+  "note": "Project-level registry. /plugins/ tree (37 bundled plugins, 325 files) is vendored under vendored_files_root; per-plugin skills/ trees (131 files) mirrored under skills_mirror_root. 22 bundled executable hooks under */hooks/*.{py,sh} are vendored as third-party unvetted code; per-plugin hook counts are recorded below.",
+  "plugins": [
+    {
+      "name": "agent-sdk-dev",
+      "skill_files": 0,
+      "agent_files": 2,
+      "command_files": 1,
+      "hook_files": 0
+    },
+    {
+      "name": "clangd-lsp",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "claude-code-setup",
+      "skill_files": 6,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "claude-md-management",
+      "skill_files": 4,
+      "agent_files": 0,
+      "command_files": 1,
+      "hook_files": 0
+    },
+    {
+      "name": "code-modernization",
+      "skill_files": 0,
+      "agent_files": 7,
+      "command_files": 10,
+      "hook_files": 0
+    },
+    {
+      "name": "code-review",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 1,
+      "hook_files": 0
+    },
+    {
+      "name": "code-simplifier",
+      "skill_files": 0,
+      "agent_files": 1,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "commit-commands",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 3,
+      "hook_files": 0
+    },
+    {
+      "name": "csharp-lsp",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "cwc-makers",
+      "skill_files": 2,
+      "agent_files": 0,
+      "command_files": 1,
+      "hook_files": 0
+    },
+    {
+      "name": "example-plugin",
+      "skill_files": 2,
+      "agent_files": 0,
+      "command_files": 1,
+      "hook_files": 0
+    },
+    {
+      "name": "explanatory-output-style",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 1
+    },
+    {
+      "name": "feature-dev",
+      "skill_files": 0,
+      "agent_files": 3,
+      "command_files": 1,
+      "hook_files": 0
+    },
+    {
+      "name": "frontend-design",
+      "skill_files": 2,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "gopls-lsp",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "hookify",
+      "skill_files": 1,
+      "agent_files": 1,
+      "command_files": 4,
+      "hook_files": 6
+    },
+    {
+      "name": "jdtls-lsp",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "kotlin-lsp",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "learning-output-style",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 1
+    },
+    {
+      "name": "lua-lsp",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "math-olympiad",
+      "skill_files": 11,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "mcp-server-dev",
+      "skill_files": 19,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "mcp-tunnels",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 1,
+      "hook_files": 0
+    },
+    {
+      "name": "php-lsp",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "playground",
+      "skill_files": 7,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "plugin-dev",
+      "skill_files": 53,
+      "agent_files": 3,
+      "command_files": 1,
+      "hook_files": 0
+    },
+    {
+      "name": "pr-review-toolkit",
+      "skill_files": 0,
+      "agent_files": 6,
+      "command_files": 1,
+      "hook_files": 0
+    },
+    {
+      "name": "project-artifact",
+      "skill_files": 3,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "pyright-lsp",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "ralph-loop",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 3,
+      "hook_files": 2
+    },
+    {
+      "name": "ruby-lsp",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "rust-analyzer-lsp",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "security-guidance",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 12
+    },
+    {
+      "name": "session-report",
+      "skill_files": 3,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "skill-creator",
+      "skill_files": 18,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "swift-lsp",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    },
+    {
+      "name": "typescript-lsp",
+      "skill_files": 0,
+      "agent_files": 0,
+      "command_files": 0,
+      "hook_files": 0
+    }
+  ]
+}
