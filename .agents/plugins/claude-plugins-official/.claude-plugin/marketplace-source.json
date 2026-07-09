@@ -1,0 +1,39 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-plugins-official",
+  "description": "Directory of popular Claude Code extensions including development tools, productivity plugins, and MCP integrations",
+  "owner": {
+    "name": "Anthropic",
+    "email": "support@anthropic.com"
+  },
+  "sourceRepository": "https://github.com/anthropics/claude-plugins-official",
+  "sourcePath": ".claude-plugin/marketplace.json",
+  "notes": [
+    "This project-level agents/Codex copy records the official Anthropic Claude plugin marketplace source rather than vendoring every third-party plugin repository into this repo.",
+    "The official marketplace README says internal plugins live under /plugins and external partner/community plugins live under /external_plugins.",
+    "Claude Code installs entries with /plugin install {plugin-name}@claude-plugins-official.",
+    "Pinned entries confirmed for this installation include vercel and supabase. Use the upstream marketplace JSON for the complete current plugin list."
+  ],
+  "confirmedEntries": [
+    {
+      "name": "vercel",
+      "category": "deployment",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/vercel/vercel-plugin.git",
+        "sha": "5f3f0ad7931ad49d6a4c6ed43ab4bf4781a69f6d"
+      },
+      "homepage": "https://github.com/vercel/vercel-plugin"
+    },
+    {
+      "name": "supabase",
+      "category": "database",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/supabase-community/supabase-plugin.git",
+        "sha": "2ed49769b1ec2f6703a14290af484df651336150"
+      },
+      "homepage": "https://github.com/supabase-community/supabase-plugin"
+    }
+  ]
+}
