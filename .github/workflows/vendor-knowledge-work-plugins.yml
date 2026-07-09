@@ -1,0 +1,76 @@
+name: Vendor Knowledge Work Plugins
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/vendor-knowledge-work-plugins.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clone upstream knowledge-work-plugins
+        run: |
+          rm -rf /tmp/knowledge-work-plugins
+          git clone --depth 1 https://github.com/anthropics/knowledge-work-plugins.git /tmp/knowledge-work-plugins
+
+      - name: Copy upstream plugin contents into .agents
+        run: |
+          set -euo pipefail
+
+          mkdir -p .agents/plugins/knowledge-work-plugins/upstream
+          mkdir -p .agents/skills/knowledge-work-plugins/upstream
+
+          rsync -a --delete \
+            --exclude='.git/' \
+            /tmp/knowledge-work-plugins/ \
+            .agents/plugins/knowledge-work-plugins/upstream/
+
+          # Mirror each plugin's skills directory into project-level .agents/skills.
+          find /tmp/knowledge-work-plugins -mindepth 2 -maxdepth 2 -type d -name skills | while read -r skills_dir; do
+            plugin_dir="$(dirname "$skills_dir")"
+            plugin_name="$(basename "$plugin_dir")"
+            mkdir -p ".agents/skills/knowledge-work-plugins/upstream/$plugin_name"
+            rsync -a --delete "$skills_dir/" ".agents/skills/knowledge-work-plugins/upstream/$plugin_name/skills/"
+          done
+
+          cat > .agents/plugins/knowledge-work-plugins/VENDORED_FROM.md <<'EOF'
+          # Vendored Knowledge Work Plugins
+
+          Source repository: https://github.com/anthropics/knowledge-work-plugins
+
+          The full upstream repository is copied under:
+
+          ```text
+          .agents/plugins/knowledge-work-plugins/upstream/
+          ```
+
+          Plugin skill directories are also mirrored under:
+
+          ```text
+          .agents/skills/knowledge-work-plugins/upstream/
+          ```
+          EOF
+
+      - name: Commit vendored plugin contents
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .agents/plugins/knowledge-work-plugins .agents/skills/knowledge-work-plugins
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Vendor anthropics knowledge work plugins into .agents"
+            git push
+          fi
