@@ -9,7 +9,7 @@
   "sourceRepository": "https://github.com/anthropics/claude-plugins-official",
   "sourcePath": ".claude-plugin/marketplace.json",
   "notes": [
-    "This project-level Codex copy records the official Anthropic Claude plugin marketplace source rather than vendoring every third-party plugin repository into this repo.",
+    "This project-level agents/Codex copy records the official Anthropic Claude plugin marketplace source rather than vendoring every third-party plugin repository into this repo.",
     "The official marketplace README says internal plugins live under /plugins and external partner/community plugins live under /external_plugins.",
     "Claude Code installs entries with /plugin install {plugin-name}@claude-plugins-official.",
     "Pinned entries confirmed for this installation include vercel and supabase. Use the upstream marketplace JSON for the complete current plugin list."
