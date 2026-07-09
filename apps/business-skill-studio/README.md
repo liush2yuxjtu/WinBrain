@@ -12,6 +12,16 @@ A project-level app scaffold for helping business experts chat with AI and turn 
    - assumptions and open questions
 4. Saves generated skills to a local skill store for review and later packaging.
 
+## TypeScript Effect usage
+
+Server-side operational boundaries use the `effect` package for typed error handling and explicit async workflows:
+
+- `lib/effect-runtime.ts` defines `AppError`, `tryPromiseEffect`, `trySyncEffect`, and `runAppEffect`.
+- `lib/agent-sdk.ts` wraps Agent SDK imports, query calls, and output collection in `Effect.gen` programs.
+- `lib/skill-store.ts` wraps filesystem reads/writes and skill metadata listing in Effect programs.
+
+The UI and API route surfaces stay simple; Effect is concentrated at I/O boundaries where failures need consistent handling.
+
 ## Upstream references
 
 - Skill authoring pattern: `anthropics/skills/skills/skill-creator`
@@ -64,6 +74,7 @@ Included:
 - Agent SDK adapter with fallback behavior
 - Skill draft generation API
 - Local skill save/list API
+- TypeScript Effect wrappers for Agent SDK and filesystem I/O
 - Project-level `.agents` and `.codex` references for `skill-creator` and `agent-sdk-dev`
 
 Not yet included:
