@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WinBrain Playwright Evidence</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #101827, #22304a);
+        color: white;
+      }
+      main {
+        width: min(760px, calc(100vw - 48px));
+        padding: 40px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+      h1 {
+        margin-top: 0;
+        font-size: clamp(2rem, 5vw, 4rem);
+        line-height: 1;
+      }
+      p {
+        font-size: 1.125rem;
+        line-height: 1.6;
+      }
+      code {
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.4rem;
+        background: rgba(255, 255, 255, 0.16);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>WinBrain PR evidence</h1>
+      <p>
+        This fallback page lets Playwright produce screenshot and video artifacts before the real app has a preview URL.
+      </p>
+      <p>
+        Set <code>PLAYWRIGHT_TARGET_URL</code> in GitHub Actions or Codex Cloud to capture the actual app instead.
+      </p>
+    </main>
+  </body>
+</html>
