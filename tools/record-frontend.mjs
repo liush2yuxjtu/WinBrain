@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 
 const ARTIFACT_DIR = resolve('artifacts/frontend-recording');
 const VIDEO_DIR = resolve(ARTIFACT_DIR, 'video');
+const SNAPSHOT_DIR = resolve(ARTIFACT_DIR, 'snapshots');
 const SCREENSHOT_PATH = resolve(ARTIFACT_DIR, 'frontend-page.png');
 const SUMMARY_PATH = resolve(ARTIFACT_DIR, 'summary.md');
 const DIAGNOSTIC_HTML_PATH = resolve(ARTIFACT_DIR, 'diagnostic.html');
@@ -24,6 +25,7 @@ const COMMON_FRONTEND_URLS = [
 ];
 
 await mkdir(VIDEO_DIR, { recursive: true });
+await mkdir(SNAPSHOT_DIR, { recursive: true });
 
 function sleep(ms) {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
@@ -87,7 +89,7 @@ async function resolveTargetUrl() {
   if (explicitUrl) return { url: explicitUrl, mode: 'explicit FRONTEND_URL' };
 
   const startedProcess = await startFrontendIfRequested();
-  const detected = await waitForReachable(COMMON_FRONTEND_URLS, startedProcess ? 45_000 : 3_000);
+  const detected = await waitForReachable(COMMON_FRONTEND_URLS, startedProcess ? 60_000 : 3_000);
   if (detected) {
     return {
       url: detected,
@@ -163,10 +165,40 @@ async function stopFrontendProcess(child) {
   }
 }
 
-function buildSummary({ target, videoPath, consoleMessages, error }) {
+async function captureSnapshot(page, name, options = {}) {
+  const path = resolve(SNAPSHOT_DIR, `${name}.png`);
+  await page.screenshot({ path, fullPage: options.fullPage ?? true });
+  return path;
+}
+
+async function recordBusinessSkillStudioScenario(page, snapshots) {
+  const scenario = process.env.FRONTEND_RECORD_SCENARIO;
+  if (scenario !== 'business-skill-studio') return;
+
+  const titleVisible = await page.getByText('WinBrain Business Skill Studio').first().isVisible().catch(() => false);
+  if (!titleVisible) return;
+
+  snapshots.push(await captureSnapshot(page, '01-business-skill-studio-home'));
+
+  const messageBox = page.locator('textarea').last();
+  await messageBox.fill('我们每周都要看客户健康度，判断哪些账号需要 CSM 介入。请把这个流程沉淀成可以复用的 skill。');
+  await page.getByRole('button', { name: '发送给 AI' }).click();
+  await page.waitForTimeout(1_500);
+  snapshots.push(await captureSnapshot(page, '02-after-chat-response'));
+
+  await page.getByRole('button', { name: '生成 Skill 草稿' }).click();
+  await page.waitForTimeout(1_500);
+  snapshots.push(await captureSnapshot(page, '03-after-skill-draft'));
+}
+
+function buildSummary({ target, videoPath, consoleMessages, snapshots, error }) {
   const consoleOutput = consoleMessages.length
     ? consoleMessages.map((line) => `- ${line}`).join('\n')
     : 'No console messages captured.';
+
+  const snapshotOutput = snapshots.length
+    ? snapshots.map((path) => `- ${path}`).join('\n')
+    : 'No staged snapshots captured.';
 
   const failureSection = error
     ? `\n## Failure\n\n\`\`\`text\n${error.stack || error.message || String(error)}\n\`\`\`\n`
@@ -177,8 +209,12 @@ function buildSummary({ target, videoPath, consoleMessages, error }) {
 - Target: ${target?.url ?? 'not resolved'}
 - Resolution: 1440x900
 - Target selection mode: ${target?.mode ?? 'not resolved'}
-- Screenshot: ${SCREENSHOT_PATH}
+- Final screenshot: ${SCREENSHOT_PATH}
 - Video: ${videoPath}
+
+## Staged snapshots
+
+${snapshotOutput}
 
 ## Console output
 
@@ -191,6 +227,7 @@ let browser;
 let context;
 let videoPath = 'not available';
 const consoleMessages = [];
+const snapshots = [];
 
 try {
   target = await resolveTargetUrl();
@@ -215,6 +252,9 @@ try {
   } catch {
     // Single-page apps or long-polling pages may never become fully idle.
   }
+
+  snapshots.push(await captureSnapshot(page, '00-page-loaded'));
+  await recordBusinessSkillStudioScenario(page, snapshots);
   await page.screenshot({ path: SCREENSHOT_PATH, fullPage: true });
   await page.waitForTimeout(4_000);
   await context.close();
@@ -226,14 +266,14 @@ try {
     // Playwright may not expose a path if video capture failed before context close.
   }
 
-  const summary = buildSummary({ target, videoPath, consoleMessages });
+  const summary = buildSummary({ target, videoPath, consoleMessages, snapshots });
   await writeFile(SUMMARY_PATH, summary, 'utf8');
   console.log(summary);
 } catch (error) {
   console.error('Recording failed:', error);
   process.exitCode = 1;
 
-  const summary = buildSummary({ target, videoPath, consoleMessages, error });
+  const summary = buildSummary({ target, videoPath, consoleMessages, snapshots, error });
   await writeFile(SUMMARY_PATH, summary, 'utf8');
 } finally {
   if (context) {
