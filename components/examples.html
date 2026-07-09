@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WinBrain 组件库示例</title>
+
+  <!-- 引入组件样式 -->
+  <link rel="stylesheet" href="buttons.css">
+  <link rel="stylesheet" href="cards.css">
+  <link rel="stylesheet" href="navigation.css">
+  <link rel="stylesheet" href="forms.css">
+  <link rel="stylesheet" href="modals.css">
+
+  <style>
+    /* 基础样式和变量 */
+    :root {
+      --ink: #172033;
+      --muted: #5c687c;
+      --soft: #8da0bc;
+      --line: #e2e8f0;
+      --bg: #f8fbff;
+      font-family: "Segoe UI Variable", "PingFang SC", "Noto Sans SC",
+                   "Microsoft YaHei UI", system-ui, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 40px 20px;
+      background: linear-gradient(180deg, #f8fbff, #fbfaf6);
+      color: var(--ink);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section {
+      margin-bottom: 60px;
+    }
+
+    .section-title {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 20px;
+      color: var(--ink);
+    }
+
+    .demo-grid {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+
+    .demo-item {
+      padding: 20px;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+
+    .demo-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header style="text-align: center; margin-bottom: 60px;">
+      <h1 style="font-size: 36px; font-weight: 800; margin: 0 0 10px;">
+        WinBrain 组件库
+      </h1>
+      <p style="color: var(--muted); font-size: 16px;">
+        从旧设计中提取并简化的核心 UI 组件
+      </p>
+    </header>
+
+    <!-- 按钮组件 -->
+    <section class="section">
+      <h2 class="section-title">按钮组件 (Buttons)</h2>
+      <div class="demo-grid">
+        <div class="demo-item">
+          <div class="demo-label">默认按钮</div>
+          <button class="btn">默认按钮</button>
+        </div>
+
+        <div class="demo-item">
+          <div class="demo-label">主要按钮</div>
+          <button class="btn primary">主要按钮</button>
+        </div>
+
+        <div class="demo-item">
+          <div class="demo-label">成功按钮</div>
+          <button class="btn green">成功按钮</button>
+        </div>
+
+        <div class="demo-item">
+          <div class="demo-label">幽灵按钮</div>
+          <button class="btn ghost">幽灵按钮</button>
+        </div>
+
+        <div class="demo-item">
+          <div class="demo-label">危险按钮</div>
+          <button class="btn danger">删除</button>
+        </div>
+
+        <div class="demo-item">
+          <div class="demo-label">禁用状态</div>
+          <button class="btn" disabled>禁用按钮</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 卡片组件 -->
+    <section class="section">
+      <h2 class="section-title">卡片组件 (Cards)</h2>
+      <div class="demo-grid">
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">
+              <span class="icon-box">📄</span>
+              <div>
+                <h3>基础卡片</h3>
+                <p>带图标和描述的卡片</p>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <p class="muted">这是卡片的主体内容区域。可以放置任何内容。</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">
+              <span class="icon-box green">✓</span>
+              <div>
+                <h3>成功状态卡片</h3>
+                <p>使用绿色图标容器</p>
+              </div>
+            </div>
+            <button class="btn ghost">操作</button>
+          </div>
+          <div class="card-body">
+            <div class="toolbar">
+              <button class="btn primary">主要操作</button>
+              <button class="btn ghost">次要操作</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 导航和徽章 -->
+    <section class="section">
+      <h2 class="section-title">导航项和徽章 (Navigation & Badges)</h2>
+      <div class="demo-grid">
+        <div class="demo-item">
+          <div class="demo-label">导航项 - 默认</div>
+          <button class="nav-item">
+            <span style="font-size: 20px;">📊</span>
+            <span>数据分析</span>
+            <span class="chev">›</span>
+          </button>
+        </div>
+
+        <div class="demo-item">
+          <div class="demo-label">导航项 - 激活</div>
+          <button class="nav-item active">
+            <span style="font-size: 20px;">📈</span>
+            <span>用量统计</span>
+            <span class="chev">›</span>
+          </button>
+        </div>
+
+        <div class="demo-item">
+          <div class="demo-label">徽章变体</div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <span class="badge">默认徽章</span>
+            <span class="badge green">● 已连接</span>
+            <span class="badge gray">● 待处理</span>
+            <span class="badge amber">● 警告</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 表单控件 -->
+    <section class="section">
+      <h2 class="section-title">表单控件 (Form Controls)</h2>
+      <div class="demo-grid">
+        <div class="demo-item">
+          <div class="demo-label">输入框</div>
+          <input type="text" class="input" placeholder="请输入内容...">
+        </div>
+
+        <div class="demo-item">
+          <div class="demo-label">文本域</div>
+          <textarea class="textarea" placeholder="请输入多行文本..."></textarea>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <div class="demo-label">文件上传区域</div>
+        <div class="dropzone">
+          <div class="big">☁️</div>
+          <strong>拖拽文件到这里，或点击选择</strong>
+          <p class="muted">支持 .md / .txt 文件，最大 2MB</p>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <div class="demo-label">选项网格</div>
+        <div class="option-grid">
+          <button class="option selected">
+            <h4>选项 A</h4>
+            <p>这是第一个选项的描述文字</p>
+          </button>
+          <button class="option">
+            <h4>选项 B</h4>
+            <p>这是第二个选项的描述文字</p>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 模态框 -->
+    <section class="section">
+      <h2 class="section-title">模态框 (Modal)</h2>
+      <button class="btn primary" onclick="showModal()">打开模态框</button>
+    </section>
+  </div>
+
+  <!-- 模态框示例 -->
+  <div id="demoModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-head">
+        <strong>示例模态框</strong>
+        <button class="btn ghost" onclick="hideModal()">关闭</button>
+      </div>
+      <div class="modal-body">
+        <p>这是模态框的内容区域。可以放置任何内容。</p>
+        <div class="toolbar" style="margin-top: 20px;">
+          <button class="btn primary">确认</button>
+          <button class="btn ghost" onclick="hideModal()">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showModal() {
+      document.getElementById('demoModal').classList.add('show');
+    }
+
+    function hideModal() {
+      document.getElementById('demoModal').classList.remove('show');
+    }
+
+    // 点击背景关闭模态框
+    document.getElementById('demoModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        hideModal();
+      }
+    });
+  </script>
+</body>
+</html>

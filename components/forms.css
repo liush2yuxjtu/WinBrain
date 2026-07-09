@@ -1,0 +1,133 @@
+/**
+ * 表单控件组件
+ * 从旧设计中提取并简化 - 保持统一的输入框样式
+ */
+
+/* 输入框 */
+.input {
+  width: 100%;
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+  padding: 10px 12px;
+
+  background: #fff;
+  color: #334155;
+  font-size: 14px;
+
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.13);
+}
+
+.input:disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* 文本域 */
+.textarea {
+  width: 100%;
+  min-height: 144px;
+  resize: vertical;
+
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  padding: 12px;
+
+  background: #fff;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.6;
+
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.textarea:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.13);
+}
+
+/* 文件上传区域 */
+.dropzone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 15px;
+  background: #f8fafc;
+  padding: 26px;
+  text-align: center;
+
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dropzone:hover,
+.dropzone.drag {
+  border-color: #6366f1;
+  background: #eef2ff;
+}
+
+.dropzone .big {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+/* 选择项网格 */
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* 单个选项 */
+.option {
+  border: 1px solid #dbe4ef;
+  border-radius: 13px;
+  background: #fff;
+  padding: 13px;
+  text-align: left;
+
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.option:hover,
+.option.selected {
+  border-color: #6366f1;
+  background: #eef2ff;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.option h4 {
+  margin: 0 0 5px;
+  font-size: 14px;
+  color: #172033;
+}
+
+.option p {
+  margin: 0;
+  color: #6b7b93;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* 辅助文字样式 */
+.muted {
+  color: #6b7b93;
+}
+
+.tiny {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* 响应式 - 在小屏幕上单列显示 */
+@media (max-width: 768px) {
+  .option-grid {
+    grid-template-columns: 1fr;
+  }
+}

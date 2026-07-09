@@ -1,0 +1,93 @@
+/**
+ * 卡片组件
+ * 从旧设计中提取并简化 - 保持玻璃卡片效果,简化阴影
+ */
+
+.card {
+  /* 布局 */
+  border-radius: 16px;
+  overflow: hidden;
+
+  /* 背景 - 半透明白色玻璃效果 */
+  background: rgba(255, 255, 255, 0.92);
+
+  /* 边框 */
+  border: 1px solid #dfe7f2;
+
+  /* 简化的阴影 - 从复杂阴影简化为单层 */
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+/* 卡片头部 */
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  padding: 15px 18px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+/* 卡片标题区域 */
+.card-title {
+  display: flex;
+  gap: 11px;
+  align-items: center;
+}
+
+.card-title h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #172033;
+}
+
+.card-title p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #6b7b93;
+}
+
+/* 图标容器 */
+.icon-box {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+
+  /* 默认靛蓝色 */
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.icon-box.green {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.icon-box.amber {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+/* 卡片主体 */
+.card-body {
+  padding: 16px 18px;
+}
+
+/* 工具栏布局 - 常用于卡片内的操作按钮组 */
+.toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* 分隔线 */
+.divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 14px 0;
+}

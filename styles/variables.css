@@ -1,0 +1,117 @@
+/**
+ * Design Tokens - 设计令牌
+ * 统一的设计变量系统,从组件和布局中提取的核心设计元素
+ */
+
+:root {
+  /* ===== 颜色系统 ===== */
+
+  /* 主色调 - Primary */
+  --color-primary-500: #6366f1;
+  --color-primary-600: #8b5cf6;
+  --color-primary-gradient: linear-gradient(135deg, #6366f1, #8b5cf6);
+
+  /* 成功色 - Success/Green */
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+
+  /* 危险色 - Danger/Red */
+  --color-danger-500: #ef4444;
+  --color-danger-600: #dc2626;
+
+  /* 中性色 - Neutral/Gray */
+  --color-gray-50: #f8fafc;
+  --color-gray-100: #f1f5f9;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #dbe4ef;
+  --color-gray-600: #475569;
+  --color-gray-900: #0f172a;
+
+  /* 背景色 */
+  --color-bg-white: #fff;
+  --color-bg-light: #f8fbff;
+  --color-bg-cream: #fffdf8;
+
+  /* ===== 背景渐变 ===== */
+  --bg-gradient-shell: linear-gradient(180deg, #f8fbff 0%, #fbfcfb 45%, #fffdf8 100%);
+  --bg-gradient-radial-1: radial-gradient(circle at 12% 0%, rgba(214, 220, 239, 0.75), transparent 28%);
+  --bg-gradient-radial-2: radial-gradient(circle at 86% 4%, rgba(231, 220, 240, 0.64), transparent 22%);
+
+  /* ===== 字体系统 ===== */
+  --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-family-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 32px;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* ===== 间距系统 ===== */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+
+  /* ===== 圆角系统 ===== */
+  --radius-sm: 6px;
+  --radius-base: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ===== 阴影系统 ===== */
+  --shadow-sm: 0 1px 4px rgba(15, 23, 42, 0.06);
+  --shadow-base: 0 2px 8px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.12);
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.16);
+
+  /* 彩色阴影 - 用于按钮 hover */
+  --shadow-primary: 0 4px 16px rgba(99, 102, 241, 0.3);
+  --shadow-success: 0 4px 16px rgba(16, 185, 129, 0.3);
+  --shadow-danger: 0 4px 16px rgba(239, 68, 68, 0.3);
+
+  /* ===== 过渡动画 ===== */
+  --transition-fast: 0.1s ease;
+  --transition-base: 0.15s ease;
+  --transition-slow: 0.3s ease;
+
+  /* ===== Z-index 层级 ===== */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-modal: 200;
+  --z-toast: 300;
+  --z-tooltip: 400;
+
+  /* ===== 布局尺寸 ===== */
+  --sidebar-width: 280px;
+  --sidebar-collapsed-width: 64px;
+  --header-height: 60px;
+  --content-max-width: 1200px;
+}
+
+/**
+ * 暗色模式支持 (预留)
+ * 可根据需要添加暗色模式的变量覆盖
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 暗色模式变量可在此定义 */
+  }
+}

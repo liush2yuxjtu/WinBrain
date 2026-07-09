@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WinBrain 布局系统演示</title>
+
+  <!-- 基础样式 -->
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: "Segoe UI Variable", "PingFang SC", "Noto Sans SC", "Microsoft YaHei UI", system-ui, sans-serif;
+    }
+
+    /* 基础颜色变量 */
+    :root {
+      --indigo: #6366f1;
+      --ink: #172033;
+      --muted: #5c687c;
+      --line: #e2e8f0;
+      --bg: #f8fbff;
+    }
+
+    body {
+      color: var(--ink);
+    }
+
+    /* 演示用的卡片样式 */
+    .demo-card {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    .demo-card h3 {
+      margin-bottom: 12px;
+      color: var(--indigo);
+    }
+
+    .demo-card p {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* 导航项演示样式 */
+    .nav-section {
+      list-style: none;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      margin: 6px 0;
+      border-radius: 9px;
+      border: 1px solid rgba(226, 232, 240, 0.92);
+      background: rgba(255, 255, 255, 0.9);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 600;
+      font-size: 14px;
+      color: #64748b;
+    }
+
+    .nav-item:hover {
+      transform: translateX(2px);
+      color: #1f2937;
+      background: #fff;
+    }
+
+    .nav-item.active {
+      color: #202938;
+      background: #fff;
+      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.1);
+    }
+
+    .nav-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--indigo);
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: white;
+      font-size: 18px;
+    }
+
+    /* 按钮样式 */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--ink);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      border: none;
+    }
+
+    /* 工具栏 */
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    /* 徽章 */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #eef2ff;
+      color: #4f46e5;
+      border: 1px solid #e0e7ff;
+    }
+
+    .badge.green {
+      background: #ecfdf5;
+      color: #059669;
+      border-color: #bbf7d0;
+    }
+  </style>
+
+  <!-- 引入布局样式 -->
+  <link rel="stylesheet" href="shell.css">
+  <link rel="stylesheet" href="sidebar.css">
+  <link rel="stylesheet" href="content.css">
+  <link rel="stylesheet" href="grid.css">
+  <link rel="stylesheet" href="responsive.css">
+</head>
+<body>
+  <!-- 主容器 -->
+  <div class="shell">
+
+    <!-- 侧边栏 -->
+    <aside class="sidebar" id="sidebar" aria-label="主导航">
+      <!-- 品牌区域 -->
+      <div class="brand">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle cx='24' cy='24' r='20' fill='%236366f1'/%3E%3Ctext x='24' y='32' font-size='24' fill='white' text-anchor='middle'%3EW%3C/text%3E%3C/svg%3E" alt="WinBrain">
+        <div class="brand-title">WinBrain</div>
+        <button class="collapse-btn" id="collapseBtn" aria-label="折叠侧边栏" aria-expanded="true">
+          ⌜
+        </button>
+      </div>
+
+      <!-- 导航区域 -->
+      <nav class="nav" aria-label="主导航菜单">
+        <ul class="nav-section">
+          <li>
+            <button class="nav-item active">
+              <span class="nav-icon">📊</span>
+              <span>仪表盘</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-item">
+              <span class="nav-icon">💬</span>
+              <span>对话历史</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-item">
+              <span class="nav-icon">🔧</span>
+              <span>配置中心</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-item">
+              <span class="nav-icon">📚</span>
+              <span>知识图谱</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-item">
+              <span class="nav-icon">📈</span>
+              <span>用量统计</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- 底部区域 -->
+      <div class="footer">
+        <button class="nav-item">
+          <span class="nav-icon">❓</span>
+          <span>帮助中心</span>
+        </button>
+        <button class="nav-item">
+          <span class="nav-icon">⚙️</span>
+          <span>设置</span>
+          <span class="badge" style="margin-left: auto;">Demo</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- 主内容区域 -->
+    <main class="main">
+      <section class="stage">
+
+        <!-- 顶部栏 -->
+        <header class="topbar">
+          <div class="top-inner">
+            <!-- 面包屑 -->
+            <nav class="crumb" aria-label="面包屑导航">
+              <span>工作区</span>
+              <span>/</span>
+              <span>布局系统</span>
+              <span>/</span>
+              <b>演示页面</b>
+            </nav>
+
+            <!-- 标题行 -->
+            <div class="title-row">
+              <div class="title">
+                <h1>布局系统演示</h1>
+                <p>展示 WinBrain 现代化布局组件的使用方式</p>
+              </div>
+              <div class="toolbar">
+                <span class="badge green">✓ 已优化</span>
+                <button class="btn primary">查看文档</button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <!-- 内容容器 -->
+        <div class="content">
+
+          <!-- 介绍 -->
+          <div class="demo-card" style="margin-bottom: 32px;">
+            <h3>🎨 布局系统概览</h3>
+            <p>
+              这个布局系统基于旧设计进行了现代化改进，提供了灵活、可扩展的布局组件。
+              包括主容器、侧边栏、内容区域、网格系统和响应式规则。
+            </p>
+          </div>
+
+          <!-- 网格演示 -->
+          <h2 style="margin: 32px 0 16px; color: var(--indigo);">网格系统演示</h2>
+
+          <!-- 两列网格 -->
+          <h3 style="margin: 24px 0 12px; color: var(--muted);">两列网格 (.grid.two)</h3>
+          <div class="grid two">
+            <div class="demo-card">
+              <h3>卡片 1</h3>
+              <p>这是第一列的内容。网格系统会自动平分可用空间。</p>
+            </div>
+            <div class="demo-card">
+              <h3>卡片 2</h3>
+              <p>这是第二列的内容。在移动端会自动变成单列布局。</p>
+            </div>
+          </div>
+
+          <!-- 三列网格 -->
+          <h3 style="margin: 24px 0 12px; color: var(--muted);">三列网格 (.grid.three)</h3>
+          <div class="grid three">
+            <div class="demo-card">
+              <h3>卡片 A</h3>
+              <p>第一列内容</p>
+            </div>
+            <div class="demo-card">
+              <h3>卡片 B</h3>
+              <p>第二列内容</p>
+            </div>
+            <div class="demo-card">
+              <h3>卡片 C</h3>
+              <p>第三列内容</p>
+            </div>
+          </div>
+
+          <!-- 非对称布局 -->
+          <h3 style="margin: 24px 0 12px; color: var(--muted);">非对称布局 (.grid.thirds)</h3>
+          <div class="grid thirds">
+            <div class="demo-card">
+              <h3>主要内容 (1fr)</h3>
+              <p>这一列占据 1 份空间</p>
+            </div>
+            <div class="demo-card">
+              <h3>次要内容 (2fr)</h3>
+              <p>这一列占据 2 份空间，宽度是左侧的两倍</p>
+            </div>
+          </div>
+
+          <!-- 特性说明 -->
+          <h2 style="margin: 32px 0 16px; color: var(--indigo);">布局特性</h2>
+          <div class="grid two">
+            <div class="demo-card">
+              <h3>✨ 响应式设计</h3>
+              <p>所有布局组件都内置了响应式断点，在不同屏幕尺寸下自动适配。</p>
+            </div>
+            <div class="demo-card">
+              <h3>♿ 可访问性</h3>
+              <p>支持键盘导航、屏幕阅读器，符合 WCAG 2.1 AA 标准。</p>
+            </div>
+            <div class="demo-card">
+              <h3>🎯 模块化</h3>
+              <p>每个布局组件都是独立的 CSS 文件，可以按需引入。</p>
+            </div>
+            <div class="demo-card">
+              <h3>⚡ 性能优化</h3>
+              <p>使用 CSS Grid 和 Flexbox，避免 JavaScript 计算，性能更好。</p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 底部导航 -->
+        <footer class="bottom-nav">
+          <div class="bottom-inner">
+            <div>
+              <span class="badge">布局演示</span>
+            </div>
+            <div class="toolbar">
+              <button class="btn">返回工作台</button>
+              <button class="btn primary">查看源代码</button>
+            </div>
+          </div>
+        </footer>
+
+      </section>
+    </main>
+
+  </div>
+
+  <!-- 交互脚本 -->
+  <script>
+    // 侧边栏折叠
+    const sidebar = document.getElementById('sidebar');
+    const collapseBtn = document.getElementById('collapseBtn');
+
+    collapseBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('collapsed');
+      const isCollapsed = sidebar.classList.contains('collapsed');
+      collapseBtn.setAttribute('aria-expanded', !isCollapsed);
+    });
+
+    // 导航项点击
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+      });
+    });
+
+    // 响应式：移动端汉堡菜单（简化版）
+    if (window.innerWidth <= 960) {
+      // 可以添加移动端菜单按钮的逻辑
+      console.log('移动端视图');
+    }
+  </script>
+</body>
+</html>
