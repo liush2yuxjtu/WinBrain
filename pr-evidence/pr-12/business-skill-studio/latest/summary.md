@@ -4,7 +4,7 @@
 - Resolution: 1440x900
 - Target selection mode: FRONTEND_START_COMMAND + auto-detected URL
 - Final screenshot: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/frontend-page.png
-- Video: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/video/3da33e400269a92a97dc7a05c3e02f68.webm
+- Video: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/video/66ca8b93c4ed610aa75778cc356a4218.webm
 
 ## Staged snapshots
 
@@ -93,6 +93,6 @@ It can also happen if the client has a browser extension installed which messes 
                 ...
 
 - [log] [Fast Refresh] rebuilding
-- [log] [Fast Refresh] done in 3464ms
+- [log] [Fast Refresh] done in 3286ms
 - [log] [Fast Refresh] rebuilding
-- [log] [Fast Refresh] done in 833ms
+- [log] [Fast Refresh] done in 839ms
