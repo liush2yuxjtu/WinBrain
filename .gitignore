@@ -1,0 +1,14 @@
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+playwright-report/
+blob-report/
+test-results/
+artifacts/
+
+.DS_Store
+.env
+.env.*
