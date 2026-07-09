@@ -1,6 +1,6 @@
-# Codex project plugins
+# Project plugins
 
-Installed project-level plugin manifests and source references.
+Installed project-level plugin manifests and source references. `.agents/` is the primary project agent directory; `.codex/` mirrors this directory for Codex compatibility.
 
 ## Installed
 
