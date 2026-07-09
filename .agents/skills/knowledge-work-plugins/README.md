@@ -14,9 +14,21 @@ plugin-name/
 └── skills/
 ```
 
-The upstream repository describes plugins as file-based Markdown/JSON bundles containing skills, connectors, commands, and sub-agents. This folder is the project-level landing area for Codex/agent skill discovery and future vendoring.
+The upstream repository describes plugins as file-based Markdown/JSON bundles containing skills, connectors, commands, and sub-agents. This folder is the project-level landing area for agent skill discovery.
 
-## Indexed plugin skill families
+Vendored upstream skill trees live under:
+
+```text
+.agents/skills/knowledge-work-plugins/upstream/
+```
+
+Nested partner plugin skills preserve their upstream relative paths, for example:
+
+```text
+.agents/skills/knowledge-work-plugins/upstream/partner-built/zoom-plugin/skills/
+```
+
+## Vendored plugin skill families
 
 - bio-research
 - cowork-plugin-management
@@ -56,4 +68,4 @@ claude plugin install cowork-plugin-management@knowledge-work-plugins
 
 ## Agent rule
 
-When a task requires a domain workflow covered by one of these plugin families, inspect the corresponding upstream plugin content before adapting or copying instructions into this repository.
+When a task requires a domain workflow covered by one of these plugin families, inspect the corresponding vendored upstream plugin content before adapting or copying instructions into this repository.

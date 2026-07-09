@@ -7,9 +7,12 @@ Installed project-level plugin manifests and source references. `.agents/` is th
 - `vercel` — official Vercel Claude/Codex-compatible plugin source: `https://github.com/vercel/vercel-plugin`
 - `supabase` — official Supabase plugin distribution source: `https://github.com/supabase-community/supabase-plugin`
 - `claude-plugins-official` — Anthropic official Claude Code plugin marketplace source: `https://github.com/anthropics/claude-plugins-official`
+- `knowledge-work-plugins` — vendored Anthropic Knowledge Work Plugins source: `https://github.com/anthropics/knowledge-work-plugins`
 
 ## Notes
 
-The Anthropic marketplace contains many partner/community plugin entries. To avoid vendoring large external repositories and executable hooks into this repository without review, this directory records the official marketplace source and installs the verified Vercel and Supabase plugin manifests directly.
+The Anthropic official marketplace contains many partner/community plugin entries. To avoid vendoring large external repositories and executable hooks into this repository without review, this directory records the official marketplace source and installs the verified Vercel and Supabase plugin manifests directly.
+
+The Knowledge Work Plugins repository is vendored under `.agents/plugins/knowledge-work-plugins/upstream/` with mirrored skill trees under `.agents/skills/knowledge-work-plugins/upstream/`.
 
 The `user_upload/` tree is intentionally untouched because `user_upload/AGENTS.md` forbids agent edits there.

@@ -36,30 +36,40 @@ jobs:
             /tmp/knowledge-work-plugins/ \
             .agents/plugins/knowledge-work-plugins/upstream/
 
-          # Mirror each plugin's skills directory into project-level .agents/skills.
-          find /tmp/knowledge-work-plugins -mindepth 2 -maxdepth 2 -type d -name skills | while read -r skills_dir; do
+          # Mirror every upstream skills/ directory into project-level .agents/skills,
+          # preserving nested plugin paths such as partner-built/zoom-plugin/skills.
+          rm -rf .agents/skills/knowledge-work-plugins/upstream
+          mkdir -p .agents/skills/knowledge-work-plugins/upstream
+          find /tmp/knowledge-work-plugins \
+            -path /tmp/knowledge-work-plugins/.git -prune -o \
+            -type d -name skills -print | while read -r skills_dir; do
             plugin_dir="$(dirname "$skills_dir")"
-            plugin_name="$(basename "$plugin_dir")"
-            mkdir -p ".agents/skills/knowledge-work-plugins/upstream/$plugin_name"
-            rsync -a --delete "$skills_dir/" ".agents/skills/knowledge-work-plugins/upstream/$plugin_name/skills/"
+            rel_plugin_dir="${plugin_dir#/tmp/knowledge-work-plugins/}"
+            mkdir -p ".agents/skills/knowledge-work-plugins/upstream/$rel_plugin_dir/skills"
+            rsync -a --delete "$skills_dir/" ".agents/skills/knowledge-work-plugins/upstream/$rel_plugin_dir/skills/"
           done
 
-          cat > .agents/plugins/knowledge-work-plugins/VENDORED_FROM.md <<'EOF'
+          upstream_commit="$(git -C /tmp/knowledge-work-plugins rev-parse --short HEAD)"
+          cat > .agents/plugins/knowledge-work-plugins/VENDORED_FROM.md <<EOF
           # Vendored Knowledge Work Plugins
 
           Source repository: https://github.com/anthropics/knowledge-work-plugins
 
+          Vendored from upstream commit: \`$upstream_commit\`
+
           The full upstream repository is copied under:
 
-          ```text
+          \`\`\`text
           .agents/plugins/knowledge-work-plugins/upstream/
-          ```
+          \`\`\`
 
           Plugin skill directories are also mirrored under:
 
-          ```text
+          \`\`\`text
           .agents/skills/knowledge-work-plugins/upstream/
-          ```
+          \`\`\`
+
+          Nested plugin skill directories (for example \`partner-built/*/skills\`) preserve their upstream relative paths.
           EOF
 
       - name: Commit vendored plugin contents

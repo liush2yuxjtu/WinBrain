@@ -18,22 +18,21 @@ The matching project-level skill index is in:
 
 ## Current status
 
-This directory currently contains a registry/index of the upstream plugin set, not a byte-for-byte recursive vendor copy of every upstream file. The current GitHub connector exposes file read/write operations but not a recursive repository-directory copy operation.
-
-## Intended target layout
+This directory contains a vendored copy of the upstream repository under:
 
 ```text
-.agents/
-├── plugins/
-│   └── knowledge-work-plugins/
-│       ├── README.md
-│       └── plugin-registry.json
-└── skills/
-    └── knowledge-work-plugins/
-        └── README.md
+.agents/plugins/knowledge-work-plugins/upstream/
 ```
 
-## Upstream plugin directories indexed
+The upstream plugin `skills/` trees are also mirrored under:
+
+```text
+.agents/skills/knowledge-work-plugins/upstream/
+```
+
+`plugin-registry.json` remains a compact index of the upstream plugin families and target paths.
+
+## Upstream plugin directories vendored
 
 - bio-research
 - cowork-plugin-management

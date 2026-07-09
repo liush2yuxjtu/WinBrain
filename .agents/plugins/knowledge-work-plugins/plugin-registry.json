@@ -2,7 +2,7 @@
   "source_repository": "anthropics/knowledge-work-plugins",
   "source_url": "https://github.com/anthropics/knowledge-work-plugins",
   "format": "claude-code-plugin-marketplace",
-  "note": "Project-level registry for Codex/agent discovery. The GitHub connector did not expose a recursive directory-copy API, so this file records the full visible plugin set and source paths for project-level installation/adaptation.",
+  "note": "Project-level registry for agent discovery. Full upstream contents are vendored under .agents/plugins/knowledge-work-plugins/upstream, and skills are mirrored under .agents/skills/knowledge-work-plugins/upstream.",
   "plugins": [
     {"name": "bio-research", "source_path": "bio-research", "target_path": ".agents/plugins/knowledge-work-plugins/bio-research"},
     {"name": "cowork-plugin-management", "source_path": "cowork-plugin-management", "target_path": ".agents/plugins/knowledge-work-plugins/cowork-plugin-management"},
