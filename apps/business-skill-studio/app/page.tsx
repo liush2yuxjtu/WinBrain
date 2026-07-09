@@ -1,6 +1,6 @@
 "use client"
 
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import type { ChatResponse, StudioChatMessage } from '@/lib/types'
 
 function newMessage(role: 'user' | 'assistant', content: string): StudioChatMessage {
@@ -19,6 +19,11 @@ function extractCodeBlock(source: string, fenceLabel: string): string {
   return match?.[1]?.trim() || ''
 }
 
+async function readError(response: Response): Promise<Error> {
+  const errorBody = await response.json().catch(() => null) as { error?: string } | null
+  return new Error(errorBody?.error || `Server returned status ${response.status}`)
+}
+
 export default function Home() {
   const [expertRole, setExpertRole] = useState('销售运营专家')
   const [businessGoal, setBusinessGoal] = useState('把客户续约风险评审流程沉淀成可复用的 skill')
@@ -31,8 +36,6 @@ export default function Home() {
   const [warnings, setWarnings] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [savedPath, setSavedPath] = useState('')
-
-  const latestAssistant = useMemo(() => [...messages].reverse().find((message) => message.role === 'assistant'), [messages])
 
   async function sendMessage(event: FormEvent) {
     event.preventDefault()
@@ -55,6 +58,11 @@ export default function Home() {
           activeSkillDraft: draft
         })
       })
+
+      if (!response.ok) {
+        throw await readError(response)
+      }
+
       const data = (await response.json()) as ChatResponse
       setMessages((current) => [...current, data.message])
       setWarnings(data.warnings || [])
@@ -81,6 +89,11 @@ export default function Home() {
           transcript: messages
         })
       })
+
+      if (!response.ok) {
+        throw await readError(response)
+      }
+
       const data = await response.json() as { text: string; warnings?: string[] }
       setDraft(data.text)
       setWarnings(data.warnings || [])
@@ -109,8 +122,16 @@ export default function Home() {
           evalsJson
         })
       })
+
+      if (!response.ok) {
+        throw await readError(response)
+      }
+
       const data = await response.json() as { skill?: { path: string } }
-      setSavedPath(data.skill?.path || 'Saved')
+      if (!data.skill?.path) {
+        throw new Error('Save response did not include a skill path')
+      }
+      setSavedPath(data.skill.path)
     } catch (error) {
       setWarnings([`保存失败：${error instanceof Error ? error.message : String(error)}`])
     } finally {
@@ -177,7 +198,7 @@ export default function Home() {
             <h2>2. 生成并保存 skill</h2>
             <p>草稿遵循 skill-creator 的 SKILL.md + evals/evals.json 输出结构。</p>
           </div>
-          <textarea className="draft" value={draft || latestAssistant?.content || ''} onChange={(event) => setDraft(event.target.value)} placeholder="生成的 SKILL.md 与 evals 会显示在这里" />
+          <textarea className="draft" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="生成的 SKILL.md 与 evals 会显示在这里" />
           <div className="form">
             <div className="actions">
               <button className="primary" disabled={busy || !draft.trim()} type="button" onClick={saveDraft}>保存到本地 skill store</button>
