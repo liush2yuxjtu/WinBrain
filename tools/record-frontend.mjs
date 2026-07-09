@@ -180,14 +180,19 @@ async function recordBusinessSkillStudioScenario(page, snapshots) {
 
   snapshots.push(await captureSnapshot(page, '01-business-skill-studio-home'));
 
-  const messageBox = page.locator('textarea').last();
+  const messageBox = page.getByPlaceholder('描述流程、例外、输出要求或给一个真实案例');
   await messageBox.fill('我们每周都要看客户健康度，判断哪些账号需要 CSM 介入。请把这个流程沉淀成可以复用的 skill。');
+
+  const chatPromise = page.waitForResponse((response) => response.url().includes('/api/chat'));
   await page.getByRole('button', { name: '发送给 AI' }).click();
-  await page.waitForTimeout(1_500);
+  await chatPromise;
+  await page.waitForTimeout(500);
   snapshots.push(await captureSnapshot(page, '02-after-chat-response'));
 
+  const draftPromise = page.waitForResponse((response) => response.url().includes('/api/skills/draft'));
   await page.getByRole('button', { name: '生成 Skill 草稿' }).click();
-  await page.waitForTimeout(1_500);
+  await draftPromise;
+  await page.waitForTimeout(500);
   snapshots.push(await captureSnapshot(page, '03-after-skill-draft'));
 }
 
