@@ -3,13 +3,17 @@
   "private": true,
   "version": "0.1.0",
   "description": "WinBrain project with Playwright PR evidence automation.",
+  "type": "module",
   "scripts": {
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report",
-    "playwright:install": "playwright install --with-deps"
+    "playwright:install": "playwright install --with-deps chrome",
+    "record:frontend": "node tools/record-frontend.mjs",
+    "test:frontend": "npm run test:e2e"
   },
   "devDependencies": {
-    "@playwright/test": "latest"
+    "@playwright/test": "1.49.0",
+    "playwright": "1.49.0"
   }
 }
