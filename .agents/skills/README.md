@@ -10,13 +10,14 @@ Project-level skills installed from verified upstream sources. `.agents/` is the
 - `vercel-ai-sdk` — official Vercel AI SDK guidance, condensed from the upstream skill.
 - `skill-creator` — Anthropic skill creation workflow for drafting SKILL.md, evals, and iterative improvements.
 - `knowledge-work-plugins` — mirrored skill trees from `anthropics/knowledge-work-plugins` under `knowledge-work-plugins/upstream/`.
+- `claude-plugins-official` — mirrored skill trees from `anthropics/claude-plugins-official` under `claude-plugins-official/upstream/<plugin>/skills/` (pinned to upstream commit `c78da81119b6295856638784432e4f85902123d6`).
 - `playwright-cli` — Microsoft Playwright CLI browser automation and Playwright testing skill, mirrored from `microsoft/playwright-cli`.
 
 ## Source policy
 
 - Supabase skills are vendored from `supabase-community/supabase-plugin`, whose README states the repo supports Codex and shares `skills/` across vendors.
 - Vercel skills are derived from `vercel/vercel-plugin`. The full plugin contains commands, agents, hooks, and generated skill manifests; this project-level copy installs safe, readable skill guidance only.
-- Anthropic's `claude-plugins-official` marketplace is recorded under both `.agents/plugins/claude-plugins-official/` and `.codex/plugins/claude-plugins-official/` as an upstream registry source.
+- Anthropic's `claude-plugins-official` marketplace is vendored under `.agents/plugins/claude-plugins-official/upstream/plugins/`; its per-plugin `skills/` directories are mirrored under `.agents/skills/claude-plugins-official/upstream/`. The vendor supersedes a prior registry-only install that recorded the source without vendoring files (see `.agents/plugins/claude-plugins-official/VENDORED_FROM.md`).
 - Anthropic's `knowledge-work-plugins` repository is vendored under `.agents/plugins/knowledge-work-plugins/upstream/`; its `skills/` directories are mirrored under `.agents/skills/knowledge-work-plugins/upstream/`.
 - Anthropic's `skill-creator` skill is installed under both `.agents/skills/skill-creator/` and `.codex/skills/skill-creator/`.
 - The Playwright CLI skill is vendored from `microsoft/playwright-cli` at `skills/playwright-cli/`; this repository also includes project-specific Playwright scripts, config, frontend recorder, and CI artifact upload.
