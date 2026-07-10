@@ -1,16 +1,16 @@
 # Business Skill Studio
 
-A project-level app scaffold for helping business experts chat with AI and turn recurring know-how into reusable Claude skills.
+A project-level app for helping business experts chat with AI and turn recurring know-how into reusable, versioned Claude skills.
 
 ## What this app does
 
 1. Lets a business expert chat naturally about a recurring workflow.
-2. Uses a server-side Agent SDK adapter to ask focused follow-up questions.
+2. Streams server-side Claude Agent SDK status and text updates, with primary/fallback credentials.
 3. Applies the Anthropic `skill-creator` workflow to draft:
    - `SKILL.md`
    - `evals/evals.json`
    - assumptions and open questions
-4. Saves generated skills to a local skill store for review and later packaging.
+4. Saves generated skills to a versioned Skill Store for review and later packaging.
 
 ## Authentication
 
@@ -42,21 +42,90 @@ Protected resources:
 
 Auth routes under `/api/auth/*` stay public for sign-in callbacks.
 
+## Claude Agent SDK
+
+Configure the preferred and fallback credentials:
+
+```bash
+ANTHROPIC_API_KEY_PRIMARY=your_primary_api_key
+ANTHROPIC_API_KEY_FALLBACK=your_fallback_api_key
+ANTHROPIC_BASE_URL=https://api.minimaxi.com/anthropic
+ANTHROPIC_MODEL=MiniMax-M3
+AGENT_SDK_ATTEMPT_TIMEOUT_MS=600000
+```
+
+Legacy `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` remain supported for local compatibility. The app emits progressive status and text events and switches credentials after SDK errors, timeouts, or quota failures.
+
+## Skill Store
+
+The Skill Store supports two interchangeable backends:
+
+| Driver | Configuration | Intended use |
+| --- | --- | --- |
+| `filesystem` | `SKILL_STORE_DRIVER=filesystem` | Default local/demo mode with no database dependency |
+| `database` | `SKILL_STORE_DRIVER=database` and `DATABASE_URL=...` | PostgreSQL-backed persistent storage |
+
+Both backends return storage-neutral metadata:
+
+- stable Skill ID
+- display name and slug
+- current revision number
+- last update timestamp
+
+Each save creates a new immutable revision. The latest revision remains the current Skill content.
+
+### Filesystem backend
+
+Generated skills are written under:
+
+```text
+data/generated-skills/
+```
+
+Override the directory with:
+
+```bash
+SKILL_STUDIO_STORAGE_DIR=/absolute/or/relative/path
+```
+
+The current files remain available at `SKILL.md` and `evals/evals.json`. Historical content is stored under `revisions/<version>/`.
+
+### PostgreSQL backend
+
+Start the local database:
+
+```bash
+docker compose -f docker-compose.db.yml up -d
+```
+
+Configure `.env.local`:
+
+```bash
+SKILL_STORE_DRIVER=database
+DATABASE_URL=postgresql://winbrain:winbrain@127.0.0.1:5432/winbrain?schema=public
+```
+
+Install dependencies and apply the development migration:
+
+```bash
+npm install
+npm run db:migrate
+```
+
+Useful database commands:
+
+```bash
+npm run db:generate
+npm run db:migrate
+npm run db:migrate:deploy
+npm run db:studio
+```
+
+Production and test deployments should run `npm run db:migrate:deploy` before starting the application.
+
 ## TypeScript Effect usage
 
-Server-side operational boundaries use the `effect` package for typed error handling and explicit async workflows:
-
-- `lib/effect-runtime.ts` defines `AppError`, `tryPromiseEffect`, `trySyncEffect`, and `runAppEffect`.
-- `lib/agent-sdk.ts` wraps Agent SDK imports, query calls, and output collection in `Effect.gen` programs.
-- `lib/skill-store.ts` wraps filesystem reads/writes and skill metadata listing in Effect programs.
-
-The UI and API route surfaces stay simple; Effect is concentrated at I/O boundaries where failures need consistent handling.
-
-## Upstream references
-
-- Skill authoring pattern: `anthropics/skills/skills/skill-creator`
-- Chat / agent app pattern: `anthropics/claude-plugins-official/plugins/agent-sdk-dev`
-- Existing project plugin/skill store: repository-level `.agents/` with `.codex/` mirror
+Server-side operational boundaries use the `effect` package for typed error handling and explicit async workflows. Prisma remains isolated behind a repository interface rather than being imported directly by API routes or UI components.
 
 ## Run locally
 
@@ -64,7 +133,7 @@ The UI and API route surfaces stay simple; Effect is concentrated at I/O boundar
 cd apps/business-skill-studio
 npm install
 cp .env.example .env.local
-# Fill ANTHROPIC_API_KEY and auth variables in .env.local
+# Fill Agent SDK, auth, and optional database variables in .env.local
 npm run dev
 ```
 
@@ -72,46 +141,55 @@ Open `http://localhost:3000` and sign in at `/login`.
 
 ## Validation
 
+Run storage-independent tests:
+
 ```bash
-cd apps/business-skill-studio
+npm run test:unit
+```
+
+Run PostgreSQL integration tests after starting the local database and applying migrations:
+
+```bash
+npm run db:migrate:deploy
+TEST_DATABASE_URL="$DATABASE_URL" npm run test:integration
+```
+
+Validate the application:
+
+```bash
 npm run typecheck
 npm run build
 ```
 
-The app includes a deterministic fallback path when `ANTHROPIC_API_KEY` is missing. That lets product/design review the UI and skill flow before Agent SDK credentials are configured.
+The `Database Integration` GitHub Actions workflow starts PostgreSQL and verifies migrations, filesystem fallback behavior, database revisions, concurrent saves, TypeScript compilation, and the production build.
 
-## Data storage
+## Implementation notes
 
-Generated skills are written under:
+- PostgreSQL revision creation uses serializable transactions and retries retryable conflicts.
+- `evals.json` is parsed and normalized before persistence.
+- Filesystem mode remains the default, preserving the existing no-database development path.
+- Auth remains the environment-backed single-admin implementation.
 
-```text
-apps/business-skill-studio/data/generated-skills/
-```
+## Upstream references
 
-Override with:
-
-```bash
-SKILL_STUDIO_STORAGE_DIR=/absolute/or/relative/path
-```
-
-The default local storage directory is ignored by git.
+- Skill authoring pattern: `anthropics/skills/skills/skill-creator`
+- Chat / agent app pattern: `anthropics/claude-plugins-official/plugins/agent-sdk-dev`
+- Existing project plugin/skill store: repository-level `.agents/` with `.codex/` mirror
 
 ## MVP scope
 
 Included:
 
 - Email/password authentication for an environment-backed admin user
-- Chat UI for business expert discovery
-- Agent SDK adapter with fallback behavior
-- Skill draft generation API
-- Local skill save/list API
-- TypeScript Effect wrappers for Agent SDK and filesystem I/O
-- Project-level `.agents` and `.codex` references for `skill-creator` and `agent-sdk-dev`
+- Streaming Claude Agent SDK chat and Skill drafting with credential failover
+- Versioned PostgreSQL Skill Store
+- Versioned local filesystem fallback
+- Prisma migrations and real PostgreSQL integration tests
+- Project-level `.agents` and `.codex` references
 
 Not yet included:
 
 - Multi-user tenancy
-- Database-backed persistent storage
+- Database-backed Auth.js users and sessions
 - Skill packaging as `.skill`
 - Automated eval runner and benchmark viewer integration
-- Streaming UI for partial agent output
