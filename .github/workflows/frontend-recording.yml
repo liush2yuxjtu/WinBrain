@@ -50,13 +50,11 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ -z "$ANTHROPIC_API_KEY" ]; then
-            if [ "$EVENT_NAME" = "pull_request" ]; then
-              echo "::warning::ANTHROPIC_API_KEY is not configured; recording the deterministic fallback for visual PR evidence."
-            else
-              echo "::error::Repository secret ANTHROPIC_API_KEY is not configured."
-              exit 1
-            fi
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "::notice::Using the deterministic SDK stub for stable visual PR evidence."
+          elif [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::Repository secret ANTHROPIC_API_KEY is not configured."
+            exit 1
           fi
 
       - name: Install root npm dependencies
@@ -67,7 +65,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ -z "$ANTHROPIC_API_KEY" ] && [ "$EVENT_NAME" = "pull_request" ]; then
+          if [ "$EVENT_NAME" = "pull_request" ]; then
             cp package.json package.recording.original.json
             node -e 'const fs=require("node:fs"); const pkg=JSON.parse(fs.readFileSync("package.json", "utf8")); if (pkg.dependencies) delete pkg.dependencies["@anthropic-ai/claude-agent-sdk"]; fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n")'
             npm install --no-package-lock --legacy-peer-deps
