@@ -41,11 +41,11 @@ jobs:
       mysql:
         image: mysql:8.4
         env:
-          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_ROOT_PASSWORD: local-root-password
         ports:
           - 3306:3306
         options: >-
-          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot --silent"
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -plocal-root-password --silent"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
@@ -54,7 +54,7 @@ jobs:
       TEST_DATABASE_URL: postgresql://winbrain@127.0.0.1:5432/winbrain_test?schema=public
       TEST_CUSTOMER_DB_HOST: 127.0.0.1
       TEST_CUSTOMER_DB_PORT: '3306'
-      TEST_CUSTOMER_DB_ROOT_PASSWORD: ''
+      TEST_CUSTOMER_DB_ROOT_PASSWORD: local-root-password
       DATA_SOURCE_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
       ALLOW_PRIVATE_DATA_SOURCE_HOSTS: 'true'
     defaults:
