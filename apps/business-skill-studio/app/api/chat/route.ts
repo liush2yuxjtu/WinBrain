@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { streamAgentChat, type AgentSdkStreamEvent } from '@/lib/agent-sdk'
+import {
+  AgentSdkConfigurationError,
+  assertAgentSdkConfigured,
+  streamAgentChat,
+  type AgentSdkStreamEvent
+} from '@/lib/agent-sdk'
 import { progressiveJsonResponse } from '@/lib/stream-response'
 import type { ChatRequest, StudioChatMessage } from '@/lib/types'
 
@@ -46,6 +51,15 @@ export async function POST(request: Request) {
 
   if (!body || !Array.isArray(body.messages)) {
     return NextResponse.json({ error: 'messages must be an array' }, { status: 400 })
+  }
+
+  try {
+    assertAgentSdkConfigured()
+  } catch (error) {
+    if (error instanceof AgentSdkConfigurationError) {
+      return NextResponse.json({ error: error.message }, { status: 503 })
+    }
+    throw error
   }
 
   return progressiveJsonResponse(chatEvents({
