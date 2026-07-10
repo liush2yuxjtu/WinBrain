@@ -89,7 +89,6 @@ jobs:
             find test-results -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) -exec cp {} "$dest/videos/" \; || true
           fi
 
-
           video_file="$(find "$dest" -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) | sort | head -n 1 || true)"
           if [ -n "$video_file" ]; then
             if ! command -v ffmpeg >/dev/null 2>&1; then
@@ -147,3 +146,26 @@ jobs:
       - name: Fail if Playwright failed
         if: ${{ steps.playwright.outcome == 'failure' }}
         run: exit 1
+
+  export-repository:
+    name: Export repository snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout full repository
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - name: Fetch all branch and PR refs
+        run: git fetch --force origin '+refs/heads/*:refs/remotes/origin/*' '+refs/pull/*/head:refs/remotes/pull/*/head'
+      - name: Package working tree and Git objects
+        run: tar --exclude='./repository.tar.gz' -czf repository.tar.gz .
+      - name: Upload repository snapshot
+        uses: actions/upload-artifact@v5
+        with:
+          name: repository-export-${{ github.event.pull_request.number }}-${{ github.run_id }}
+          path: repository.tar.gz
+          retention-days: 1
