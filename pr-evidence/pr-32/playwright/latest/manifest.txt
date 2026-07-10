@@ -1,0 +1,4 @@
+pr-evidence/pr-32/playwright/latest/manifest.txt
+pr-evidence/pr-32/playwright/latest/recording-preview.gif
+pr-evidence/pr-32/playwright/latest/screenshots/chrome-pr-evidence.png
+pr-evidence/pr-32/playwright/latest/videos/video.webm
