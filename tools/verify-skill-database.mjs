@@ -11,6 +11,7 @@ const databaseUrl = process.env.DATABASE_URL;
 const email = process.env.FRONTEND_RECORD_EMAIL;
 const password = process.env.FRONTEND_RECORD_PASSWORD;
 const artifactDir = resolve('artifacts/frontend-recording/snapshots');
+const videoDir = resolve('artifacts/frontend-recording/uat-video');
 const screenshotPath = resolve(artifactDir, '04-after-database-save.png');
 const appRequire = createRequire(new URL('../apps/business-skill-studio/package.json', import.meta.url));
 const { Client } = appRequire('pg');
@@ -23,11 +24,17 @@ if (!databaseUrl) {
 }
 
 await mkdir(artifactDir, { recursive: true });
+await mkdir(videoDir, { recursive: true });
 
 const browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || 'chrome', headless: true });
-const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+const context = await browser.newContext({
+  viewport: { width: 1440, height: 900 },
+  recordVideo: { dir: videoDir, size: { width: 1440, height: 900 } }
+});
 const page = await context.newPage();
+const video = page.video();
 const database = new Client({ connectionString: databaseUrl });
+let persistedSummary;
 
 try {
   await page.goto(frontendUrl, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS });
@@ -46,7 +53,6 @@ try {
 
   const uniqueMarker = `ci-postgres-${Date.now()}`;
   const markdown = `---\nname: ${uniqueMarker}\ndescription: CI persistence verification skill\n---\n\n# ${uniqueMarker}\n\nThis Skill was saved through the authenticated UI and must be readable from PostgreSQL.`;
-
   await page.getByLabel('Skill 草稿编辑器').fill(markdown);
   const saveResponsePromise = page.waitForResponse(
     (response) => new URL(response.url()).pathname === '/api/skills' && response.request().method() === 'POST',
@@ -87,15 +93,20 @@ try {
   }
 
   await page.screenshot({ path: screenshotPath, fullPage: true });
-  console.log(JSON.stringify({
+  await page.waitForTimeout(2_000);
+  persistedSummary = {
     databasePersistence: 'passed',
     skillId: persisted.id,
     skillName: persisted.name,
     version: Number(persisted.version),
     screenshotPath
-  }, null, 2));
+  };
 } finally {
   await database.end().catch(() => undefined);
-  await context.close();
-  await browser.close();
+  await context.close().catch(() => undefined);
+  const videoPath = await video?.path().catch(() => undefined);
+  await browser.close().catch(() => undefined);
+  if (persistedSummary) {
+    console.log(JSON.stringify({ ...persistedSummary, uatVideoPath: videoPath }, null, 2));
+  }
 }
