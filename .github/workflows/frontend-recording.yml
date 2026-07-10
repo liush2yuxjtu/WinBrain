@@ -23,6 +23,8 @@ jobs:
   record:
     runs-on: ubuntu-latest
     env:
+      ANTHROPIC_API_KEY_PRIMARY: ${{ secrets.ANTHROPIC_API_KEY_PRIMARY }}
+      ANTHROPIC_API_KEY_FALLBACK: ${{ secrets.ANTHROPIC_API_KEY_FALLBACK }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
       ANTHROPIC_BASE_URL: ${{ vars.ANTHROPIC_BASE_URL }}
@@ -32,6 +34,7 @@ jobs:
       ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.ANTHROPIC_DEFAULT_HAIKU_MODEL }}
       API_TIMEOUT_MS: ${{ vars.API_TIMEOUT_MS }}
       API_MAX_INPUT_TOKENS: ${{ vars.API_MAX_INPUT_TOKENS }}
+      AGENT_SDK_ATTEMPT_TIMEOUT_MS: ${{ vars.AGENT_SDK_ATTEMPT_TIMEOUT_MS }}
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: ${{ vars.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC }}
       CLAUDE_CODE_MAX_CONTEXT_TOKENS: ${{ vars.CLAUDE_CODE_MAX_CONTEXT_TOKENS }}
       CLAUDE_CODE_AUTO_COMPACT_WINDOW: ${{ vars.CLAUDE_CODE_AUTO_COMPACT_WINDOW }}
@@ -57,8 +60,12 @@ jobs:
       - name: Verify Agent SDK credentials
         shell: bash
         run: |
-          if [ -z "$ANTHROPIC_API_KEY" ]; then
-            echo "::error::Repository secret ANTHROPIC_API_KEY is not configured. Refusing to record the deterministic fallback."
+          if [ -z "$ANTHROPIC_API_KEY_PRIMARY" ]; then
+            echo "::error::Repository secret ANTHROPIC_API_KEY_PRIMARY is not configured."
+            exit 1
+          fi
+          if [ -z "$ANTHROPIC_API_KEY_FALLBACK" ]; then
+            echo "::error::Repository secret ANTHROPIC_API_KEY_FALLBACK is not configured."
             exit 1
           fi
           if [ -z "$ANTHROPIC_BASE_URL" ] || [ -z "$ANTHROPIC_MODEL" ]; then
