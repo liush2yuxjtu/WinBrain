@@ -8,4 +8,4 @@ pr-evidence/pr-33/real-stack/latest/snapshots/02-after-chat-response.png
 pr-evidence/pr-33/real-stack/latest/snapshots/03-after-skill-draft.png
 pr-evidence/pr-33/real-stack/latest/snapshots/04-after-database-save.png
 pr-evidence/pr-33/real-stack/latest/summary.md
-pr-evidence/pr-33/real-stack/latest/video/3e5075e10e873c81cb6bb18ac41038b9.webm
+pr-evidence/pr-33/real-stack/latest/video/25b1d22367904145412f49975c19220f.webm
