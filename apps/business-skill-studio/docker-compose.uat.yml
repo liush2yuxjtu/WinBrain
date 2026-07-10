@@ -1,0 +1,55 @@
+name: winbrain-uat
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${UAT_POSTGRES_DB:?Set UAT_POSTGRES_DB in .env.uat}
+      POSTGRES_USER: ${UAT_POSTGRES_USER:?Set UAT_POSTGRES_USER in .env.uat}
+      POSTGRES_PASSWORD: ${UAT_POSTGRES_PASSWORD:?Set UAT_POSTGRES_PASSWORD in .env.uat}
+    ports:
+      - "${UAT_POSTGRES_PORT:-55432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+    volumes:
+      - winbrain-uat-postgres-data:/var/lib/postgresql/data
+    networks:
+      - winbrain-uat
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${UAT_MYSQL_ROOT_PASSWORD:?Set UAT_MYSQL_ROOT_PASSWORD in .env.uat}
+      MYSQL_DATABASE: ${UAT_MYSQL_DATABASE:-uat_dws}
+      UAT_MYSQL_READONLY_USER: ${UAT_MYSQL_READONLY_USER:?Set UAT_MYSQL_READONLY_USER in .env.uat}
+      UAT_MYSQL_READONLY_PASSWORD: ${UAT_MYSQL_READONLY_PASSWORD:?Set UAT_MYSQL_READONLY_PASSWORD in .env.uat}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    ports:
+      - "${UAT_MYSQL_PORT:-53307}:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 10s
+    volumes:
+      - ./test-db/uat-mysql-init:/docker-entrypoint-initdb.d:ro
+      - winbrain-uat-mysql-data:/var/lib/mysql
+    networks:
+      - winbrain-uat
+
+volumes:
+  winbrain-uat-postgres-data:
+  winbrain-uat-mysql-data:
+
+networks:
+  winbrain-uat:
+    name: winbrain-uat
