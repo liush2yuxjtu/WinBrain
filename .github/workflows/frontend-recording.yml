@@ -64,7 +64,33 @@ jobs:
 
       - name: Install Business Skill Studio dependencies
         working-directory: apps/business-skill-studio
-        run: npm install --no-package-lock --legacy-peer-deps
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ] && [ "$EVENT_NAME" = "pull_request" ]; then
+            cp package.json package.recording.original.json
+            node - <<'NODE'
+            const fs = require('node:fs')
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+            if (pkg.dependencies) {
+              delete pkg.dependencies['@anthropic-ai/claude-agent-sdk']
+            }
+            fs.writeFileSync('package.json', `${JSON.stringify(pkg, null, 2)}\n`)
+            NODE
+            npm install --no-package-lock --legacy-peer-deps
+            mkdir -p node_modules/@anthropic-ai/claude-agent-sdk
+            cat > node_modules/@anthropic-ai/claude-agent-sdk/package.json <<'EOF'
+            {"name":"@anthropic-ai/claude-agent-sdk","version":"0.0.0-recording-stub","type":"module","main":"index.js"}
+            EOF
+            cat > node_modules/@anthropic-ai/claude-agent-sdk/index.js <<'EOF'
+            export async function* query() {
+              yield { text: 'Recording stub response from Claude Agent SDK.' }
+            }
+            EOF
+            mv package.recording.original.json package.json
+          else
+            npm install --no-package-lock --legacy-peer-deps
+          fi
 
       - name: Install Chrome for Playwright
         run: |
