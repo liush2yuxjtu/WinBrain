@@ -71,11 +71,21 @@ jobs:
           cat typecheck.log
           exit $status
 
-      - name: Upload typecheck diagnostics
+      - name: Build application
+        run: |
+          set +e
+          npm run build > build.log 2>&1
+          status=$?
+          cat build.log
+          exit $status
+
+      - name: Upload validation diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: typecheck-diagnostics
-          path: apps/business-skill-studio/typecheck.log
-          if-no-files-found: error
+          name: validation-diagnostics
+          path: |
+            apps/business-skill-studio/typecheck.log
+            apps/business-skill-studio/build.log
+          if-no-files-found: warn
           retention-days: 7
