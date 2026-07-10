@@ -286,148 +286,176 @@ export default function Home() {
   }
 
   return (
-    <main className="studio-stage" id="studio-home">
-      <header className="studio-topbar">
-        <div className="topbar-inner">
-          <div className="breadcrumb"><span>WinBrain</span><span>/</span><b>Business Skill Studio</b></div>
-          <div className="title-row">
-            <div>
-              <h1>WinBrain Business Skill Studio</h1>
-              <p>把不同公司的业务专家经验，转化为独立、可复用、可评估的 Skill。</p>
-            </div>
-            <div className="status-cluster">
-              <span className="status-pill"><i />{selectedOrganization?.name || '工作台已就绪'}</span>
-              <span className="technology-pill">Skill Creator</span>
-            </div>
-          </div>
+    <main className="workbench" id="studio-home">
+      <header className="workbench-topbar">
+        <div className="workbench-title">
+          <div className="workbench-breadcrumb"><span>WinBrain</span><span>/</span><b>Skill Studio</b></div>
+          <h1>业务 Skill 工作台</h1>
+        </div>
+        <div className="workbench-tools">
+          <button className="command-button" type="button" aria-label="打开命令面板">
+            <span>⌕</span><span>搜索或运行命令</span><kbd>⌘ K</kbd>
+          </button>
+          <span className="workspace-state"><i />{selectedOrganization?.name || '工作区已就绪'}</span>
         </div>
       </header>
 
-      <div className="studio-content">
-        <section className="intro-banner" aria-label="工作流说明">
-          <div>
-            <span className="eyebrow">EXPERT-TO-SKILL WORKFLOW</span>
-            <h2>从一次业务访谈，到一个公司可复用的 Skill</h2>
-            <p>先选择公司和专家，再让 AI 追问判断标准、例外和输出格式；Skill 会保存在对应公司作用域。</p>
-          </div>
-          <div className="workflow-summary" aria-label="三步工作流">
-            <span><b>01</b> 访谈</span><i />
-            <span><b>02</b> 生成</span><i />
-            <span><b>03</b> 保存</span>
-          </div>
-        </section>
-
-        {setupError ? <div className="warning setup-warning">公司配置未加载：{setupError}。<a href="/settings">前往设置</a></div> : null}
-        {!setupError && !setup.organizations.length ? <div className="warning setup-warning">尚未配置公司和专家。<a href="/settings">打开设置向导</a></div> : null}
-
-        <section className="workflow-grid">
-          <article className="studio-card interview-card" id="expert-interview">
-            <div className="card-heading">
-              <div className="heading-icon">⌁</div>
+      <div className="workbench-body">
+        <section className="workbench-canvas" aria-label="Skill 工作区">
+          <div className="canvas-scroll">
+            <section className="workbench-hero">
               <div>
-                <span className="step-label">STEP 01</span>
-                <h2>跟业务专家访谈</h2>
-                <p>捕获目标、输入、输出、质量标准与边界情况。</p>
+                <span className="section-kicker">EXPERT KNOWLEDGE → REUSABLE SKILL</span>
+                <h2>把业务经验转成可执行、可评估的 AI 能力</h2>
+                <p>配置业务上下文，和右侧 AI 访谈，再生成并发布 Skill。整个流程保留在同一工作台。</p>
               </div>
-            </div>
+              <button className="button primary hero-action" disabled={busy || messages.length < 2} type="button" onClick={generateDraft}>
+                <span>✦</span> 生成 Skill 草稿
+              </button>
+            </section>
 
-            <div className="context-form">
-              <div className="field compact-field">
-                <label htmlFor="organization">公司</label>
-                <select id="organization" value={selectedOrganizationId} onChange={(event) => selectOrganization(event.target.value)}>
-                  <option value="">未选择公司</option>
-                  {setup.organizations.map((organization) => <option value={organization.id} key={organization.id}>{organization.name}</option>)}
-                </select>
-              </div>
-              <div className="field compact-field">
-                <label htmlFor="expert">专家</label>
-                <select id="expert" value={selectedExpertId} onChange={(event) => selectExpert(event.target.value)} disabled={!selectedOrganizationId}>
-                  <option value="">手动输入专家信息</option>
-                  {availableExperts.map((expert) => <option value={expert.id} key={expert.id}>{expert.name} · {expert.role}</option>)}
-                </select>
-              </div>
-              <div className="field compact-field">
-                <label htmlFor="expert-role">专家角色</label>
-                <input id="expert-role" value={expertRole} onChange={(event) => setExpertRole(event.target.value)} />
-              </div>
-              <div className="field compact-field">
-                <label htmlFor="business-goal">业务目标 / Skill 名称线索</label>
-                <input id="business-goal" value={businessGoal} onChange={(event) => setBusinessGoal(event.target.value)} />
-              </div>
-              <div className="field full-field">
-                <label htmlFor="business-context">业务上下文</label>
-                <textarea id="business-context" value={businessContext} onChange={(event) => setBusinessContext(event.target.value)} />
-              </div>
-            </div>
+            <section className="metric-grid" aria-label="工作区概览">
+              <article className="metric-card">
+                <span className="metric-icon">◎</span>
+                <div><b>{availableExperts.length || '—'}</b><span>当前可用专家</span></div>
+              </article>
+              <article className="metric-card">
+                <span className="metric-icon">⌁</span>
+                <div><b>{setup.dataSources.length || '—'}</b><span>已连接数据源</span></div>
+              </article>
+              <article className="metric-card">
+                <span className="metric-icon">◇</span>
+                <div><b>{draft ? '可评审' : '待生成'}</b><span>当前 Skill 状态</span></div>
+              </article>
+            </section>
 
-            <div className="chat-heading">
-              <div><span className="live-dot" />访谈记录</div>
-              <span>{messages.length} 条消息</span>
-            </div>
-            <div className="chat-log" aria-live="polite" aria-busy={busy}>
-              {messages.map((message) => (
-                <div key={message.id} className={`message-row ${message.role}`}>
-                  <div className="message-avatar" aria-hidden="true">{message.role === 'assistant' ? 'AI' : '我'}</div>
-                  <div className="message">{message.content || (busy && message.role === 'assistant' ? '…' : '')}</div>
-                </div>
-              ))}
-              {busy ? <div className="thinking"><span /><span /><span /> {streamStatus || 'AI 正在整理业务信息'}</div> : null}
-            </div>
+            {setupError ? <div className="warning setup-warning">公司配置未加载：{setupError}。<a href="/settings">前往设置</a></div> : null}
+            {!setupError && !setup.organizations.length ? <div className="warning setup-warning">尚未配置公司和专家。<a href="/settings">打开设置向导</a></div> : null}
 
-            <form className="composer" onSubmit={sendMessage}>
-              <label className="sr-only" htmlFor="next-message">下一条消息</label>
-              <textarea
-                id="next-message"
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-                    event.preventDefault()
-                    event.currentTarget.form?.requestSubmit()
-                  }
-                }}
-                placeholder="描述流程、例外、输出要求或给一个真实案例"
-              />
-              <div className="composer-actions">
-                <span>Enter 发送 · Shift+Enter 换行</span>
+            <section className="workbench-panel" id="expert-interview">
+              <div className="panel-titlebar">
                 <div>
-                  <button className="button secondary" disabled={busy || messages.length < 2} type="button" onClick={generateDraft}>生成 Skill 草稿</button>
-                  <button className="button primary" disabled={busy} type="submit">发送给 AI <span aria-hidden="true">↑</span></button>
+                  <span className="section-kicker">01 · CONTEXT</span>
+                  <h2>定义业务场景</h2>
+                  <p>这些信息会作为 AI 访谈和 Skill 生成的持续上下文。</p>
+                </div>
+                <span className="panel-status">自动保存</span>
+              </div>
+
+              <div className="context-form saas-form">
+                <div className="field compact-field">
+                  <label htmlFor="organization">工作区</label>
+                  <select id="organization" value={selectedOrganizationId} onChange={(event) => selectOrganization(event.target.value)}>
+                    <option value="">未选择公司</option>
+                    {setup.organizations.map((organization) => <option value={organization.id} key={organization.id}>{organization.name}</option>)}
+                  </select>
+                </div>
+                <div className="field compact-field">
+                  <label htmlFor="expert">业务专家</label>
+                  <select id="expert" value={selectedExpertId} onChange={(event) => selectExpert(event.target.value)} disabled={!selectedOrganizationId}>
+                    <option value="">手动输入专家信息</option>
+                    {availableExperts.map((expert) => <option value={expert.id} key={expert.id}>{expert.name} · {expert.role}</option>)}
+                  </select>
+                </div>
+                <div className="field compact-field">
+                  <label htmlFor="expert-role">专家角色</label>
+                  <input id="expert-role" value={expertRole} onChange={(event) => setExpertRole(event.target.value)} />
+                </div>
+                <div className="field compact-field">
+                  <label htmlFor="business-goal">Skill 目标</label>
+                  <input id="business-goal" value={businessGoal} onChange={(event) => setBusinessGoal(event.target.value)} />
+                </div>
+                <div className="field full-field">
+                  <label htmlFor="business-context">业务上下文</label>
+                  <textarea id="business-context" value={businessContext} onChange={(event) => setBusinessContext(event.target.value)} />
                 </div>
               </div>
-            </form>
-          </article>
+            </section>
 
-          <article className="studio-card draft-card" id="skill-draft">
-            <div className="card-heading">
-              <div className="heading-icon green">◇</div>
-              <div>
-                <span className="step-label">STEP 02–03</span>
-                <h2>生成并保存 Skill</h2>
-                <p>校准 SKILL.md 与 evals/evals.json，再保存到公司 Skill Store。</p>
+            <section className="workbench-panel skill-editor" id="skill-draft">
+              <div className="panel-titlebar editor-titlebar">
+                <div>
+                  <span className="section-kicker">02 · REVIEW & PUBLISH</span>
+                  <h2>Skill 草稿</h2>
+                  <p>检查指令与评估集，然后发布到公司 Skill Store。</p>
+                </div>
+                <span className={`draft-status${draft ? ' ready' : ''}`}>{draft ? '草稿已生成' : '等待 AI 生成'}</span>
               </div>
-              <span className={`draft-status${draft ? ' ready' : ''}`}>{draft ? '草稿已生成' : '等待生成'}</span>
-            </div>
 
-            <div className="editor-toolbar">
-              <div className="editor-tabs"><span className="active">SKILL.md</span><span>evals/evals.json</span></div>
-              <span>{draft.length.toLocaleString()} 字符</span>
-            </div>
-            <textarea aria-label="Skill 草稿编辑器" className="draft-editor" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="生成的 SKILL.md 与 evals 会显示在这里" spellCheck={false} />
-            <div className="draft-footer">
-              <div className="save-feedback" aria-live="polite">
-                {savedSkill
-                  ? <span className="success-message">✓ 已保存：{savedSkill.name} · v{savedSkill.version}{selectedOrganization ? ` · ${selectedOrganization.name}` : ''}</span>
-                  : <span>{busy && streamStatus ? streamStatus : '草稿仅在当前会话中保留'}</span>}
+              <div className="editor-toolbar">
+                <div className="editor-tabs"><span className="active">SKILL.md</span><span>evals/evals.json</span></div>
+                <span>{draft.length.toLocaleString()} 字符</span>
               </div>
-              <div className="draft-actions">
-                <button className="button secondary" disabled={busy || !draft} type="button" onClick={() => setDraft('')}>清空草稿</button>
-                <button className="button primary" disabled={busy || !draft.trim()} type="button" onClick={saveDraft}>保存到 Skill Store</button>
+              <textarea aria-label="Skill 草稿编辑器" className="draft-editor" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="AI 生成的 SKILL.md 与 evals 会显示在这里。你也可以直接编辑。" spellCheck={false} />
+              <div className="draft-footer">
+                <div className="save-feedback" aria-live="polite">
+                  {savedSkill
+                    ? <span className="success-message">✓ 已发布：{savedSkill.name} · v{savedSkill.version}{selectedOrganization ? ` · ${selectedOrganization.name}` : ''}</span>
+                    : <span>{busy && streamStatus ? streamStatus : '草稿仅在当前会话中保留'}</span>}
+                </div>
+                <div className="draft-actions">
+                  <button className="button secondary" disabled={busy || !draft} type="button" onClick={() => setDraft('')}>清空</button>
+                  <button className="button primary" disabled={busy || !draft.trim()} type="button" onClick={saveDraft}>发布到 Skill Store</button>
+                </div>
               </div>
-            </div>
-            {warnings.length ? <div className="warning" role="status">{warnings.join(' · ')}</div> : null}
-          </article>
+              {warnings.length ? <div className="warning" role="status">{warnings.join(' · ')}</div> : null}
+            </section>
+          </div>
         </section>
+
+        <aside className="assistant-panel" aria-label="WinBrain AI 助手">
+          <div className="assistant-header">
+            <div className="assistant-identity">
+              <span className="assistant-mark">✦</span>
+              <div><strong>WinBrain Copilot</strong><span><i /> 正在读取当前工作区</span></div>
+            </div>
+            <button type="button" className="icon-button" aria-label="AI 助手菜单">•••</button>
+          </div>
+
+          <div className="assistant-context">
+            <span>上下文</span>
+            <div className="context-chips">
+              <button type="button">@ {selectedOrganization?.name || '当前公司'}</button>
+              <button type="button"># {expertRole}</button>
+              {draft ? <button type="button">◇ SKILL.md</button> : null}
+            </div>
+          </div>
+
+          <div className="assistant-suggestions" aria-label="快捷提示">
+            <button type="button" onClick={() => setInput('请帮我找出这个流程中仍然缺失的判断标准和边界情况。')}>找出缺失的判断标准</button>
+            <button type="button" onClick={() => setInput('请把当前业务目标拆成输入、步骤、输出和验收标准。')}>拆解为标准流程</button>
+          </div>
+
+          <div className="assistant-thread" aria-live="polite" aria-busy={busy}>
+            {messages.map((message) => (
+              <div key={message.id} className={`assistant-message ${message.role}`}>
+                <div className="assistant-avatar" aria-hidden="true">{message.role === 'assistant' ? '✦' : '你'}</div>
+                <div className="assistant-bubble">{message.content || (busy && message.role === 'assistant' ? '…' : '')}</div>
+              </div>
+            ))}
+            {busy ? <div className="assistant-thinking"><span /><span /><span /> {streamStatus || '正在整理业务信息'}</div> : null}
+          </div>
+
+          <form className="assistant-composer" onSubmit={sendMessage}>
+            <label className="sr-only" htmlFor="next-message">向 AI 发送消息</label>
+            <textarea
+              id="next-message"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                  event.preventDefault()
+                  event.currentTarget.form?.requestSubmit()
+                }
+              }}
+              placeholder="询问流程、例外或让 AI 修改草稿…"
+            />
+            <div className="assistant-composer-footer">
+              <div className="composer-tools"><button type="button" aria-label="添加上下文">＋</button><span>Agent</span></div>
+              <button className="assistant-send" disabled={busy || !input.trim()} type="submit" aria-label="发送给 AI">↑</button>
+            </div>
+          </form>
+        </aside>
       </div>
     </main>
   )
