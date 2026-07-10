@@ -1,0 +1,37 @@
+name: Decode PR30 safe merge payloads
+
+on:
+  push:
+    branches:
+      - feat/database-explorer-agent
+    paths:
+      - .github/workflows/decode-pr30-safe-merge.yml
+
+permissions:
+  contents: write
+
+jobs:
+  decode:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feat/database-explorer-agent
+      - name: Decode payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .safe-merge/pr30/part-* | base64 --decode | gzip --decompress > .safe-merge/pr30-safe.patch
+          cat .safe-merge/pr30-resolution/part-* | base64 --decode | gzip --decompress > .safe-merge/pr30-resolution.patch
+      - name: Commit decoded payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .safe-merge/pr30-safe.patch .safe-merge/pr30-resolution.patch
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "chore: decode PR 30 safe merge payloads [skip ci]"
+          git push origin HEAD:feat/database-explorer-agent
