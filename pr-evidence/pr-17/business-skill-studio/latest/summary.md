@@ -1,10 +1,10 @@
 # Frontend recording summary
 
-- Target: http://localhost:3000
+- Target: http://127.0.0.1:3000
 - Resolution: 1440x900
 - Target selection mode: FRONTEND_START_COMMAND + auto-detected URL
 - Final screenshot: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/frontend-page.png
-- Video: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/video/3ba3dae28c83b76c97b24b04cea7af6a.webm
+- Video: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/video/539c365ff0f5ee80741fc491f2ae3a47.webm
 
 ## Staged snapshots
 

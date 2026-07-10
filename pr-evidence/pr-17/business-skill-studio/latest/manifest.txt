@@ -4,4 +4,4 @@ pr-evidence/pr-17/business-skill-studio/latest/manifest.txt
 pr-evidence/pr-17/business-skill-studio/latest/recording-preview.gif
 pr-evidence/pr-17/business-skill-studio/latest/snapshots/00-page-loaded.png
 pr-evidence/pr-17/business-skill-studio/latest/summary.md
-pr-evidence/pr-17/business-skill-studio/latest/video/3ba3dae28c83b76c97b24b04cea7af6a.webm
+pr-evidence/pr-17/business-skill-studio/latest/video/539c365ff0f5ee80741fc491f2ae3a47.webm

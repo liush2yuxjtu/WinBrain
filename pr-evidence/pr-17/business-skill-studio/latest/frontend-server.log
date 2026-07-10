@@ -19,12 +19,9 @@ This information is used to shape Next.js' roadmap and prioritize features.
 You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
 https://nextjs.org/telemetry
 
- ✓ Ready in 1470ms
+ ✓ Ready in 1323ms
  ○ Compiling /middleware ...
- ✓ Compiled /middleware in 1608ms (238 modules)
-[31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
-    at assertConfig (webpack-internal:///(middleware)/./node_modules/@auth/core/lib/utils/assert.js:66:16)
-    at Auth (webpack-internal:///(middleware)/./node_modules/@auth/core/index.js:91:95)
+ ✓ Compiled /middleware in 1318ms (238 modules)
 [31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
     at assertConfig (webpack-internal:///(middleware)/./node_modules/@auth/core/lib/utils/assert.js:66:16)
     at Auth (webpack-internal:///(middleware)/./node_modules/@auth/core/index.js:91:95)
@@ -38,7 +35,7 @@ https://nextjs.org/telemetry
 [31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
     at assertConfig (webpack-internal:///(middleware)/./node_modules/@auth/core/lib/utils/assert.js:66:16)
     at Auth (webpack-internal:///(middleware)/./node_modules/@auth/core/index.js:91:95)
- ✓ Compiled /login in 4.9s (683 modules)
+ ✓ Compiled /login in 4.2s (683 modules)
 [31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
     at assertConfig (webpack-internal:///(rsc)/./node_modules/@auth/core/lib/utils/assert.js:66:16)
     at Auth (webpack-internal:///(rsc)/./node_modules/@auth/core/index.js:91:95)
@@ -69,21 +66,7 @@ https://nextjs.org/telemetry
 [31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
     at assertConfig (webpack-internal:///(rsc)/./node_modules/@auth/core/lib/utils/assert.js:66:16)
     at Auth (webpack-internal:///(rsc)/./node_modules/@auth/core/index.js:91:95)
- GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A3000%2F 200 in 1236ms
-[31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
-    at assertConfig (webpack-internal:///(middleware)/./node_modules/@auth/core/lib/utils/assert.js:66:16)
-    at Auth (webpack-internal:///(middleware)/./node_modules/@auth/core/index.js:91:95)
-[31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
-    at assertConfig (webpack-internal:///(rsc)/./node_modules/@auth/core/lib/utils/assert.js:66:16)
-    at Auth (webpack-internal:///(rsc)/./node_modules/@auth/core/index.js:91:95)
-    at runNextTicks (node:internal/process/task_queues:64:5)
-    at process.processTimers (node:internal/timers:518:9)
-[31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
-    at assertConfig (webpack-internal:///(rsc)/./node_modules/@auth/core/lib/utils/assert.js:66:16)
-    at Auth (webpack-internal:///(rsc)/./node_modules/@auth/core/index.js:91:95)
-    at runNextTicks (node:internal/process/task_queues:64:5)
-    at process.processTimers (node:internal/timers:518:9)
- GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A3000%2F 200 in 96ms
+ GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A3000%2F 200 in 1020ms
 [31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
     at assertConfig (webpack-internal:///(middleware)/./node_modules/@auth/core/lib/utils/assert.js:66:16)
     at Auth (webpack-internal:///(middleware)/./node_modules/@auth/core/index.js:91:95)
@@ -93,7 +76,17 @@ https://nextjs.org/telemetry
 [31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
     at assertConfig (webpack-internal:///(rsc)/./node_modules/@auth/core/lib/utils/assert.js:66:16)
     at Auth (webpack-internal:///(rsc)/./node_modules/@auth/core/index.js:91:95)
- GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A3000%2F 200 in 151ms
+ GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A3000%2F 200 in 80ms
+[31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
+    at assertConfig (webpack-internal:///(middleware)/./node_modules/@auth/core/lib/utils/assert.js:66:16)
+    at Auth (webpack-internal:///(middleware)/./node_modules/@auth/core/index.js:91:95)
+[31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
+    at assertConfig (webpack-internal:///(rsc)/./node_modules/@auth/core/lib/utils/assert.js:66:16)
+    at Auth (webpack-internal:///(rsc)/./node_modules/@auth/core/index.js:91:95)
+[31m[auth][error][0m MissingSecret: Please define a `secret`. Read more at https://errors.authjs.dev#missingsecret
+    at assertConfig (webpack-internal:///(rsc)/./node_modules/@auth/core/lib/utils/assert.js:66:16)
+    at Auth (webpack-internal:///(rsc)/./node_modules/@auth/core/index.js:91:95)
+ GET /login?callbackUrl=http%3A%2F%2Flocalhost%3A3000%2F 200 in 119ms
 
 [frontend process exited] code=null signal=SIGTERM
 [?25h
