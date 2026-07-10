@@ -1,4 +1,4 @@
-import { query, type Query } from '@anthropic-ai/claude-agent-sdk'
+import { query } from '@anthropic-ai/claude-agent-sdk'
 import type { ChatRequest, SkillDraftRequest } from './types'
 import {
   buildBusinessChatSystemPrompt,
@@ -189,7 +189,7 @@ async function* streamWithCredential(
   input: QueryInput
 ): AsyncGenerator<AgentSdkStreamEvent, string, void> {
   const abortController = new AbortController()
-  const handle: Query = query({
+  const handle = query({
     prompt: input.prompt,
     options: {
       abortController,
