@@ -1,10 +1,18 @@
 import { expect, test } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 
-const fallbackPageUrl = new URL('../demo/index.html', import.meta.url).toString();
-
 function evidenceTargetUrl(): string {
-  return process.env.PLAYWRIGHT_TARGET_URL || fallbackPageUrl;
+  const configured = process.env.PLAYWRIGHT_TARGET_URL?.trim();
+  if (!configured) {
+    throw new Error('PLAYWRIGHT_TARGET_URL is required; PR evidence must capture a real running application.');
+  }
+
+  const target = new URL(configured);
+  if (!['http:', 'https:'].includes(target.protocol)) {
+    throw new Error(`PLAYWRIGHT_TARGET_URL must use http or https, received ${target.protocol}`);
+  }
+
+  return target.toString();
 }
 
 test('capture PR evidence screenshot and video', async ({ page }, testInfo) => {
