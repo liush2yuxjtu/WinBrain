@@ -19,6 +19,7 @@ export interface ChatResponse {
   usedLiveModel: boolean
   usedAgentSdk: boolean
   provider: string
+  credentialSlot?: 'primary' | 'fallback' | 'legacy'
   warnings: string[]
 }
 
