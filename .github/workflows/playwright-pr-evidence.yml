@@ -116,8 +116,14 @@ jobs:
           HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
+
+          if [ -f artifacts/business-skill-studio.pid ]; then
+            kill "$(cat artifacts/business-skill-studio.pid)" 2>/dev/null || true
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git reset --hard HEAD
           git pull --rebase origin "${HEAD_BRANCH}"
 
           dest="pr-evidence/pr-${PR_NUMBER}/playwright/latest"
@@ -129,9 +135,9 @@ jobs:
             cp -R artifacts/screenshots/. "$dest/screenshots/"
           fi
 
-          if [ -d test-results ]; then
+          if [ -d artifacts/playwright-output ]; then
             mkdir -p "$dest/videos"
-            find test-results -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) -exec cp {} "$dest/videos/" \; || true
+            find artifacts/playwright-output -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) -exec cp {} "$dest/videos/" \; || true
           fi
 
           video_file="$(find "$dest" -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) | sort | head -n 1 || true)"
