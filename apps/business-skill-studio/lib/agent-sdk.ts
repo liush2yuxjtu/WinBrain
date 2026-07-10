@@ -3,12 +3,11 @@ import type { ChatRequest, SkillDraftRequest } from './types'
 import {
   buildBusinessChatSystemPrompt,
   buildSkillCreatorSystemPrompt,
-  buildSkillDraftPrompt,
-  fallbackSkillDraft
+  buildSkillDraftPrompt
 } from './skill-creator'
 
 export type AgentCredentialSlot = 'primary' | 'fallback' | 'legacy'
-export type AgentSdkProvider = 'claude-agent-sdk' | 'deterministic-fallback'
+export type AgentSdkProvider = 'claude-agent-sdk'
 
 export type AgentSdkResult = {
   text: string
@@ -81,6 +80,13 @@ const CREDENTIAL_ENV_KEYS = [
   'ANTHROPIC_AUTH_TOKEN'
 ] as const
 
+export class AgentSdkConfigurationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'AgentSdkConfigurationError'
+  }
+}
+
 function attemptTimeoutMs(): number {
   const configured = Number(process.env.AGENT_SDK_ATTEMPT_TIMEOUT_MS || process.env.API_TIMEOUT_MS)
   if (!Number.isFinite(configured) || configured <= 0) return MINIMUM_ATTEMPT_TIMEOUT_MS
@@ -121,6 +127,14 @@ function credentialCandidates(): CredentialCandidate[] {
   }
 
   return result
+}
+
+export function assertAgentSdkConfigured(): void {
+  if (credentialCandidates().length) return
+
+  throw new AgentSdkConfigurationError(
+    'Kimi Code credentials are not configured. Set KIMI_API_KEY_PRIMARY, KIMI_API_KEY_FALLBACK, KIMI_API_KEY, or a supported ANTHROPIC_* compatibility alias.'
+  )
 }
 
 function buildPrompt(input: ChatRequest): string {
@@ -380,25 +394,18 @@ async function* streamWithCredential(
 }
 
 async function* streamWithFailover(
-  input: QueryInput,
-  fallbackText: string
+  input: QueryInput
 ): AsyncGenerator<AgentSdkStreamEvent, void, void> {
   const candidates = credentialCandidates()
   if (!candidates.length) {
-    yield {
-      type: 'result',
-      text: fallbackText,
-      usedLiveModel: false,
-      usedAgentSdk: false,
-      provider: 'deterministic-fallback',
-      warnings: ['No Kimi Code credential is configured.']
-    }
-    return
+    throw new AgentSdkConfigurationError(
+      'Kimi Code credentials are not configured. Set KIMI_API_KEY_PRIMARY, KIMI_API_KEY_FALLBACK, KIMI_API_KEY, or a supported ANTHROPIC_* compatibility alias.'
+    )
   }
 
   const failures: string[] = []
 
-  for (const candidate of candidates) {
+  for (const [index, candidate] of candidates.entries()) {
     yield {
       type: 'status',
       credentialSlot: candidate.slot,
@@ -433,33 +440,18 @@ async function* streamWithFailover(
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
       failures.push(`${candidate.slot}: ${reason}`)
+      const nextCandidate = candidates[index + 1]
       yield {
         type: 'status',
         credentialSlot: candidate.slot,
-        message: candidate.slot === 'primary'
-          ? `primary Kimi Key 失败：${reason}；正在切换 fallback Key`
+        message: nextCandidate
+          ? `${candidate.slot} Kimi Key 失败：${reason}；正在切换 ${nextCandidate.slot} Kimi Key`
           : `${candidate.slot} Kimi Key 失败：${reason}`
       }
     }
   }
 
-  yield {
-    type: 'result',
-    text: fallbackText,
-    usedLiveModel: false,
-    usedAgentSdk: false,
-    provider: 'claude-agent-sdk',
-    warnings: [`All Kimi Code credentials failed: ${failures.join(' | ')}`]
-  }
-}
-
-function localChatFallback(input: ChatRequest): string {
-  const latestUserMessage = [...input.messages].reverse().find((message) => message.role === 'user')
-  return [
-    'Kimi Code 调用失败。',
-    latestUserMessage?.content ? `已保留本轮输入：${latestUserMessage.content}` : '',
-    '请检查主备 Kimi Key 的有效性、会员权益、额度和 Agent SDK 服务端日志。'
-  ].filter(Boolean).join('\n\n')
+  throw new Error(`All Kimi Code credentials failed: ${failures.join(' | ')}`)
 }
 
 export function streamAgentChat(input: ChatRequest): AsyncGenerator<AgentSdkStreamEvent, void, void> {
@@ -470,14 +462,14 @@ export function streamAgentChat(input: ChatRequest): AsyncGenerator<AgentSdkStre
       input.businessContext,
       input.activeSkillDraft
     )
-  }, localChatFallback(input))
+  })
 }
 
 export function streamSkillDraft(input: SkillDraftRequest): AsyncGenerator<AgentSdkStreamEvent, void, void> {
   return streamWithFailover({
     prompt: buildSkillDraftPrompt(input),
     systemPrompt: buildSkillCreatorSystemPrompt()
-  }, fallbackSkillDraft(input))
+  })
 }
 
 async function collectResult(stream: AsyncIterable<AgentSdkStreamEvent>): Promise<AgentSdkResult> {
