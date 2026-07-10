@@ -2,8 +2,8 @@
 > business-skill-studio@0.1.0 prebuild
 > prisma generate
 
-◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
-◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+◇ injected env (0) from .env.local // tip: ⌘ override existing { override: true }
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
 Loaded Prisma config from prisma.config.ts.
 
 Prisma schema loaded from prisma/schema.prisma.
@@ -23,7 +23,7 @@ https://nextjs.org/telemetry
    ▲ Next.js 15.5.20
 
    Creating an optimized production build ...
- ⚠ Compiled with warnings in 1879ms
+ ⚠ Compiled with warnings in 1928ms
 
 ./node_modules/bcryptjs/dist/bcrypt.js
 A Node.js API is used (process.nextTick at line: 351) which is not supported in the Edge Runtime.
@@ -67,7 +67,7 @@ Learn more: https://nextjs.org/docs/api-reference/edge-runtime
 
 Import trace for requested module:
 ./node_modules/jose/dist/webapi/lib/deflate.js
-./node_modules/jose/dist/webapi/jwe/flattened/decrypt.js
+./node_modules/jose/dist/webapi/jwe/flattened/encrypt.js
 ./node_modules/jose/dist/webapi/index.js
 ./node_modules/@auth/core/jwt.js
 ./node_modules/@auth/core/lib/init.js
@@ -82,7 +82,7 @@ Learn more: https://nextjs.org/docs/api-reference/edge-runtime
 
 Import trace for requested module:
 ./node_modules/jose/dist/webapi/lib/deflate.js
-./node_modules/jose/dist/webapi/jwe/flattened/decrypt.js
+./node_modules/jose/dist/webapi/jwe/flattened/encrypt.js
 ./node_modules/jose/dist/webapi/index.js
 ./node_modules/@auth/core/jwt.js
 ./node_modules/@auth/core/lib/init.js
@@ -91,7 +91,7 @@ Import trace for requested module:
 ./node_modules/next-auth/index.js
 ./auth.ts
 
- ✓ Compiled successfully in 9.9s
+ ✓ Compiled successfully in 10.7s
    Linting and checking validity of types ...
    Collecting page data ...
    Generating static pages (0/13) ...
@@ -103,24 +103,26 @@ Import trace for requested module:
    Collecting build traces ...
 
 Route (app)                                 Size  First Load JS
-┌ ƒ /                                    5.11 kB         107 kB
+┌ ƒ /                                    5.39 kB         108 kB
 ├ ƒ /_not-found                            992 B         103 kB
-├ ƒ /api/auth/[...nextauth]                146 B         103 kB
-├ ƒ /api/chat                              146 B         103 kB
-├ ƒ /api/data-sources                      146 B         103 kB
-├ ƒ /api/data-sources/test                 146 B         103 kB
-├ ƒ /api/experts                           146 B         103 kB
-├ ƒ /api/organizations                     146 B         103 kB
-├ ƒ /api/setup                             146 B         103 kB
-├ ƒ /api/skills                            146 B         103 kB
-├ ƒ /api/skills/draft                      146 B         103 kB
+├ ƒ /api/auth/[...nextauth]                148 B         103 kB
+├ ƒ /api/chat                              148 B         103 kB
+├ ƒ /api/data-sources                      148 B         103 kB
+├ ƒ /api/data-sources/test                 148 B         103 kB
+├ ƒ /api/experts                           148 B         103 kB
+├ ƒ /api/organizations                     148 B         103 kB
+├ ƒ /api/setup                             148 B         103 kB
+├ ƒ /api/skills                            148 B         103 kB
+├ ƒ /api/skills/[name]                     148 B         103 kB
+├ ƒ /api/skills/draft                      148 B         103 kB
 ├ ○ /icon.svg                                0 B            0 B
-├ ƒ /login                                 146 B         103 kB
-└ ƒ /settings                            4.18 kB         107 kB
+├ ƒ /login                                 148 B         103 kB
+├ ƒ /settings                            4.19 kB         107 kB
+└ ƒ /skills                              7.57 kB         110 kB
 + First Load JS shared by all             102 kB
   ├ chunks/255-3981a3d1f3561bd8.js       46.2 kB
   ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB
-  └ other shared chunks (total)           1.9 kB
+  └ other shared chunks (total)          1.92 kB
 
 
 ƒ Middleware                             97.4 kB
