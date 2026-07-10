@@ -79,14 +79,14 @@ Import trace for requested module:
 ./node_modules/next-auth/index.js
 ./auth.ts
 
- ✓ Compiled successfully in 12.8s
+ ✓ Compiled successfully in 12.5s
    Linting and checking validity of types ...
    Collecting page data ...
-   Generating static pages (0/8) ...
-   Generating static pages (2/8) 
-   Generating static pages (4/8) 
-   Generating static pages (6/8) 
- ✓ Generating static pages (8/8)
+   Generating static pages (0/9) ...
+   Generating static pages (2/9) 
+   Generating static pages (4/9) 
+   Generating static pages (6/9) 
+ ✓ Generating static pages (9/9)
    Finalizing page optimization ...
    Collecting build traces ...
 
@@ -97,6 +97,7 @@ Route (app)                                 Size  First Load JS
 ├ ƒ /api/chat                              135 B         102 kB
 ├ ƒ /api/skills                            135 B         102 kB
 ├ ƒ /api/skills/draft                      135 B         102 kB
+├ ○ /icon.svg                                0 B            0 B
 └ ƒ /login                                 135 B         102 kB
 + First Load JS shared by all             102 kB
   ├ chunks/255-3981a3d1f3561bd8.js       46.2 kB
@@ -106,5 +107,6 @@ Route (app)                                 Size  First Load JS
 
 ƒ Middleware                             97.4 kB
 
+○  (Static)   prerendered as static content
 ƒ  (Dynamic)  server-rendered on demand
 

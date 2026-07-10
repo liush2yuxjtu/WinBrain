@@ -4,7 +4,7 @@
 - Resolution: 1440x900
 - Target selection mode: FRONTEND_START_COMMAND + auto-detected URL
 - Final screenshot: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/frontend-page.png
-- Video: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/video/ee54c29c8910e8d43cb755df297c810c.webm
+- Video: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/video/dacb3c6a0fbda37c276d97e6cc69ceb1.webm
 
 ## Staged snapshots
 
@@ -15,4 +15,4 @@
 
 ## Console output
 
-- [error] Failed to load resource: the server responded with a status of 404 (Not Found)
+No console messages captured.
