@@ -34,6 +34,7 @@ export interface SkillSaveRequest {
   skillName: string
   skillMarkdown: string
   evalsJson?: string
+  overwrite?: boolean
   organizationId?: string
   expertId?: string
 }
@@ -43,9 +44,18 @@ export interface StoredSkillSummary {
   name: string
   slug: string
   version: number
+  title: string
+  description: string
   updatedAt: string
+  sizeBytes: number
+  hasEvals: boolean
   organizationId?: string
   expertId?: string
+}
+
+export interface StoredSkillDetail extends StoredSkillSummary {
+  skillMarkdown: string
+  evalsJson: string | null
 }
 
 export interface OrganizationSummary {

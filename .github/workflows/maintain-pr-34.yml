@@ -1,0 +1,79 @@
+name: Maintain PR 34
+
+on:
+  pull_request_target:
+    types: [reopened]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: maintain-pr-34
+  cancel-in-progress: false
+
+jobs:
+  merge-and-validate:
+    if: >-
+      github.repository == 'liush2yuxjtu/WinBrain' &&
+      github.event.pull_request.number == 34 &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Merge latest main or persist conflict list
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          set +e
+          git merge --no-commit --no-ff origin/main
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            git merge --abort
+            printf '%s\n' "$conflicts" > .pr-34-conflicts.txt
+            git add .pr-34-conflicts.txt
+            git commit -m "chore: record PR 34 merge conflicts"
+            git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
+            git push origin "HEAD:${HEAD_REF}"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        working-directory: apps/business-skill-studio
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: apps/business-skill-studio
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: apps/business-skill-studio
+        run: npm run build
+
+      - name: Commit and push merge
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          rm -f .pr-34-conflicts.txt
+          git add -A
+          git commit -m "merge: synchronize PR 34 with main"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
+          git push origin "HEAD:${HEAD_REF}"

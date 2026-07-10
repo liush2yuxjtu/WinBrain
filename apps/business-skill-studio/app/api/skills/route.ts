@@ -1,19 +1,9 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import {
-  listSkills,
-  saveSkill,
-  SkillStoreValidationError
-} from '@/lib/skill-store'
+import { listSkills, saveSkill, skillStoreHttpError } from '@/lib/skill-store'
 import type { SkillSaveRequest } from '@/lib/types'
 
 export const runtime = 'nodejs'
-
-function unavailableResponse() {
-  return NextResponse.json({
-    error: 'Skill store is unavailable. Check the server logs and storage configuration.'
-  }, { status: 503 })
-}
 
 export async function GET(request: Request) {
   const session = await auth()
@@ -22,13 +12,10 @@ export async function GET(request: Request) {
   try {
     const organizationId = new URL(request.url).searchParams.get('organizationId') || undefined
     const skills = await listSkills(organizationId)
-    return NextResponse.json({ skills })
+    return NextResponse.json({ skills }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
-    if (error instanceof SkillStoreValidationError) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-    console.error('Failed to list skills', error)
-    return unavailableResponse()
+    const responseError = skillStoreHttpError(error)
+    return NextResponse.json({ error: responseError.message }, { status: responseError.status })
   }
 }
 
@@ -46,21 +33,22 @@ export async function POST(request: Request) {
   if (!body || typeof body.skillName !== 'string' || typeof body.skillMarkdown !== 'string') {
     return NextResponse.json({ error: 'skillName and skillMarkdown are required' }, { status: 400 })
   }
+  if (body.evalsJson !== undefined && typeof body.evalsJson !== 'string') {
+    return NextResponse.json({ error: 'evalsJson must be a string when provided' }, { status: 400 })
+  }
 
   try {
     const skill = await saveSkill({
       skillName: body.skillName,
       skillMarkdown: body.skillMarkdown,
-      evalsJson: typeof body.evalsJson === 'string' ? body.evalsJson : undefined,
+      evalsJson: body.evalsJson,
       organizationId: typeof body.organizationId === 'string' ? body.organizationId : undefined,
       expertId: typeof body.expertId === 'string' ? body.expertId : undefined
-    })
+    }, { overwrite: body.overwrite === false ? false : true })
+
     return NextResponse.json({ skill }, { status: 201 })
   } catch (error) {
-    if (error instanceof SkillStoreValidationError) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-    console.error('Failed to save skill', error)
-    return unavailableResponse()
+    const responseError = skillStoreHttpError(error)
+    return NextResponse.json({ error: responseError.message }, { status: responseError.status })
   }
 }
