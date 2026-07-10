@@ -1,0 +1,94 @@
+
+> business-skill-studio@0.1.0 build
+> next build
+
+⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+   ▲ Next.js 15.5.20
+
+   Creating an optimized production build ...
+ ⚠ Compiled with warnings in 1946ms
+
+./node_modules/bcryptjs/dist/bcrypt.js
+A Node.js API is used (process.nextTick at line: 351) which is not supported in the Edge Runtime.
+Learn more: https://nextjs.org/docs/api-reference/edge-runtime
+
+Import trace for requested module:
+./node_modules/bcryptjs/dist/bcrypt.js
+./lib/auth-users.ts
+./auth.ts
+
+./node_modules/bcryptjs/dist/bcrypt.js
+A Node.js API is used (setImmediate at line: 352) which is not supported in the Edge Runtime.
+Learn more: https://nextjs.org/docs/api-reference/edge-runtime
+
+Import trace for requested module:
+./node_modules/bcryptjs/dist/bcrypt.js
+./lib/auth-users.ts
+./auth.ts
+
+./node_modules/bcryptjs/dist/bcrypt.js
+A Node.js API is used (setImmediate at line: 352) which is not supported in the Edge Runtime.
+Learn more: https://nextjs.org/docs/api-reference/edge-runtime
+
+Import trace for requested module:
+./node_modules/bcryptjs/dist/bcrypt.js
+./lib/auth-users.ts
+./auth.ts
+
+./node_modules/bcryptjs/dist/bcrypt.js
+A Node.js API is used (process.nextTick at line: 352) which is not supported in the Edge Runtime.
+Learn more: https://nextjs.org/docs/api-reference/edge-runtime
+
+Import trace for requested module:
+./node_modules/bcryptjs/dist/bcrypt.js
+./lib/auth-users.ts
+./auth.ts
+
+./node_modules/jose/dist/webapi/lib/deflate.js
+A Node.js API is used (CompressionStream at line: 10) which is not supported in the Edge Runtime.
+Learn more: https://nextjs.org/docs/api-reference/edge-runtime
+
+Import trace for requested module:
+./node_modules/jose/dist/webapi/lib/deflate.js
+./node_modules/jose/dist/webapi/jwe/flattened/decrypt.js
+./node_modules/jose/dist/webapi/index.js
+./node_modules/@auth/core/jwt.js
+./node_modules/@auth/core/lib/init.js
+./node_modules/@auth/core/lib/index.js
+./node_modules/@auth/core/index.js
+./node_modules/next-auth/index.js
+./auth.ts
+
+./node_modules/jose/dist/webapi/lib/deflate.js
+A Node.js API is used (DecompressionStream at line: 26) which is not supported in the Edge Runtime.
+Learn more: https://nextjs.org/docs/api-reference/edge-runtime
+
+Import trace for requested module:
+./node_modules/jose/dist/webapi/lib/deflate.js
+./node_modules/jose/dist/webapi/jwe/flattened/decrypt.js
+./node_modules/jose/dist/webapi/index.js
+./node_modules/@auth/core/jwt.js
+./node_modules/@auth/core/lib/init.js
+./node_modules/@auth/core/lib/index.js
+./node_modules/@auth/core/index.js
+./node_modules/next-auth/index.js
+./auth.ts
+
+ ✓ Compiled successfully in 9.2s
+   Linting and checking validity of types ...
+Failed to compile.
+
+./lib/agent-sdk.ts:1:22
+Type error: '"@anthropic-ai/claude-agent-sdk"' has no exported member named 'Query'. Did you mean 'query'?
+
+[0m[31m[1m>[22m[39m[90m 1 |[39m [36mimport[39m { query[33m,[39m type [33mQuery[39m } [36mfrom[39m [32m'@anthropic-ai/claude-agent-sdk'[39m
+ [90m   |[39m                      [31m[1m^[22m[39m
+ [90m 2 |[39m [36mimport[39m type { [33mChatRequest[39m[33m,[39m [33mSkillDraftRequest[39m } [36mfrom[39m [32m'./types'[39m
+ [90m 3 |[39m [36mimport[39m {
+ [90m 4 |[39m   buildBusinessChatSystemPrompt[33m,[39m[0m
+Next.js build worker exited with code: 1 and signal: null
