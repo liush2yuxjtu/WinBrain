@@ -23,10 +23,11 @@ function saveSkillEffect(input: SkillSaveRequest) {
     yield* tryPromiseEffect('Create skill directory', () => mkdir(dir, { recursive: true }))
     yield* tryPromiseEffect('Write SKILL.md', () => writeFile(path.join(dir, 'SKILL.md'), input.skillMarkdown, 'utf8'))
 
-    if (input.evalsJson?.trim()) {
+    const evalsJson = input.evalsJson
+    if (evalsJson?.trim()) {
       const evalDir = path.join(dir, 'evals')
       yield* tryPromiseEffect('Create evals directory', () => mkdir(evalDir, { recursive: true }))
-      yield* tryPromiseEffect('Write evals.json', () => writeFile(path.join(evalDir, 'evals.json'), input.evalsJson, 'utf8'))
+      yield* tryPromiseEffect('Write evals.json', () => writeFile(path.join(evalDir, 'evals.json'), evalsJson, 'utf8'))
     }
 
     return {
