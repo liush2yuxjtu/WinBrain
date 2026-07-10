@@ -81,12 +81,13 @@ function encodedPathSegments(filePath) {
   return filePath.replace(/\\/g, '/').split('/').filter(Boolean).map(encodeURIComponent);
 }
 
-function rawUrlFor(relativePath) {
+function repositoryFileUrl(relativePath, { raw = false } = {}) {
   const encodedPath = [
     ...encodedPathSegments(mediaPath),
     ...encodedPathSegments(relativePath),
   ].join('/');
-  return `https://raw.githubusercontent.com/${owner}/${repo}/${mediaRef}/${encodedPath}`;
+  const url = `https://github.com/${owner}/${repo}/blob/${mediaRef}/${encodedPath}`;
+  return raw ? `${url}?raw=1` : url;
 }
 
 function renderMediaSection() {
