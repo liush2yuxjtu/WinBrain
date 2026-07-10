@@ -9,6 +9,6 @@ $ cd apps/business-skill-studio && npm run start -- --hostname 127.0.0.1 --port 
    - Network:      http://127.0.0.1:3000
 
  ✓ Starting...
- ✓ Ready in 332ms
+ ✓ Ready in 336ms
 
 [frontend process exited] code=null signal=SIGTERM
