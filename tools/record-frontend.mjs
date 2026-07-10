@@ -12,9 +12,9 @@ const SCREENSHOT_PATH = resolve(ARTIFACT_DIR, 'frontend-page.png');
 const SUMMARY_PATH = resolve(ARTIFACT_DIR, 'summary.md');
 const DIAGNOSTIC_HTML_PATH = resolve(ARTIFACT_DIR, 'diagnostic.html');
 const SERVER_LOG_PATH = resolve(ARTIFACT_DIR, 'frontend-server.log');
-const configuredResponseTimeout = Number.parseInt(process.env.FRONTEND_RECORD_RESPONSE_TIMEOUT_MS || '', 10);
-const RESPONSE_TIMEOUT_MS = Number.isFinite(configuredResponseTimeout) && configuredResponseTimeout > 0
-  ? configuredResponseTimeout
+const configuredApiTimeout = Number(process.env.FRONTEND_API_RESPONSE_TIMEOUT_MS || 120_000);
+const API_RESPONSE_TIMEOUT_MS = Number.isFinite(configuredApiTimeout) && configuredApiTimeout > 0
+  ? configuredApiTimeout
   : 120_000;
 
 const COMMON_FRONTEND_URLS = [
@@ -109,26 +109,20 @@ async function resolveTargetUrl() {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WinBrain Frontend Diagnostic</title>
   <style>
-    :root { color-scheme: light dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    :root { color-scheme: light dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
     body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: linear-gradient(135deg, #f6f7fb, #dfe7ff); color: #1d2433; }
     main { width: min(920px, calc(100vw - 48px)); background: rgba(255,255,255,0.88); border: 1px solid rgba(30,41,59,0.12); border-radius: 28px; padding: 42px; box-shadow: 0 24px 80px rgba(15,23,42,0.16); }
     h1 { font-size: 40px; line-height: 1.05; margin: 0 0 14px; }
     p { font-size: 18px; line-height: 1.7; margin: 12px 0; }
     code { background: rgba(15,23,42,0.08); border-radius: 8px; padding: 2px 6px; }
-    .status { display: inline-flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 999px; background: #fff7ed; color: #9a3412; font-weight: 700; }
-    ul { font-size: 16px; line-height: 1.8; }
+    .status { display: inline-flex; padding: 8px 12px; border-radius: 999px; background: #fff7ed; color: #9a3412; font-weight: 700; }
   </style>
 </head>
 <body>
   <main>
     <div class="status">Frontend not detected</div>
     <h1>WinBrain has Playwright recording installed, but no runnable frontend was found.</h1>
-    <p>The recorder looked for <code>FRONTEND_URL</code>, an optional <code>FRONTEND_START_COMMAND</code>, and common local frontend ports.</p>
-    <p>To record the real page, add frontend code and set one of the following in CI or locally:</p>
-    <ul>
-      <li><code>FRONTEND_URL=https://your-preview-url.example</code></li>
-      <li><code>FRONTEND_START_COMMAND="npm run dev -- --host 127.0.0.1"</code></li>
-    </ul>
+    <p>Set <code>FRONTEND_URL</code> or <code>FRONTEND_START_COMMAND</code> to record the real application.</p>
   </main>
 </body>
 </html>`;
@@ -164,7 +158,7 @@ async function stopFrontendProcess(child) {
     try {
       child.kill('SIGTERM');
     } catch {
-      // Ignore cleanup errors; the process may have already exited.
+      // The process may have already exited.
     }
   }
 }
@@ -175,9 +169,44 @@ async function captureSnapshot(page, name, options = {}) {
   return path;
 }
 
+function responseMatchesPath(response, expectedPath) {
+  try {
+    return new URL(response.url()).pathname === expectedPath;
+  } catch {
+    return false;
+  }
+}
+
+async function readApiPayload(response, label) {
+  const raw = await response.text();
+  let payload = null;
+
+  try {
+    payload = raw ? JSON.parse(raw) : null;
+  } catch {
+    throw new Error(`${label} returned non-JSON status ${response.status()}: ${raw.slice(0, 500)}`);
+  }
+
+  if (!response.ok()) {
+    throw new Error(`${label} failed with status ${response.status()}: ${JSON.stringify(payload)}`);
+  }
+
+  if (payload?.usedAgentSdk !== true) {
+    throw new Error(`${label} did not use the real Agent SDK: ${JSON.stringify(payload?.warnings || payload)}`);
+  }
+
+  return payload;
+}
+
+async function waitForApiResponse(page, path) {
+  return page.waitForResponse(
+    (response) => responseMatchesPath(response, path),
+    { timeout: API_RESPONSE_TIMEOUT_MS }
+  );
+}
+
 async function recordBusinessSkillStudioScenario(page, snapshots) {
-  const scenario = process.env.FRONTEND_RECORD_SCENARIO;
-  if (scenario !== 'business-skill-studio') return;
+  if (process.env.FRONTEND_RECORD_SCENARIO !== 'business-skill-studio') return;
 
   const loginEmail = page.locator('input[name="email"]');
   const loginVisible = await loginEmail.isVisible().catch(() => false);
@@ -194,9 +223,7 @@ async function recordBusinessSkillStudioScenario(page, snapshots) {
     await page.locator('input[name="password"]').fill(password);
 
     await Promise.all([
-      page.waitForURL((url) => !url.pathname.startsWith('/login'), {
-        timeout: RESPONSE_TIMEOUT_MS
-      }),
+      page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 }),
       page.getByRole('button', { name: '登录' }).click()
     ]);
 
@@ -213,21 +240,19 @@ async function recordBusinessSkillStudioScenario(page, snapshots) {
   const messageBox = page.getByPlaceholder('描述流程、例外、输出要求或给一个真实案例');
   await messageBox.fill('我们每周都要看客户健康度，判断哪些账号需要 CSM 介入。请把这个流程沉淀成可以复用的 skill。');
 
-  const chatPromise = page.waitForResponse(
-    (response) => response.url().includes('/api/chat'),
-    { timeout: RESPONSE_TIMEOUT_MS }
-  );
-  await page.getByRole('button', { name: '发送给 AI' }).click();
-  await chatPromise;
+  const [chatResponse] = await Promise.all([
+    waitForApiResponse(page, '/api/chat'),
+    page.getByRole('button', { name: '发送给 AI' }).click()
+  ]);
+  await readApiPayload(chatResponse, 'Chat API');
   await page.waitForTimeout(500);
   snapshots.push(await captureSnapshot(page, '02-after-chat-response'));
 
-  const draftPromise = page.waitForResponse(
-    (response) => response.url().includes('/api/skills/draft'),
-    { timeout: RESPONSE_TIMEOUT_MS }
-  );
-  await page.getByRole('button', { name: '生成 Skill 草稿' }).click();
-  await draftPromise;
+  const [draftResponse] = await Promise.all([
+    waitForApiResponse(page, '/api/skills/draft'),
+    page.getByRole('button', { name: '生成 Skill 草稿' }).click()
+  ]);
+  await readApiPayload(draftResponse, 'Skill draft API');
   await page.waitForTimeout(500);
   snapshots.push(await captureSnapshot(page, '03-after-skill-draft'));
 }
@@ -250,6 +275,7 @@ function buildSummary({ target, videoPath, consoleMessages, snapshots, error }) 
 - Target: ${target?.url ?? 'not resolved'}
 - Resolution: 1440x900
 - Target selection mode: ${target?.mode ?? 'not resolved'}
+- Agent API response timeout: ${API_RESPONSE_TIMEOUT_MS}ms
 - Final screenshot: ${SCREENSHOT_PATH}
 - Video: ${videoPath}
 
@@ -288,11 +314,7 @@ try {
   });
 
   await page.goto(target.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  try {
-    await page.waitForLoadState('networkidle', { timeout: 10_000 });
-  } catch {
-    // Single-page apps or long-polling pages may never become fully idle.
-  }
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
 
   snapshots.push(await captureSnapshot(page, '00-page-loaded'));
   await recordBusinessSkillStudioScenario(page, snapshots);
@@ -304,7 +326,7 @@ try {
   try {
     videoPath = await video.path();
   } catch {
-    // Playwright may not expose a path if video capture failed before context close.
+    // Video capture may fail before the browser context closes.
   }
 
   const summary = buildSummary({ target, videoPath, consoleMessages, snapshots });
@@ -318,19 +340,11 @@ try {
   await writeFile(SUMMARY_PATH, summary, 'utf8');
 } finally {
   if (context) {
-    try {
-      await context.close();
-    } catch {
-      // Ignore cleanup errors.
-    }
+    await context.close().catch(() => undefined);
   }
 
   if (browser) {
-    try {
-      await browser.close();
-    } catch {
-      // Ignore cleanup errors.
-    }
+    await browser.close().catch(() => undefined);
   }
 
   await stopFrontendProcess(target?.process);
