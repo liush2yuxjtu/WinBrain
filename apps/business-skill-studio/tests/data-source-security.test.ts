@@ -36,23 +36,24 @@ test('identifies private, loopback, documentation, and public addresses', () => 
 })
 
 test('blocks private database targets in production unless explicitly enabled', async () => {
-  const originalNodeEnv = process.env.NODE_ENV
-  const originalAllowPrivate = process.env.ALLOW_PRIVATE_DATA_SOURCE_HOSTS
-  const originalSuffixes = process.env.DATA_SOURCE_ALLOWED_HOST_SUFFIXES
-  process.env.NODE_ENV = 'production'
-  delete process.env.ALLOW_PRIVATE_DATA_SOURCE_HOSTS
-  delete process.env.DATA_SOURCE_ALLOWED_HOST_SUFFIXES
+  const env = process.env as Record<string, string | undefined>
+  const originalNodeEnv = env.NODE_ENV
+  const originalAllowPrivate = env.ALLOW_PRIVATE_DATA_SOURCE_HOSTS
+  const originalSuffixes = env.DATA_SOURCE_ALLOWED_HOST_SUFFIXES
+  env.NODE_ENV = 'production'
+  delete env.ALLOW_PRIVATE_DATA_SOURCE_HOSTS
+  delete env.DATA_SOURCE_ALLOWED_HOST_SUFFIXES
 
   try {
     await assert.rejects(() => resolveCustomerDataSourceHost('127.0.0.1'))
-    process.env.ALLOW_PRIVATE_DATA_SOURCE_HOSTS = 'true'
+    env.ALLOW_PRIVATE_DATA_SOURCE_HOSTS = 'true'
     assert.equal((await resolveCustomerDataSourceHost('127.0.0.1')).address, '127.0.0.1')
   } finally {
-    if (originalNodeEnv === undefined) delete process.env.NODE_ENV
-    else process.env.NODE_ENV = originalNodeEnv
-    if (originalAllowPrivate === undefined) delete process.env.ALLOW_PRIVATE_DATA_SOURCE_HOSTS
-    else process.env.ALLOW_PRIVATE_DATA_SOURCE_HOSTS = originalAllowPrivate
-    if (originalSuffixes === undefined) delete process.env.DATA_SOURCE_ALLOWED_HOST_SUFFIXES
-    else process.env.DATA_SOURCE_ALLOWED_HOST_SUFFIXES = originalSuffixes
+    if (originalNodeEnv === undefined) delete env.NODE_ENV
+    else env.NODE_ENV = originalNodeEnv
+    if (originalAllowPrivate === undefined) delete env.ALLOW_PRIVATE_DATA_SOURCE_HOSTS
+    else env.ALLOW_PRIVATE_DATA_SOURCE_HOSTS = originalAllowPrivate
+    if (originalSuffixes === undefined) delete env.DATA_SOURCE_ALLOWED_HOST_SUFFIXES
+    else env.DATA_SOURCE_ALLOWED_HOST_SUFFIXES = originalSuffixes
   }
 })
