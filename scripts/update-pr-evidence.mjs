@@ -92,27 +92,35 @@ function rawUrlFor(relativePath) {
 function renderMediaSection() {
   const files = mediaPath ? walkFiles(mediaPath).sort() : [];
   const screenshots = files.filter((file) => /\.(png|jpe?g|webp)$/i.test(file));
+  const recordingPreviews = files.filter((file) => /(?:recording|video)-preview\.gif$/i.test(file));
   const videos = files.filter((file) => /\.(webm|mp4|mov)$/i.test(file));
 
   const screenshotMarkdown = screenshots.length
     ? screenshots.slice(0, 8).map((file) => {
-      const url = rawUrlFor(file);
+      const url = repositoryFileUrl(file, { raw: true });
       return `#### ${file}\n\n![${file}](${url})`;
     }).join('\n\n')
     : 'No committed screenshot files were found for inline rendering.';
 
+  const previewMarkdown = recordingPreviews.length
+    ? recordingPreviews.slice(0, 2).map((file) => {
+      const url = repositoryFileUrl(file, { raw: true });
+      return `#### ${file}\n\n![Animated recording preview](${url})`;
+    }).join('\n\n')
+    : 'No animated recording preview was generated.';
+
   const videoMarkdown = videos.length
     ? videos.slice(0, 4).map((file) => {
-      const url = rawUrlFor(file);
-      return `#### ${file}\n\n<video controls src="${url}"></video>\n\n[Open video file](${url})`;
-    }).join('\n\n')
-    : 'No committed video files were found for inline rendering.';
+      const url = repositoryFileUrl(file);
+      return `- [Open original recording: ${file}](${url})`;
+    }).join('\n')
+    : 'No committed video files were found.';
 
   const manifest = files.length
-    ? files.map((file) => `- [${file}](${rawUrlFor(file)})`).join('\n')
+    ? files.map((file) => `- [${file}](${repositoryFileUrl(file)})`).join('\n')
     : '- No media manifest files found.';
 
-  return `### Inline screenshots\n\n${screenshotMarkdown}\n\n### Inline videos\n\n${videoMarkdown}\n\n<details>\n<summary>Committed media manifest</summary>\n\n${manifest}\n\n</details>`;
+  return `### Inline screenshots\n\n${screenshotMarkdown}\n\n### Inline recording preview\n\n${previewMarkdown}\n\n### Original recordings\n\n${videoMarkdown}\n\n<details>\n<summary>Committed media manifest</summary>\n\n${manifest}\n\n</details>`;
 }
 
 const startMarker = `<!-- ${markerName}:start -->`;
