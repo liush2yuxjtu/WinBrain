@@ -157,12 +157,16 @@ async function readApiPayload(response, label) {
     throw new Error(`${label} failed with status ${response.status()}: ${JSON.stringify(payload)}`);
   }
 
-  if (payload?.usedLiveModel !== true) {
-    throw new Error(`${label} did not use a live model: ${JSON.stringify(payload?.warnings || payload)}`);
+  if (payload?.usedAgentSdk !== true) {
+    throw new Error(`${label} did not use Claude Agent SDK: ${JSON.stringify(payload?.warnings || payload)}`);
   }
 
-  if (payload?.provider !== 'minimax-anthropic-messages') {
+  if (payload?.provider !== 'claude-agent-sdk') {
     throw new Error(`${label} used unexpected provider: ${JSON.stringify(payload?.provider)}`);
+  }
+
+  if (!['primary', 'fallback'].includes(payload?.credentialSlot)) {
+    throw new Error(`${label} did not report a valid credential slot: ${JSON.stringify(payload?.credentialSlot)}`);
   }
 
   return payload;
@@ -234,7 +238,8 @@ function buildSummary({ target, videoPath, consoleMessages, snapshots, error }) 
 - Target: ${target?.url ?? 'not resolved'}
 - Resolution: 1440x900
 - Target selection mode: ${target?.mode ?? 'not resolved'}
-- Live model provider required: minimax-anthropic-messages
+- Required provider: claude-agent-sdk
+- Credential failover: primary -> fallback
 - API response timeout: ${API_RESPONSE_TIMEOUT_MS}ms
 - Final screenshot: ${SCREENSHOT_PATH}
 - Video: ${videoPath}
