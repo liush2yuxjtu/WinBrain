@@ -27,23 +27,30 @@ export class FileSystemSkillRepository implements SkillRepository {
     this.root = path.resolve(process.cwd(), storageDirectory)
   }
 
-  private directory(slug: string): string {
-    return path.join(this.root, slug)
+  private scopeRoot(organizationId?: string): string {
+    return organizationId ? path.join(this.root, 'organizations', organizationId) : this.root
+  }
+
+  private directory(slug: string, organizationId?: string): string {
+    return path.join(this.scopeRoot(organizationId), slug)
   }
 
   async save(input: SkillSaveRequest): Promise<StoredSkillSummary> {
     return runAppEffect(tryPromiseEffect('Save local skill', async () => {
       const slug = skillStoreSlug(input.skillName)
-      const directory = this.directory(slug)
+      const directory = this.directory(slug, input.organizationId)
       const currentMetadata = await readMetadata(directory)
       const version = (currentMetadata?.version || 0) + 1
       const updatedAt = new Date().toISOString()
+      const scopeKey = input.organizationId || 'global'
       const summary: StoredSkillSummary = {
-        id: currentMetadata?.id || `filesystem:${slug}`,
+        id: currentMetadata?.id || `filesystem:${scopeKey}:${slug}`,
         name: input.skillName,
         slug,
         version,
-        updatedAt
+        updatedAt,
+        organizationId: input.organizationId,
+        expertId: input.expertId
       }
 
       const revisionDirectory = path.join(directory, 'revisions', String(version))
@@ -65,25 +72,27 @@ export class FileSystemSkillRepository implements SkillRepository {
     }))
   }
 
-  async list(): Promise<StoredSkillSummary[]> {
+  async list(organizationId?: string): Promise<StoredSkillSummary[]> {
     return runAppEffect(tryPromiseEffect('List local skills', async () => {
-      await mkdir(this.root, { recursive: true })
-      const entries = await readdir(this.root, { withFileTypes: true })
+      const root = this.scopeRoot(organizationId)
+      await mkdir(root, { recursive: true })
+      const entries = await readdir(root, { withFileTypes: true })
       const summaries = await Promise.all(entries
-        .filter((entry) => entry.isDirectory())
+        .filter((entry) => entry.isDirectory() && (organizationId || entry.name !== 'organizations'))
         .map(async (entry): Promise<StoredSkillSummary | null> => {
-          const directory = this.directory(entry.name)
+          const directory = this.directory(entry.name, organizationId)
           const skillPath = path.join(directory, 'SKILL.md')
           const skillStats = await stat(skillPath).catch(() => null)
           if (!skillStats) return null
 
           const metadata = await readMetadata(directory)
           return metadata || {
-            id: `filesystem:${entry.name}`,
+            id: `filesystem:${organizationId || 'global'}:${entry.name}`,
             name: entry.name,
             slug: entry.name,
             version: 1,
-            updatedAt: skillStats.mtime.toISOString()
+            updatedAt: skillStats.mtime.toISOString(),
+            organizationId
           }
         }))
 
@@ -93,7 +102,7 @@ export class FileSystemSkillRepository implements SkillRepository {
     }))
   }
 
-  async read(skillName: string): Promise<string | null> {
+  async read(skillName: string, organizationId?: string): Promise<string | null> {
     return runAppEffect(tryPromiseEffect('Read local skill', async () => {
       const candidateSlugs = [...new Set([
         skillStoreSlug(skillName),
@@ -101,7 +110,7 @@ export class FileSystemSkillRepository implements SkillRepository {
       ])]
 
       for (const slug of candidateSlugs) {
-        const content = await readFile(path.join(this.directory(slug), 'SKILL.md'), 'utf8').catch(() => null)
+        const content = await readFile(path.join(this.directory(slug, organizationId), 'SKILL.md'), 'utf8').catch(() => null)
         if (content !== null) return content
       }
 
