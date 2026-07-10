@@ -1,0 +1,173 @@
+name: Real Stack Visual Evidence
+
+on:
+  pull_request:
+    branches: [main, feat/company-expert-data-sources]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  record-real-stack:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: winbrain_evidence
+          POSTGRES_USER: winbrain
+          POSTGRES_PASSWORD: winbrain
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U winbrain -d winbrain_evidence"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://winbrain:winbrain@127.0.0.1:5432/winbrain_evidence?schema=public
+      SKILL_STORE_DRIVER: database
+      DATA_SOURCE_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
+      ANTHROPIC_BASE_URL: ${{ vars.ANTHROPIC_BASE_URL }}
+      ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+      API_TIMEOUT_MS: ${{ vars.API_TIMEOUT_MS }}
+      API_MAX_INPUT_TOKENS: ${{ vars.API_MAX_INPUT_TOKENS }}
+      AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+      AUTH_USER_PASSWORD_HASH: ${{ secrets.AUTH_USER_PASSWORD_HASH }}
+      AUTH_USER_EMAIL: ${{ vars.AUTH_USER_EMAIL }}
+      AUTH_USER_NAME: ${{ vars.AUTH_USER_NAME }}
+      AUTH_USER_ROLE: ${{ vars.AUTH_USER_ROLE }}
+      NEXTAUTH_URL: http://127.0.0.1:3000
+      FRONTEND_RECORD_EMAIL: ${{ vars.FRONTEND_RECORD_EMAIL }}
+      FRONTEND_RECORD_PASSWORD: ${{ secrets.FRONTEND_RECORD_PASSWORD }}
+      FRONTEND_URL: http://127.0.0.1:3000
+      FRONTEND_RECORD_SCENARIO: business-skill-studio
+      FRONTEND_API_RESPONSE_TIMEOUT_MS: '360000'
+      PLAYWRIGHT_CHANNEL: chrome
+
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Require live credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ANTHROPIC_API_KEY" || { echo "::error::ANTHROPIC_API_KEY secret is required"; exit 1; }
+          test -n "$ANTHROPIC_BASE_URL" || { echo "::error::ANTHROPIC_BASE_URL variable is required"; exit 1; }
+          test -n "$ANTHROPIC_MODEL" || { echo "::error::ANTHROPIC_MODEL variable is required"; exit 1; }
+          test -n "$AUTH_SECRET" || { echo "::error::AUTH_SECRET secret is required"; exit 1; }
+          test -n "$AUTH_USER_PASSWORD_HASH" || { echo "::error::AUTH_USER_PASSWORD_HASH secret is required"; exit 1; }
+          test -n "$FRONTEND_RECORD_PASSWORD" || { echo "::error::FRONTEND_RECORD_PASSWORD secret is required"; exit 1; }
+
+      - name: Install dependencies
+        run: |
+          npm install
+          cd apps/business-skill-studio
+          npm install --no-package-lock --legacy-peer-deps
+
+      - name: Install Chrome
+        run: npx playwright install --with-deps chrome
+
+      - name: Apply PostgreSQL migrations
+        working-directory: apps/business-skill-studio
+        run: npm run db:migrate:deploy
+
+      - name: Build application
+        working-directory: apps/business-skill-studio
+        run: npm run build
+
+      - name: Start application
+        shell: bash
+        run: |
+          cd apps/business-skill-studio
+          nohup npm run start -- --hostname 127.0.0.1 --port 3000 > ../../frontend-server.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat ../../frontend-server.log
+          exit 1
+
+      - name: Record live LLM workflow
+        id: record
+        run: npm run record:frontend
+
+      - name: Verify PostgreSQL persistence through authenticated UI
+        run: node tools/verify-skill-database.mjs
+
+      - name: Add server log to evidence
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          mkdir -p artifacts/frontend-recording
+          cp frontend-server.log artifacts/frontend-recording/frontend-server.log || true
+
+      - name: Upload evidence artifact
+        id: upload
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-stack-visual-evidence
+          path: artifacts/frontend-recording
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish evidence to pull request branch
+        id: publish
+        if: ${{ success() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "${HEAD_BRANCH}:refs/remotes/origin/${HEAD_BRANCH}"
+          git reset --hard "origin/${HEAD_BRANCH}"
+          dest="pr-evidence/pr-${PR_NUMBER}/real-stack/latest"
+          rm -rf "$dest"
+          mkdir -p "$dest"
+          cp -R artifacts/frontend-recording/. "$dest/"
+          video_file="$(find "$dest" -type f \( -name '*.webm' -o -name '*.mp4' \) | sort | head -n 1 || true)"
+          if [ -n "$video_file" ]; then
+            ffmpeg -y -i "$video_file" -t 15 -vf "fps=6,scale=720:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96[p];[s1][p]paletteuse" "$dest/recording-preview.gif"
+          fi
+          find "$dest" -type f | sort > "$dest/manifest.txt"
+          git add -f "$dest"
+          git commit -m "chore: publish PR ${PR_NUMBER} real-stack evidence [skip ci]"
+          git push origin HEAD:"${HEAD_BRANCH}"
+          echo "media_path=$dest" >> "$GITHUB_OUTPUT"
+          echo "media_ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Update pull request body with visual evidence
+        if: ${{ success() && github.event_name == 'pull_request' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+          TEST_OUTCOME: ${{ steps.record.outcome }}
+          GITHUB_SHA: ${{ github.sha }}
+          EVIDENCE_TITLE: Real LLM and PostgreSQL visual evidence
+          EVIDENCE_MARKER: real-stack-visual-evidence
+          EVIDENCE_MEDIA_PATH: ${{ steps.publish.outputs.media_path }}
+          EVIDENCE_MEDIA_REF: ${{ steps.publish.outputs.media_ref }}
+        run: node scripts/update-pr-evidence.mjs
