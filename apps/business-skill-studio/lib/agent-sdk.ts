@@ -232,6 +232,8 @@ function sdkEnvironment(key: string): NodeJS.ProcessEnv {
   }
 
   delete env.CLAUDE_CODE_DISABLE_THINKING
+  delete env.KIMI_BASE_URL
+  delete env.KIMI_THINKING_TOKENS
 
   return {
     ...env,
