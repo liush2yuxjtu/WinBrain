@@ -13,9 +13,10 @@ type StudioShellProps = {
 
 const navigation = [
   { href: '/#studio-home', hash: '#studio-home', label: '概览', icon: '⌂' },
-  { href: '/skills', path: '/skills', label: 'Skill Library', icon: '◇' },
+  { href: '/skills', path: '/skills', label: 'Skill 库', icon: '◇' },
   { href: '/#expert-interview', hash: '#expert-interview', label: '业务专家', icon: '◎' },
   { href: '/settings#data-sources', path: '/settings', hash: '#data-sources', label: '数据源', icon: '⌁' },
+  { href: '/database', path: '/database', label: '数据库探索', icon: '▤' },
   { href: '/settings', path: '/settings', label: '设置', icon: '⚙' }
 ]
 
