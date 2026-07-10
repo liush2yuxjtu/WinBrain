@@ -19,6 +19,21 @@ export type AgentSdkResult = {
   warnings: string[]
 }
 
+export type AgentSdkStreamEvent =
+  | {
+      type: 'status'
+      message: string
+      credentialSlot?: AgentCredentialSlot
+      elapsedMs?: number
+    }
+  | {
+      type: 'text'
+      delta: string
+      text: string
+      credentialSlot: AgentCredentialSlot
+    }
+  | ({ type: 'result' } & AgentSdkResult)
+
 type CredentialCandidate = {
   slot: AgentCredentialSlot
   key: string
@@ -29,12 +44,13 @@ type QueryInput = {
   systemPrompt: string
 }
 
-const DEFAULT_ATTEMPT_TIMEOUT_MS = 60_000
+const MINIMUM_ATTEMPT_TIMEOUT_MS = 600_000
+const HEARTBEAT_INTERVAL_MS = 15_000
 
 function attemptTimeoutMs(): number {
   const configured = Number(process.env.AGENT_SDK_ATTEMPT_TIMEOUT_MS || process.env.API_TIMEOUT_MS)
-  if (!Number.isFinite(configured) || configured <= 0) return DEFAULT_ATTEMPT_TIMEOUT_MS
-  return Math.min(configured, 180_000)
+  if (!Number.isFinite(configured) || configured <= 0) return MINIMUM_ATTEMPT_TIMEOUT_MS
+  return Math.max(configured, MINIMUM_ATTEMPT_TIMEOUT_MS)
 }
 
 function credentialCandidates(): CredentialCandidate[] {
@@ -107,58 +123,45 @@ function extractText(message: unknown): string {
   return ''
 }
 
+function extractSafeStreamDelta(message: Record<string, unknown>): string {
+  if (message.type !== 'stream_event') return ''
+  const event = message.event
+  if (!event || typeof event !== 'object') return ''
+
+  const eventRecord = event as Record<string, unknown>
+  if (eventRecord.type !== 'content_block_delta') return ''
+
+  const delta = eventRecord.delta
+  if (!delta || typeof delta !== 'object') return ''
+  const deltaRecord = delta as Record<string, unknown>
+
+  // Intentionally expose only normal text. Thinking/reasoning deltas are ignored.
+  return deltaRecord.type === 'text_delta' && typeof deltaRecord.text === 'string'
+    ? deltaRecord.text
+    : ''
+}
+
+function appendNonDuplicate(current: string, incoming: string): { delta: string; text: string } {
+  if (!incoming) return { delta: '', text: current }
+  if (!current) return { delta: incoming, text: incoming }
+  if (incoming === current || current.endsWith(incoming) || current.startsWith(incoming)) {
+    return { delta: '', text: current }
+  }
+  if (incoming.startsWith(current)) {
+    const delta = incoming.slice(current.length)
+    return { delta, text: incoming }
+  }
+
+  const delta = `\n\n${incoming}`
+  return { delta, text: `${current}${delta}` }
+}
+
 function resultError(message: Record<string, unknown>): Error {
   const errors = Array.isArray(message.errors)
     ? message.errors.filter((item): item is string => typeof item === 'string')
     : []
   const subtype = typeof message.subtype === 'string' ? message.subtype : 'unknown_error'
   return new Error(errors.length ? errors.join('; ') : `Claude Agent SDK returned ${subtype}`)
-}
-
-async function collectFirstCompleteResponse(handle: Query, abortController: AbortController): Promise<string> {
-  const timeoutMs = attemptTimeoutMs()
-  let timeout: ReturnType<typeof setTimeout> | undefined
-
-  const deadline = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => {
-      abortController.abort()
-      handle.close()
-      reject(new Error(`Claude Agent SDK attempt timed out after ${timeoutMs}ms`))
-    }, timeoutMs)
-  })
-
-  const consume = (async () => {
-    for await (const message of handle) {
-      if (!message || typeof message !== 'object') continue
-      const record = message as unknown as Record<string, unknown>
-      const type = typeof record.type === 'string' ? record.type : ''
-
-      if (type === 'result') {
-        if (record.subtype !== 'success' || record.is_error === true) {
-          throw resultError(record)
-        }
-        const resultText = extractText(record)
-        if (resultText) return resultText
-      }
-
-      // MiniMax's Anthropic-compatible endpoint can emit a complete assistant
-      // message without the terminal result frame expected by Claude Code.
-      // With tools disabled and maxTurns=1, the first assistant message is final.
-      if (type === 'assistant') {
-        const assistantText = extractText(record)
-        if (assistantText) return assistantText
-      }
-    }
-
-    throw new Error('Claude Agent SDK ended without text output')
-  })()
-
-  try {
-    return await Promise.race([consume, deadline])
-  } finally {
-    if (timeout) clearTimeout(timeout)
-    handle.close()
-  }
 }
 
 function sdkEnvironment(key: string): NodeJS.ProcessEnv {
@@ -171,9 +174,22 @@ function sdkEnvironment(key: string): NodeJS.ProcessEnv {
   }
 }
 
-async function runWithCredential(candidate: CredentialCandidate, input: QueryInput): Promise<string> {
+function statusForSdkMessage(record: Record<string, unknown>): string | null {
+  const type = typeof record.type === 'string' ? record.type : ''
+  const subtype = typeof record.subtype === 'string' ? record.subtype : ''
+
+  if (type === 'system' && subtype === 'init') return 'Claude Agent SDK 已初始化，等待模型输出'
+  if (type === 'assistant') return '已收到模型文本，正在整理最终响应'
+  if (type === 'result') return '已收到 Claude Agent SDK 最终结果'
+  return null
+}
+
+async function* streamWithCredential(
+  candidate: CredentialCandidate,
+  input: QueryInput
+): AsyncGenerator<AgentSdkStreamEvent, string, void> {
   const abortController = new AbortController()
-  const handle = query({
+  const handle: Query = query({
     prompt: input.prompt,
     options: {
       abortController,
@@ -183,31 +199,150 @@ async function runWithCredential(candidate: CredentialCandidate, input: QueryInp
       maxTurns: 1,
       tools: [],
       permissionMode: 'dontAsk',
-      persistSession: false
+      persistSession: false,
+      includePartialMessages: true
     }
   })
 
-  return collectFirstCompleteResponse(handle, abortController)
+  const iterator = handle[Symbol.asyncIterator]()
+  const startedAt = Date.now()
+  const deadlineAt = startedAt + attemptTimeoutMs()
+  let pendingNext = iterator.next()
+  let fullText = ''
+
+  try {
+    while (true) {
+      const remainingMs = deadlineAt - Date.now()
+      if (remainingMs <= 0) {
+        throw new Error(`Claude Agent SDK attempt timed out after ${attemptTimeoutMs()}ms`)
+      }
+
+      const outcome = await Promise.race([
+        pendingNext.then((value) => ({ kind: 'message' as const, value })),
+        new Promise<{ kind: 'heartbeat' }>((resolve) => {
+          setTimeout(() => resolve({ kind: 'heartbeat' }), Math.min(HEARTBEAT_INTERVAL_MS, remainingMs))
+        })
+      ])
+
+      if (outcome.kind === 'heartbeat') {
+        const elapsedMs = Date.now() - startedAt
+        yield {
+          type: 'status',
+          credentialSlot: candidate.slot,
+          elapsedMs,
+          message: `正在等待 ${candidate.slot} Key 的模型响应（${Math.floor(elapsedMs / 1000)} 秒）`
+        }
+        continue
+      }
+
+      if (outcome.value.done) break
+      pendingNext = iterator.next()
+
+      const message = outcome.value.value
+      if (!message || typeof message !== 'object') continue
+      const record = message as unknown as Record<string, unknown>
+
+      const status = statusForSdkMessage(record)
+      if (status) {
+        yield { type: 'status', message: status, credentialSlot: candidate.slot }
+      }
+
+      const streamDelta = extractSafeStreamDelta(record)
+      if (streamDelta) {
+        fullText += streamDelta
+        yield {
+          type: 'text',
+          delta: streamDelta,
+          text: fullText,
+          credentialSlot: candidate.slot
+        }
+      }
+
+      const type = typeof record.type === 'string' ? record.type : ''
+      if (type === 'assistant') {
+        const assistantText = extractText(record)
+        const appended = appendNonDuplicate(fullText, assistantText)
+        if (appended.delta) {
+          fullText = appended.text
+          yield {
+            type: 'text',
+            delta: appended.delta,
+            text: fullText,
+            credentialSlot: candidate.slot
+          }
+        }
+      }
+
+      if (type === 'result') {
+        if (record.subtype !== 'success' || record.is_error === true) {
+          throw resultError(record)
+        }
+
+        const resultText = extractText(record)
+        const appended = appendNonDuplicate(fullText, resultText)
+        if (appended.delta) {
+          fullText = appended.text
+          yield {
+            type: 'text',
+            delta: appended.delta,
+            text: fullText,
+            credentialSlot: candidate.slot
+          }
+        }
+
+        if (fullText) return fullText
+      }
+    }
+
+    if (fullText) return fullText
+    throw new Error('Claude Agent SDK ended without text output')
+  } finally {
+    abortController.abort()
+    handle.close()
+  }
 }
 
-async function runWithFailover(input: QueryInput): Promise<AgentSdkResult> {
+async function* streamWithFailover(
+  input: QueryInput,
+  fallbackText: string
+): AsyncGenerator<AgentSdkStreamEvent, void, void> {
   const candidates = credentialCandidates()
   if (!candidates.length) {
-    return {
-      text: '',
+    yield {
+      type: 'result',
+      text: fallbackText,
       usedLiveModel: false,
       usedAgentSdk: false,
       provider: 'deterministic-fallback',
       warnings: ['No Claude Agent SDK credential is configured.']
     }
+    return
   }
 
   const failures: string[] = []
 
   for (const candidate of candidates) {
+    yield {
+      type: 'status',
+      credentialSlot: candidate.slot,
+      message: `正在使用 ${candidate.slot} Key 启动 Claude Agent SDK（单次最长 600 秒）`
+    }
+
     try {
-      const text = await runWithCredential(candidate, input)
-      return {
+      const stream = streamWithCredential(candidate, input)
+      let text = ''
+
+      while (true) {
+        const next = await stream.next()
+        if (next.done) {
+          text = next.value
+          break
+        }
+        yield next.value
+      }
+
+      yield {
+        type: 'result',
         text,
         usedLiveModel: true,
         usedAgentSdk: true,
@@ -217,13 +352,23 @@ async function runWithFailover(input: QueryInput): Promise<AgentSdkResult> {
           ? [`Claude Agent SDK switched credentials after: ${failures.join(' | ')}`]
           : []
       }
+      return
     } catch (error) {
-      failures.push(`${candidate.slot}: ${error instanceof Error ? error.message : String(error)}`)
+      const reason = error instanceof Error ? error.message : String(error)
+      failures.push(`${candidate.slot}: ${reason}`)
+      yield {
+        type: 'status',
+        credentialSlot: candidate.slot,
+        message: candidate.slot === 'primary'
+          ? `primary Key 失败：${reason}；正在切换 fallback Key`
+          : `${candidate.slot} Key 失败：${reason}`
+      }
     }
   }
 
-  return {
-    text: '',
+  yield {
+    type: 'result',
+    text: fallbackText,
     usedLiveModel: false,
     usedAgentSdk: false,
     provider: 'claude-agent-sdk',
@@ -240,26 +385,41 @@ function localChatFallback(input: ChatRequest): string {
   ].filter(Boolean).join('\n\n')
 }
 
-export async function runAgentChat(input: ChatRequest): Promise<AgentSdkResult> {
-  const result = await runWithFailover({
+export function streamAgentChat(input: ChatRequest): AsyncGenerator<AgentSdkStreamEvent, void, void> {
+  return streamWithFailover({
     prompt: buildPrompt(input),
     systemPrompt: buildBusinessChatSystemPrompt(
       input.expertRole,
       input.businessContext,
       input.activeSkillDraft
     )
-  })
-
-  if (result.text) return result
-  return { ...result, text: localChatFallback(input) }
+  }, localChatFallback(input))
 }
 
-export async function draftSkillWithAgent(input: SkillDraftRequest): Promise<AgentSdkResult> {
-  const result = await runWithFailover({
+export function streamSkillDraft(input: SkillDraftRequest): AsyncGenerator<AgentSdkStreamEvent, void, void> {
+  return streamWithFailover({
     prompt: buildSkillDraftPrompt(input),
     systemPrompt: buildSkillCreatorSystemPrompt()
-  })
+  }, fallbackSkillDraft(input))
+}
 
-  if (result.text) return result
-  return { ...result, text: fallbackSkillDraft(input) }
+async function collectResult(stream: AsyncIterable<AgentSdkStreamEvent>): Promise<AgentSdkResult> {
+  let result: AgentSdkResult | undefined
+  for await (const event of stream) {
+    if (event.type === 'result') {
+      const { type: _type, ...value } = event
+      result = value
+    }
+  }
+
+  if (!result) throw new Error('Claude Agent SDK stream ended without a result event')
+  return result
+}
+
+export function runAgentChat(input: ChatRequest): Promise<AgentSdkResult> {
+  return collectResult(streamAgentChat(input))
+}
+
+export function draftSkillWithAgent(input: SkillDraftRequest): Promise<AgentSdkResult> {
+  return collectResult(streamSkillDraft(input))
 }
