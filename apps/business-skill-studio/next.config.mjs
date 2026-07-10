@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverExternalPackages: ['@anthropic-ai/claude-agent-sdk']
-  }
+  serverExternalPackages: ['@prisma/adapter-pg']
 }
 
 export default nextConfig
