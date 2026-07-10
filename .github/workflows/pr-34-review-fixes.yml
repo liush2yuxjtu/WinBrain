@@ -1,0 +1,212 @@
+name: Apply PR 34 review fixes
+
+on:
+  push:
+    branches:
+      - feat/saas-ai-workbench
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr-34-review-fixes
+  cancel-in-progress: false
+
+jobs:
+  patch-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Apply exact review fixes
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one match in {path}, found {count}: {old[:100]!r}")
+              target.write_text(text.replace(old, new, 1))
+
+          page = "apps/business-skill-studio/app/page.tsx"
+          replace_once(
+              page,
+              '''          <button className="command-button" type="button" aria-label="打开命令面板">
+            <span>⌕</span><span>搜索或运行命令</span><kbd>⌘ K</kbd>
+          </button>''',
+              '''          <button className="command-button" type="button" aria-label="打开命令面板" disabled>
+            <span>⌕</span><span>搜索或运行命令</span><kbd>⌘ K</kbd>
+          </button>'''
+          )
+          replace_once(
+              page,
+              '''              <button className="button primary hero-action" disabled={busy || messages.length < 2} type="button" onClick={generateDraft}>
+                <span>✦</span> 生成 Skill 草稿
+              </button>''',
+              '''              <button
+                className="button primary hero-action"
+                disabled={busy || messages.length < 2}
+                type="button"
+                onClick={() => {
+                  if (draft.trim() && !window.confirm('重新生成将覆盖您当前在编辑器中的修改，确定要重新生成吗？')) return
+                  void generateDraft()
+                }}
+              >
+                <span>✦</span> 生成 Skill 草稿
+              </button>'''
+          )
+          replace_once(
+              page,
+              '''                  <button className="button secondary" disabled={busy || !draft} type="button" onClick={() => setDraft('')}>清空</button>''',
+              '''                  <button
+                    className="button secondary"
+                    disabled={busy || !draft}
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('确定要清空当前生成的草稿吗？此操作不可撤销。')) setDraft('')
+                    }}
+                  >
+                    清空
+                  </button>'''
+          )
+          replace_once(
+              page,
+              '''            <button type="button" className="icon-button" aria-label="AI 助手菜单">•••</button>''',
+              '''            <button type="button" className="icon-button" aria-label="AI 助手菜单" disabled>•••</button>'''
+          )
+          replace_once(
+              page,
+              '''            <div className="context-chips">
+              <button type="button">@ {selectedOrganization?.name || '当前公司'}</button>
+              <button type="button"># {expertRole}</button>
+              {draft ? <button type="button">◇ SKILL.md</button> : null}
+            </div>''',
+              '''            <div className="context-chips">
+              <span className="context-chip">@ {selectedOrganization?.name || '当前公司'}</span>
+              {expertRole.trim() ? <span className="context-chip"># {expertRole}</span> : null}
+              {draft ? <span className="context-chip">◇ SKILL.md</span> : null}
+            </div>'''
+          )
+          replace_once(
+              page,
+              '''              <div className="composer-tools"><button type="button" aria-label="添加上下文">＋</button><span>Agent</span></div>''',
+              '''              <div className="composer-tools"><button type="button" aria-label="添加上下文" disabled>＋</button><span>Agent</span></div>'''
+          )
+
+          replace_once(
+              "apps/business-skill-studio/app/assistant-panel.css",
+              ".context-chips button{",
+              ".context-chips .context-chip{"
+          )
+          replace_once(
+              "apps/business-skill-studio/app/workbench.css",
+              'font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace',
+              'font-family:SFMono-Regular,Consolas,"Liberation Mono",monospace'
+          )
+
+          shell = "apps/business-skill-studio/components/studio-shell.tsx"
+          replace_once(
+              shell,
+              '''import { useEffect, useState, type ReactNode } from 'react' ''',
+              '''import Link from 'next/link'\nimport { useEffect, useState, type ReactNode } from 'react' '''
+          )
+          replace_once(
+              shell,
+              '''  { href: '/settings#data-sources', label: '数据源', icon: '⌁', active: (location: string) => location === '/settings#data-sources' },
+  { href: '/settings', label: '设置', icon: '⚙', active: (location: string) => location === '/settings' }''',
+              '''  { href: '/settings#data-sources', label: '数据源', icon: '⌁', active: (location: string) => location.startsWith('/settings') && location.includes('#data-sources') },
+  { href: '/settings', label: '设置', icon: '⚙', active: (location: string) => location.startsWith('/settings') && !location.includes('#data-sources') }'''
+          )
+          replace_once(
+              shell,
+              '''    const syncLocation = () => setActiveLocation(`${window.location.pathname}${window.location.hash}`)''',
+              '''    const syncLocation = () => setActiveLocation(`${window.location.pathname}${window.location.search}${window.location.hash}`)'''
+          )
+          replace_once(
+              shell,
+              '''        <a className="sidebar-create" href="/#expert-interview" onClick={() => setMobileOpen(false)}>
+          <span aria-hidden="true">＋</span><b>新建 Skill</b>
+        </a>''',
+              '''        <Link className="sidebar-create" href="/#expert-interview" onClick={() => setMobileOpen(false)}>
+          <span aria-hidden="true">＋</span><b>新建 Skill</b>
+        </Link>'''
+          )
+          old_nav = '''            <a
+              className={`sidebar-nav-item${item.active(activeLocation) ? ' active' : ''}`}
+              href={item.href}
+              key={item.href}
+              onClick={() => setMobileOpen(false)}
+            >
+              <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+              <span className="nav-text">{item.label}</span>
+            </a>'''
+          new_nav = '''            <Link
+              className={`sidebar-nav-item${item.active(activeLocation) ? ' active' : ''}`}
+              href={item.href}
+              key={item.href}
+              onClick={() => setMobileOpen(false)}
+            >
+              <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+              <span className="nav-text">{item.label}</span>
+            </Link>'''
+          target = Path(shell)
+          text = target.read_text()
+          count = text.count(old_nav)
+          if count != 2:
+              raise SystemExit(f"Expected two navigation anchor blocks, found {count}")
+          target.write_text(text.replace(old_nav, new_nav))
+
+          replace_once(
+              "apps/business-skill-studio/components/settings-client.tsx",
+              '''        <form className="settings-card settings-card-wide" onSubmit={submitDataSource}>''',
+              '''        <form className="settings-card settings-card-wide" id="data-sources" onSubmit={submitDataSource}>'''
+          )
+
+          workflow = ".github/workflows/repository-export.yml"
+          expression_old_ref = "$" + "{{ github.event.pull_request.head.ref }}"
+          expression_new_ref = "$" + "{{ github.event.pull_request.head.sha }}"
+          expression_number = "$" + "{{ github.event.pull_request.number }}"
+          replace_once(
+              workflow,
+              f'''          ref: {expression_old_ref}\n          fetch-depth: 0''',
+              f'''          ref: {expression_new_ref}\n          fetch-depth: 0\n          persist-credentials: false'''
+          )
+          replace_once(
+              workflow,
+              "        run: git fetch --force origin '+refs/heads/*:refs/remotes/origin/*' '+refs/pull/*/head:refs/remotes/pull/*/head'",
+              f"        run: git fetch --force origin '+refs/heads/*:refs/remotes/origin/*' '+refs/pull/{expression_number}/head:refs/remotes/pull/{expression_number}/head'"
+          )
+          PY
+
+      - name: Install dependencies
+        working-directory: apps/business-skill-studio
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: apps/business-skill-studio
+        run: npm run typecheck
+
+      - name: Commit validated fixes
+        shell: bash
+        run: |
+          rm .github/workflows/pr-34-review-fixes.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/repository-export.yml \
+            apps/business-skill-studio/app/page.tsx \
+            apps/business-skill-studio/app/assistant-panel.css \
+            apps/business-skill-studio/app/workbench.css \
+            apps/business-skill-studio/components/studio-shell.tsx \
+            apps/business-skill-studio/components/settings-client.tsx \
+            .github/workflows/pr-34-review-fixes.yml
+          git commit -m "fix: address PR review feedback"
+          git push origin HEAD:${{ github.ref_name }}
