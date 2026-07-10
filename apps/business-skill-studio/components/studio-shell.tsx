@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, type ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 
 type StudioShellProps = {
   children: ReactNode
@@ -10,12 +11,14 @@ type StudioShellProps = {
 }
 
 const navigation = [
-  { href: '#studio-home', label: 'Skill 工作台', icon: '✦' },
-  { href: '#expert-interview', label: '专家访谈', icon: '⌁' },
-  { href: '#skill-draft', label: 'Skill 草稿', icon: '◇' }
+  { href: '/#studio-home', hash: '#studio-home', label: 'Skill 工作台', icon: '✦' },
+  { href: '/#expert-interview', hash: '#expert-interview', label: '专家访谈', icon: '⌁' },
+  { href: '/#skill-draft', hash: '#skill-draft', label: 'Skill 草稿', icon: '◇' },
+  { href: '/skills', path: '/skills', label: 'Skill 库', icon: '▦' }
 ]
 
 export function StudioShell({ children, userName, userEmail, signOutAction }: StudioShellProps) {
+  const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [activeHash, setActiveHash] = useState('#studio-home')
@@ -32,7 +35,17 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
     window.addEventListener('hashchange', syncActiveHash)
 
     return () => window.removeEventListener('hashchange', syncActiveHash)
-  }, [])
+  }, [pathname])
+
+  useEffect(() => {
+    if (!mobileOpen) return
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [mobileOpen])
 
   function toggleSidebar() {
     const next = !collapsed
@@ -69,13 +82,18 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
 
         <nav className="sidebar-nav">
           <p className="nav-label">工作流</p>
-          {navigation.map((item) => (
-            <a
-              className={`sidebar-nav-item${activeHash === item.href ? ' active' : ''}`}
+          {navigation.map((item) => {
+            const isActive = item.path ? pathname.startsWith(item.path) : pathname === '/' && activeHash === item.hash
+
+            return (
+              <a
+              className={`sidebar-nav-item${isActive ? ' active' : ''}`}
               href={item.href}
               key={item.href}
+              aria-label={item.label}
+              aria-current={isActive ? 'page' : undefined}
               onClick={() => {
-                setActiveHash(item.href)
+                if (item.hash) setActiveHash(item.hash)
                 setMobileOpen(false)
               }}
             >
@@ -83,7 +101,8 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
               <span className="nav-text">{item.label}</span>
               <span className="nav-chevron" aria-hidden="true">›</span>
             </a>
-          ))}
+            )
+          })}
         </nav>
 
         <div className="sidebar-footer">

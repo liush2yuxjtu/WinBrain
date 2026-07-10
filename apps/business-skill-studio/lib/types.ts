@@ -34,10 +34,20 @@ export interface SkillSaveRequest {
   skillName: string
   skillMarkdown: string
   evalsJson?: string
+  overwrite?: boolean
 }
 
 export interface StoredSkillSummary {
   name: string
+  title: string
+  description: string
   path: string
   updatedAt: string
+  sizeBytes: number
+  hasEvals: boolean
+}
+
+export interface StoredSkillDetail extends StoredSkillSummary {
+  skillMarkdown: string
+  evalsJson: string | null
 }

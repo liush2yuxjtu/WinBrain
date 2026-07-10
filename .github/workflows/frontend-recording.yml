@@ -79,11 +79,11 @@ jobs:
           echo "Frontend response timeout: ${FRONTEND_API_RESPONSE_TIMEOUT_MS}ms"
 
       - name: Install root npm dependencies
-        run: npm install
+        run: npm ci
 
       - name: Install Business Skill Studio dependencies
         working-directory: apps/business-skill-studio
-        run: npm install --no-package-lock --legacy-peer-deps
+        run: npm ci
 
       - name: Install Chrome for Playwright
         run: |

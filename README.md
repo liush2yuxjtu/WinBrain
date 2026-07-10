@@ -8,6 +8,8 @@ This repository is configured with Playwright-based PR evidence automation and p
 
 `apps/business-skill-studio` is a Next.js MVP that lets business experts chat with AI and turn recurring expert workflows into reusable Claude skills.
 
+The authenticated `/skills` workspace manages locally generated skills with search, filtering, creation/import, `SKILL.md` and eval editing, JSON backup export, and confirmed deletion.
+
 It uses these project-level assets:
 
 - `.agents/skills/skill-creator/` — Anthropic-inspired workflow for drafting `SKILL.md` and `evals/evals.json`.

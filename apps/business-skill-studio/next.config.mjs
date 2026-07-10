@@ -1,8 +1,9 @@
+import { fileURLToPath } from 'node:url'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverExternalPackages: ['@anthropic-ai/claude-agent-sdk']
-  }
+  outputFileTracingRoot: fileURLToPath(new URL('.', import.meta.url)),
+  serverExternalPackages: ['@anthropic-ai/claude-agent-sdk']
 }
 
 export default nextConfig
