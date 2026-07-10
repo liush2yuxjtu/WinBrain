@@ -126,6 +126,7 @@ function incrementCount(counts: Record<string, number>, key: string): void {
 }
 
 export class AgentSdkAttemptProfiler {
+  private readonly enabled: boolean
   private readonly startedAt: number
   private readonly messageTypes: Record<string, number> = {}
   private finished = false
@@ -150,7 +151,9 @@ export class AgentSdkAttemptProfiler {
     readonly credentialSlot: string,
     private readonly now: () => number
   ) {
-    this.startedAt = now()
+    this.enabled = trace.isEnabled()
+    this.startedAt = this.enabled ? now() : 0
+    if (!this.enabled) return
     this.trace.logVerbose('attempt.start', {
       attempt,
       credentialSlot,
@@ -159,10 +162,12 @@ export class AgentSdkAttemptProfiler {
   }
 
   markQueryReady(): void {
+    if (!this.enabled) return
     this.markOnce('query.ready', 'querySetupMs')
   }
 
   observeMessage(message: Record<string, unknown>): void {
+    if (!this.enabled) return
     const elapsedMs = this.elapsedMs()
     const type = typeof message.type === 'string' && message.type ? message.type : 'unknown'
     const subtype = typeof message.subtype === 'string' && message.subtype ? message.subtype : undefined
@@ -210,6 +215,7 @@ export class AgentSdkAttemptProfiler {
   }
 
   markTextAvailable(): void {
+    if (!this.enabled) return
     if (this.timeToFirstTextMs !== undefined) return
     const elapsedMs = this.elapsedMs()
     this.timeToFirstTextMs = elapsedMs
@@ -217,6 +223,7 @@ export class AgentSdkAttemptProfiler {
   }
 
   recordTextDelta(charCount: number): void {
+    if (!this.enabled) return
     if (!Number.isFinite(charCount) || charCount <= 0) return
     this.markTextAvailable()
     this.textDeltaCount += 1
@@ -224,16 +231,19 @@ export class AgentSdkAttemptProfiler {
   }
 
   recordHeartbeat(): void {
+    if (!this.enabled) return
     this.heartbeatCount += 1
   }
 
   beginCleanup(): void {
+    if (!this.enabled) return
     if (this.cleanupStartedAt === undefined) this.cleanupStartedAt = this.now()
   }
 
   finish(input: AgentSdkAttemptFinish): void {
     if (this.finished) return
     this.finished = true
+    if (!this.enabled) return
 
     const finishedAt = this.now()
     const summary: AgentSdkAttemptSummary = {
@@ -293,6 +303,7 @@ export class AgentSdkProfiler {
   readonly traceId: string
   private readonly startedAt: number
   private readonly attempts: AgentSdkAttemptSummary[] = []
+  private readonly enabled: boolean
   private readonly mode: AgentSdkProfileMode
   private readonly now: () => number
   private readonly timestamp: () => string
@@ -305,11 +316,12 @@ export class AgentSdkProfiler {
     dependencies: AgentSdkProfileDependencies = {}
   ) {
     this.mode = dependencies.mode ?? resolveAgentSdkProfileMode()
+    this.enabled = this.mode !== 'off'
     this.now = dependencies.now ?? (() => performance.now())
     this.timestamp = dependencies.timestamp ?? (() => new Date().toISOString())
     this.sink = dependencies.sink ?? defaultSink
-    this.traceId = (dependencies.createTraceId ?? randomUUID)()
-    this.startedAt = this.now()
+    this.traceId = this.enabled ? (dependencies.createTraceId ?? randomUUID)() : 'disabled'
+    this.startedAt = this.enabled ? this.now() : 0
 
     this.logVerbose('trace.start', {
       promptChars: context.promptChars,
@@ -325,6 +337,7 @@ export class AgentSdkProfiler {
   finish(input: AgentSdkTraceFinish): void {
     if (this.finished) return
     this.finished = true
+    if (!this.enabled) return
 
     const attemptDurationMs = roundedMs(this.attempts.reduce((total, attempt) => total + attempt.durationMs, 0))
     const durationMs = this.elapsedMs()
@@ -347,10 +360,15 @@ export class AgentSdkProfiler {
   }
 
   elapsedMs(): number {
-    return roundedMs(this.now() - this.startedAt)
+    return this.enabled ? roundedMs(this.now() - this.startedAt) : 0
+  }
+
+  isEnabled(): boolean {
+    return this.enabled
   }
 
   recordAttempt(summary: AgentSdkAttemptSummary): void {
+    if (!this.enabled) return
     this.attempts.push(summary)
   }
 
