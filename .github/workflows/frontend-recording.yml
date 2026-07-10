@@ -25,18 +25,15 @@ permissions:
 
 jobs:
   record:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
+    environment: uat
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      ANTHROPIC_API_KEY_PRIMARY: ${{ secrets.ANTHROPIC_API_KEY_PRIMARY }}
-      ANTHROPIC_API_KEY_FALLBACK: ${{ secrets.ANTHROPIC_API_KEY_FALLBACK }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
-      ANTHROPIC_BASE_URL: ${{ vars.ANTHROPIC_BASE_URL }}
-      ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
-      ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ vars.ANTHROPIC_DEFAULT_SONNET_MODEL }}
-      ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ vars.ANTHROPIC_DEFAULT_OPUS_MODEL }}
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.ANTHROPIC_DEFAULT_HAIKU_MODEL }}
+      KIMI_API_KEY_PRIMARY: ${{ secrets.KIMI_API_KEY_PRIMARY }}
+      KIMI_API_KEY_FALLBACK: ${{ secrets.KIMI_API_KEY_FALLBACK }}
+      KIMI_BASE_URL: https://api.kimi.com/coding/
+      KIMI_THINKING_TOKENS: '32768'
       API_TIMEOUT_MS: ${{ vars.API_TIMEOUT_MS }}
       API_MAX_INPUT_TOKENS: ${{ vars.API_MAX_INPUT_TOKENS }}
       AGENT_SDK_ATTEMPT_TIMEOUT_MS: '600000'
@@ -65,22 +62,24 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Verify Agent SDK credentials
+      - name: Verify Kimi Code UAT credentials
         shell: bash
         run: |
-          if [ -z "$ANTHROPIC_API_KEY_PRIMARY" ]; then
-            echo "::error::Repository secret ANTHROPIC_API_KEY_PRIMARY is not configured."
+          set -euo pipefail
+          if [ -z "$KIMI_API_KEY_PRIMARY" ]; then
+            echo "::error::Protected UAT secret KIMI_API_KEY_PRIMARY is not configured."
             exit 1
           fi
-          if [ -z "$ANTHROPIC_API_KEY_FALLBACK" ]; then
-            echo "::error::Repository secret ANTHROPIC_API_KEY_FALLBACK is not configured."
+          if [ -n "$KIMI_API_KEY_FALLBACK" ] && [ "$KIMI_API_KEY_PRIMARY" = "$KIMI_API_KEY_FALLBACK" ]; then
+            echo "::error::KIMI_API_KEY_FALLBACK must be different from KIMI_API_KEY_PRIMARY."
             exit 1
           fi
-          if [ -z "$ANTHROPIC_BASE_URL" ] || [ -z "$ANTHROPIC_MODEL" ]; then
-            echo "::error::ANTHROPIC_BASE_URL and ANTHROPIC_MODEL repository variables are required."
-            exit 1
+          if [ -z "$KIMI_API_KEY_FALLBACK" ]; then
+            echo "::warning::KIMI_API_KEY_FALLBACK is not configured; live UAT will validate the primary credential only."
           fi
-          echo "Claude Agent SDK primary/fallback credentials are configured."
+          test "$KIMI_BASE_URL" = "https://api.kimi.com/coding/"
+          echo "Kimi Code UAT credential is configured in the protected environment."
+          echo "Kimi endpoint: $KIMI_BASE_URL"
           echo "Per-key timeout: ${AGENT_SDK_ATTEMPT_TIMEOUT_MS}ms"
           echo "Frontend response timeout: ${FRONTEND_API_RESPONSE_TIMEOUT_MS}ms"
 
@@ -170,7 +169,7 @@ jobs:
           echo "recorder=$recorder" >> "$GITHUB_OUTPUT"
           echo "renderer=$renderer" >> "$GITHUB_OUTPUT"
 
-      - name: Record Business Skill Studio frontend
+      - name: Record Business Skill Studio frontend with live Kimi
         id: record_frontend
         if: ${{ steps.build_app.outcome == 'success' }}
         continue-on-error: true
@@ -262,7 +261,7 @@ jobs:
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
           TEST_OUTCOME: ${{ steps.build_app.outcome == 'failure' && 'failure' || steps.record_frontend.outcome }}
           GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          EVIDENCE_TITLE: Business Skill Studio 前端录屏证据
+          EVIDENCE_TITLE: Kimi 真实模型功能录屏证据
           EVIDENCE_MARKER: business-skill-studio-recording
           EVIDENCE_MEDIA_PATH: ${{ steps.publish_media.outputs.media_path }}
           EVIDENCE_MEDIA_REF: ${{ steps.publish_media.outputs.media_ref }}
