@@ -16,7 +16,9 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
+    "pretest:unit": "prisma generate",
     "test:unit": "node --import tsx --test tests/filesystem-skill-repository.test.ts tests/skill-store-validation.test.ts",
+    "pretest:integration": "prisma generate",
     "test:integration": "node --import tsx --test tests/prisma-skill-repository.integration.test.ts"
   },
   "dependencies": {
