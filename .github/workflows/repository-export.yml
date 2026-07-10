@@ -1,0 +1,31 @@
+name: Repository Export
+
+on:
+  pull_request:
+    types: [synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: github.repository == 'liush2yuxjtu/WinBrain'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout full repository
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch all branch and PR refs
+        run: git fetch --force origin '+refs/heads/*:refs/remotes/origin/*' '+refs/pull/${{ github.event.pull_request.number }}/head:refs/remotes/pull/${{ github.event.pull_request.number }}/head'
+      - name: Create portable Git bundle
+        run: git bundle create repository.bundle --all
+      - name: Upload repository snapshot
+        uses: actions/upload-artifact@v5
+        with:
+          name: repository-export-${{ github.event.pull_request.number }}-${{ github.run_id }}
+          path: repository.bundle
+          retention-days: 1

@@ -223,7 +223,7 @@ export function SettingsClient() {
           </form>
         </div>
 
-        <form className="settings-card settings-card-wide" onSubmit={submitDataSource}>
+        <form className="settings-card settings-card-wide" id="data-sources" onSubmit={submitDataSource}>
           <div className="settings-card-header">
             <span>03</span><div><h2>配置并检测业务数据库</h2><p>支持 MySQL 和 OceanBase MySQL 模式。建议为 WinBrain 创建只读专用账号。</p></div>
             <button className="button secondary" type="button" onClick={useLocalFmcgPreset}>填入本地 FMCG 测试库</button>

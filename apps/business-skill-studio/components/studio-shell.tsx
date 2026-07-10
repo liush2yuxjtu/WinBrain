@@ -1,5 +1,6 @@
 "use client"
 
+import Link from 'next/link'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 
@@ -11,12 +12,12 @@ type StudioShellProps = {
 }
 
 const navigation = [
-  { href: '/#studio-home', hash: '#studio-home', label: 'Skill 工作台', icon: '✦' },
-  { href: '/#expert-interview', hash: '#expert-interview', label: '专家访谈', icon: '⌁' },
-  { href: '/#skill-draft', hash: '#skill-draft', label: 'Skill 草稿', icon: '◇' },
-  { href: '/skills', path: '/skills', label: 'Skill 库', icon: '▦' },
+  { href: '/#studio-home', hash: '#studio-home', label: '概览', icon: '⌂' },
+  { href: '/skills', path: '/skills', label: 'Skill 库', icon: '◇' },
+  { href: '/#expert-interview', hash: '#expert-interview', label: '业务专家', icon: '◎' },
+  { href: '/settings#data-sources', path: '/settings', hash: '#data-sources', label: '数据源', icon: '⌁' },
   { href: '/database', path: '/database', label: '数据库探索', icon: '▤' },
-  { href: '/settings', path: '/settings', label: '公司与数据源', icon: '⚙' }
+  { href: '/settings', path: '/settings', label: '设置', icon: '⚙' }
 ]
 
 export function StudioShell({ children, userName, userEmail, signOutAction }: StudioShellProps) {
@@ -87,23 +88,29 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
         inert={mobileViewport && !mobileOpen}
       >
         <div className="sidebar-brand">
-          <img src="/winbrain-logo.svg" alt="" width="44" height="44" />
+          <img src="/winbrain-logo.svg" alt="" width="38" height="38" />
           <div className="brand-copy">
             <strong>WinBrain</strong>
-            <span>Business Skill Studio</span>
+            <span>AI Operations Workspace</span>
           </div>
           <button className="sidebar-collapse" type="button" aria-label={collapsed ? '展开侧边栏' : '折叠侧边栏'} aria-expanded={!collapsed} onClick={toggleSidebar}>
             {collapsed ? '›' : '‹'}
           </button>
         </div>
 
+        <Link className="sidebar-create" href="/#expert-interview" onClick={() => setMobileOpen(false)}>
+          <span aria-hidden="true">＋</span><b>新建 Skill</b>
+        </Link>
+
         <nav className="sidebar-nav">
-          <p className="nav-label">工作流</p>
-          {navigation.map((item) => {
-            const isActive = item.path ? pathname.startsWith(item.path) : pathname === '/' && activeHash === item.hash
+          <p className="nav-label">工作区</p>
+          {navigation.slice(0, 3).map((item) => {
+            const isActive = item.hash
+              ? pathname === '/' && activeHash === item.hash
+              : item.path ? pathname.startsWith(item.path) : false
 
             return (
-              <a
+              <Link
               className={`sidebar-nav-item${isActive ? ' active' : ''}`}
               href={item.href}
               key={item.href}
@@ -117,8 +124,32 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
             >
               <span className="nav-icon" aria-hidden="true">{item.icon}</span>
               <span className="nav-text">{item.label}</span>
-              <span className="nav-chevron" aria-hidden="true">›</span>
-            </a>
+            </Link>
+            )
+          })}
+
+          <p className="nav-label nav-label-secondary">管理</p>
+          {navigation.slice(3).map((item) => {
+            const isActive = item.hash
+              ? pathname.startsWith(item.path || '') && activeHash === item.hash
+              : item.path ? pathname.startsWith(item.path) && activeHash !== '#data-sources' : false
+
+            return (
+              <Link
+              className={`sidebar-nav-item${isActive ? ' active' : ''}`}
+              href={item.href}
+              key={item.href}
+              aria-label={item.label}
+              aria-current={isActive ? 'page' : undefined}
+              onClick={() => {
+                if (item.hash) setActiveHash(item.hash)
+                setMobileOpen(false)
+                if (mobileViewport) window.requestAnimationFrame(() => mobileMenuButtonRef.current?.focus())
+              }}
+            >
+              <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+              <span className="nav-text">{item.label}</span>
+            </Link>
             )
           })}
         </nav>
