@@ -6,8 +6,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
-  issues: write
 
 concurrency:
   group: maintain-pr-34
@@ -30,12 +28,12 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Merge latest main or report conflicts
+      - name: Merge latest main or persist conflict list
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
           REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -46,9 +44,12 @@ jobs:
           set -e
           if [ "$rc" -ne 0 ]; then
             conflicts="$(git diff --name-only --diff-filter=U)"
-            body=$(printf 'PR #34 merge conflict diagnosis:\n\n```\n%s\n```' "$conflicts")
-            gh api "repos/${REPOSITORY}/issues/${PR_NUMBER}/comments" -f body="$body"
             git merge --abort
+            printf '%s\n' "$conflicts" > .pr-34-conflicts.txt
+            git add .pr-34-conflicts.txt
+            git commit -m "chore: record PR 34 merge conflicts"
+            git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
+            git push origin "HEAD:${HEAD_REF}"
             exit 1
           fi
 
@@ -71,6 +72,8 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           REPOSITORY: ${{ github.repository }}
         run: |
+          rm -f .pr-34-conflicts.txt
+          git add -A
           git commit -m "merge: synchronize PR 34 with main"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
           git push origin "HEAD:${HEAD_REF}"
