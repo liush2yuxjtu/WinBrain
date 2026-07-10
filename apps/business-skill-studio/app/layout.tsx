@@ -2,6 +2,7 @@ import './globals.css'
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { auth, signOut } from '@/auth'
+import { StudioShell } from '@/components/studio-shell'
 
 export const metadata: Metadata = {
   title: 'WinBrain Business Skill Studio',
@@ -21,17 +22,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="zh-CN">
       <body>
         {session?.user ? (
-          <header className="app-shell-header">
-            <div>
-              <strong>{session.user.name || session.user.email}</strong>
-              <span>{session.user.email}</span>
-            </div>
-            <form action={signOutAction}>
-              <button className="secondary" type="submit">退出登录</button>
-            </form>
-          </header>
-        ) : null}
-        {children}
+          <StudioShell
+            userName={session.user.name || session.user.email || 'WinBrain 用户'}
+            userEmail={session.user.email}
+            signOutAction={signOutAction}
+          >
+            {children}
+          </StudioShell>
+        ) : children}
       </body>
     </html>
   )
