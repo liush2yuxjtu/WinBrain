@@ -56,13 +56,13 @@ jobs:
 
       - name: Verify Agent SDK credentials
         shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            echo "::notice::Using the deterministic SDK stub for stable visual PR evidence."
-          elif [ -z "$ANTHROPIC_API_KEY" ]; then
-            echo "::error::Repository secret ANTHROPIC_API_KEY is not configured."
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::Repository secret ANTHROPIC_API_KEY is not configured. Refusing to record the deterministic fallback."
+            exit 1
+          fi
+          if [ -z "$ANTHROPIC_BASE_URL" ] || [ -z "$ANTHROPIC_MODEL" ]; then
+            echo "::error::ANTHROPIC_BASE_URL and ANTHROPIC_MODEL repository variables are required."
             exit 1
           fi
 
@@ -71,18 +71,7 @@ jobs:
 
       - name: Install Business Skill Studio dependencies
         working-directory: apps/business-skill-studio
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            cp package.json package.recording.original.json
-            node -e 'const fs=require("node:fs"); const pkg=JSON.parse(fs.readFileSync("package.json", "utf8")); if (pkg.dependencies) delete pkg.dependencies["@anthropic-ai/claude-agent-sdk"]; fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n")'
-            npm install --no-package-lock --legacy-peer-deps
-            node -e 'const fs=require("node:fs"); const dir="node_modules/@anthropic-ai/claude-agent-sdk"; fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(dir + "/package.json", JSON.stringify({ name: "@anthropic-ai/claude-agent-sdk", version: "0.0.0-recording-stub", type: "module", main: "index.js" }) + "\n"); fs.writeFileSync(dir + "/index.js", "export async function* query() {\n  yield { text: \"Recording stub response from Claude Agent SDK.\" }\n}\n")'
-            mv package.recording.original.json package.json
-          else
-            npm install --no-package-lock --legacy-peer-deps
-          fi
+        run: npm install --no-package-lock --legacy-peer-deps
 
       - name: Install Chrome for Playwright
         run: |
@@ -103,16 +92,17 @@ jobs:
 
       - name: Upload frontend recording artifact backup
         id: upload
+        if: ${{ always() && !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: frontend-playwright-recording
           path: artifacts/frontend-recording
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
 
       - name: Publish frontend recording media to PR branch
         id: publish_media
-        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        if: ${{ success() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
         shell: bash
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -167,7 +157,7 @@ jobs:
           echo "media_ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Update PR body with inline frontend recording
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ success() && github.event_name == 'pull_request' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
