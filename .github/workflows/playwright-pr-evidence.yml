@@ -138,7 +138,7 @@ jobs:
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
           TEST_OUTCOME: ${{ steps.playwright.outcome }}
           GITHUB_SHA: ${{ github.sha }}
-          EVIDENCE_TITLE: Playwright PR evidence
+          EVIDENCE_TITLE: Playwright PR 视觉证据
           EVIDENCE_MARKER: playwright-evidence
           EVIDENCE_MEDIA_PATH: ${{ steps.publish_media.outputs.media_path }}
           EVIDENCE_MEDIA_REF: ${{ steps.publish_media.outputs.media_ref }}
