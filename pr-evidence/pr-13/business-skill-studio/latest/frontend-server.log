@@ -19,17 +19,17 @@ This information is used to shape Next.js' roadmap and prioritize features.
 You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
 https://nextjs.org/telemetry
 
- ✓ Ready in 1515ms
+ ✓ Ready in 1498ms
  ○ Compiling / ...
- ✓ Compiled / in 4.7s (544 modules)
- GET / 200 in 857ms
- GET / 200 in 301ms
+ ✓ Compiled / in 5s (544 modules)
+ GET / 200 in 850ms
+ GET / 200 in 273ms
  ○ Compiling /api/chat ...
- ✓ Compiled /api/chat in 4s (706 modules)
- POST /api/chat 200 in 4574ms
+ ✓ Compiled /api/chat in 4.4s (706 modules)
+ POST /api/chat 200 in 4905ms
  ○ Compiling /api/skills/draft ...
- ✓ Compiled /api/skills/draft in 756ms (708 modules)
- POST /api/skills/draft 200 in 1017ms
+ ✓ Compiled /api/skills/draft in 856ms (708 modules)
+ POST /api/skills/draft 200 in 1103ms
 
 [frontend process exited] code=null signal=SIGTERM
 [?25h
