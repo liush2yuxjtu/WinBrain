@@ -121,7 +121,7 @@ function buildIndex(raw: RawSchema): SchemaIndex {
       name: text(item.INDEX_NAME),
       columnName: text(item.COLUMN_NAME),
       sequence: numberOrNull(item.SEQ_IN_INDEX) || 0,
-      unique: item.NON_UNIQUE === 0,
+      unique: Number(item.NON_UNIQUE) === 0,
       type: text(item.INDEX_TYPE)
     })
   }
@@ -186,8 +186,7 @@ function searchTokens(query: string): string[] {
   return Array.from(new Set([normalized, ...matches, ...hanNgrams])).slice(0, 32)
 }
 
-function scoreTable(index: SchemaIndex, table: DatabaseTableSummary, query: string): number {
-  const tokens = searchTokens(query)
+function scoreTable(index: SchemaIndex, table: DatabaseTableSummary, query: string, tokens: string[]): number {
   if (!tokens.length) return table.isBackup ? -20 : 1
 
   const name = table.tableName.toLocaleLowerCase()
@@ -210,7 +209,7 @@ export async function getDatabaseCatalog(query = '', limit = 500): Promise<Datab
   const index = await loadSchemaIndex()
   const tokens = searchTokens(query)
   const scored = index.summaries
-    .map((table, position) => ({ table, position, score: scoreTable(index, table, query) }))
+    .map((table, position) => ({ table, position, score: scoreTable(index, table, query, tokens) }))
     .filter((entry) => !tokens.length || entry.score > 0)
     .sort((a, b) => b.score - a.score || Number(a.table.isBackup) - Number(b.table.isBackup) || a.position - b.position)
 
