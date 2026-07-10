@@ -3,6 +3,17 @@
 import { FormEvent, useState } from 'react'
 import type { ChatResponse, StudioChatMessage } from '@/lib/types'
 
+type ProgressiveEvent = {
+  type?: 'status' | 'text' | 'result'
+  message?: string | StudioChatMessage
+  delta?: string
+  text?: string
+  warnings?: string[]
+  usedAgentSdk?: boolean
+  provider?: string
+  credentialSlot?: string
+}
+
 function newMessage(role: 'user' | 'assistant', content: string): StudioChatMessage {
   return { id: crypto.randomUUID(), role, content, createdAt: new Date().toISOString() }
 }
@@ -19,6 +30,50 @@ async function readError(response: Response): Promise<Error> {
   return new Error(errorBody?.error || `Server returned status ${response.status}`)
 }
 
+async function consumeProgressiveResponse(
+  response: Response,
+  onEvent: (event: ProgressiveEvent) => void
+): Promise<ProgressiveEvent> {
+  if (!response.ok) throw await readError(response)
+
+  if (!response.body) {
+    const result = await response.json() as ProgressiveEvent
+    const event = { ...result, type: 'result' as const }
+    onEvent(event)
+    return event
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let finalEvent: ProgressiveEvent | undefined
+
+  const processLine = (line: string) => {
+    let value = line.trim()
+    if (!value || value === '{"events":[' || value.startsWith('],')) return
+    if (value.startsWith(',')) value = value.slice(1)
+
+    const event = JSON.parse(value) as ProgressiveEvent
+    onEvent(event)
+    if (event.type === 'result') finalEvent = event
+  }
+
+  while (true) {
+    const { value, done } = await reader.read()
+    buffer += decoder.decode(value, { stream: !done })
+
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+    for (const line of lines) processLine(line)
+
+    if (done) break
+  }
+
+  if (buffer.trim()) processLine(buffer)
+  if (!finalEvent) throw new Error('Agent SDK stream ended without a final result')
+  return finalEvent
+}
+
 export default function Home() {
   const [expertRole, setExpertRole] = useState('销售运营专家')
   const [businessGoal, setBusinessGoal] = useState('把客户续约风险评审流程沉淀成可复用的 skill')
@@ -30,6 +85,7 @@ export default function Home() {
   const [draft, setDraft] = useState('')
   const [warnings, setWarnings] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
+  const [streamStatus, setStreamStatus] = useState('')
   const [savedPath, setSavedPath] = useState('')
 
   async function sendMessage(event: FormEvent) {
@@ -37,9 +93,18 @@ export default function Home() {
     if (!input.trim() || busy) return
 
     const nextMessages = [...messages, newMessage('user', input.trim())]
-    setMessages(nextMessages)
+    const assistantId = crypto.randomUUID()
+    const assistantPlaceholder: StudioChatMessage = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      createdAt: new Date().toISOString()
+    }
+
+    setMessages([...nextMessages, assistantPlaceholder])
     setInput('')
     setBusy(true)
+    setStreamStatus('正在连接 Claude Agent SDK')
     setWarnings([])
 
     try {
@@ -48,22 +113,50 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: nextMessages, expertRole, businessContext, activeSkillDraft: draft })
       })
-      if (!response.ok) throw await readError(response)
 
-      const data = (await response.json()) as ChatResponse
-      setMessages((current) => [...current, data.message])
-      setWarnings(data.warnings || [])
+      const result = await consumeProgressiveResponse(response, (streamEvent) => {
+        if (streamEvent.type === 'status' && typeof streamEvent.message === 'string') {
+          setStreamStatus(streamEvent.message)
+        }
+
+        if (streamEvent.type === 'text' && typeof streamEvent.text === 'string') {
+          setMessages((current) => current.map((message) =>
+            message.id === assistantId ? { ...message, content: streamEvent.text || '' } : message
+          ))
+        }
+
+        if (streamEvent.type === 'result') {
+          const finalText = typeof streamEvent.message === 'object'
+            ? streamEvent.message.content
+            : streamEvent.text || ''
+          setMessages((current) => current.map((message) =>
+            message.id === assistantId ? { ...message, content: finalText } : message
+          ))
+          setWarnings(streamEvent.warnings || [])
+        }
+      })
+
+      if (result.usedAgentSdk !== true) {
+        setWarnings(result.warnings || ['Claude Agent SDK 未成功返回实时模型结果'])
+      }
     } catch (error) {
-      setMessages((current) => [...current, newMessage('assistant', `请求失败：${error instanceof Error ? error.message : String(error)}`)])
+      setMessages((current) => current.map((message) =>
+        message.id === assistantId
+          ? { ...message, content: `请求失败：${error instanceof Error ? error.message : String(error)}` }
+          : message
+      ))
     } finally {
       setBusy(false)
+      setStreamStatus('')
     }
   }
 
   async function generateDraft() {
     setBusy(true)
+    setStreamStatus('正在启动 Claude Agent SDK 生成 Skill 草稿')
     setWarnings([])
     setSavedPath('')
+    setDraft('')
 
     try {
       const response = await fetch('/api/skills/draft', {
@@ -71,15 +164,28 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ skillName: businessGoal, expertRole, businessGoal, transcript: messages })
       })
-      if (!response.ok) throw await readError(response)
 
-      const data = await response.json() as { text: string; warnings?: string[] }
-      setDraft(data.text)
-      setWarnings(data.warnings || [])
+      const result = await consumeProgressiveResponse(response, (streamEvent) => {
+        if (streamEvent.type === 'status' && typeof streamEvent.message === 'string') {
+          setStreamStatus(streamEvent.message)
+        }
+        if (streamEvent.type === 'text' && typeof streamEvent.text === 'string') {
+          setDraft(streamEvent.text)
+        }
+        if (streamEvent.type === 'result') {
+          setDraft(streamEvent.text || '')
+          setWarnings(streamEvent.warnings || [])
+        }
+      })
+
+      if (result.usedAgentSdk !== true) {
+        setWarnings(result.warnings || ['Claude Agent SDK 未成功生成实时草稿'])
+      }
     } catch (error) {
       setDraft(`生成失败：${error instanceof Error ? error.message : String(error)}`)
     } finally {
       setBusy(false)
+      setStreamStatus('')
     }
   }
 
@@ -175,10 +281,10 @@ export default function Home() {
               {messages.map((message) => (
                 <div key={message.id} className={`message-row ${message.role}`}>
                   <div className="message-avatar" aria-hidden="true">{message.role === 'assistant' ? 'AI' : '我'}</div>
-                  <div className="message">{message.content}</div>
+                  <div className="message">{message.content || (busy && message.role === 'assistant' ? '…' : '')}</div>
                 </div>
               ))}
-              {busy ? <div className="thinking"><span /><span /><span /> AI 正在整理业务信息</div> : null}
+              {busy ? <div className="thinking"><span /><span /><span /> {streamStatus || 'AI 正在整理业务信息'}</div> : null}
             </div>
 
             <form className="composer" onSubmit={sendMessage}>
@@ -230,7 +336,7 @@ export default function Home() {
             />
             <div className="draft-footer">
               <div className="save-feedback" aria-live="polite">
-                {savedPath ? <span className="success-message">✓ 已保存：{savedPath}</span> : <span>草稿仅在当前会话中保留</span>}
+                {savedPath ? <span className="success-message">✓ 已保存：{savedPath}</span> : <span>{busy && streamStatus ? streamStatus : '草稿仅在当前会话中保留'}</span>}
               </div>
               <div className="draft-actions">
                 <button className="button secondary" disabled={busy || !draft} type="button" onClick={() => setDraft('')}>清空草稿</button>
