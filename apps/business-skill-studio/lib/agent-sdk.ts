@@ -44,6 +44,10 @@ type QueryInput = {
   systemPrompt: string
 }
 
+type StreamingQueryHandle = AsyncIterable<unknown> & {
+  close(): void
+}
+
 const MINIMUM_ATTEMPT_TIMEOUT_MS = 600_000
 const HEARTBEAT_INTERVAL_MS = 15_000
 
@@ -202,7 +206,7 @@ async function* streamWithCredential(
       persistSession: false,
       includePartialMessages: true
     }
-  })
+  }) as StreamingQueryHandle
 
   const iterator = handle[Symbol.asyncIterator]()
   const startedAt = Date.now()
@@ -240,7 +244,7 @@ async function* streamWithCredential(
 
       const message = outcome.value.value
       if (!message || typeof message !== 'object') continue
-      const record = message as unknown as Record<string, unknown>
+      const record = message as Record<string, unknown>
 
       const status = statusForSdkMessage(record)
       if (status) {
