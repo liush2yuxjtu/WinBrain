@@ -1,0 +1,109 @@
+name: PR 必填证据校验
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate-required-evidence:
+    name: 校验功能证据与 UAT
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 校验 PR 正文必填项
+        env:
+          PR_BODY: ${{ github.event.pull_request.body || '' }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import sys
+
+          body = os.environ.get("PR_BODY", "")
+          body_without_comments = re.sub(r"<!--.*?-->", "", body, flags=re.S)
+
+          def section(title):
+              pattern = re.compile(
+                  rf"(?ms)^##\s+{re.escape(title)}\s*\n(.*?)(?=^##\s+|\Z)"
+              )
+              match = pattern.search(body_without_comments)
+              return match.group(1).strip() if match else None
+
+          image_pattern = re.compile(r"!\[[^\]]*\]\([^)]+\)", re.I)
+          errors = []
+
+          media_sections = [
+              ("功能截图（PNG，必填）", "功能截图 PNG"),
+              ("功能录屏（GIF，必填）", "功能录屏 GIF"),
+              ("UAT 录屏（GIF，必填）", "UAT 录屏 GIF"),
+          ]
+
+          for heading, description in media_sections:
+              content = section(heading)
+              if content is None:
+                  errors.append(f"缺少‘## {heading}’章节。")
+              elif not image_pattern.search(content):
+                  errors.append(
+                      f"‘{heading}’中缺少直接内联的 {description} Markdown 图片。"
+                  )
+
+          uat = section("UAT（必填）")
+          if uat is None:
+              errors.append("缺少‘## UAT（必填）’章节。")
+          else:
+              placeholders = re.compile(
+                  r"^(?:[-—_\s]*|待定|tbd|todo|n/?a|无|暂无|本人|开发者|作者|某人|某事|"
+                  r"机器人|自动化(?:测试)?|未指定|未知|xxx+|请填写|填写|通过\s*/\s*不通过)$",
+                  re.I,
+              )
+              required_fields = [
+                  "验收人",
+                  "用户/业务角色",
+                  "验收场景",
+                  "验收事项",
+                  "前置条件",
+                  "操作步骤",
+                  "预期结果",
+                  "实际结果",
+                  "验收结论",
+              ]
+
+              values = {}
+              for field in required_fields:
+                  match = re.search(
+                      rf"(?mi)^\s*[-*]?\s*{re.escape(field)}\s*[：:]\s*(.*?)\s*$",
+                      uat,
+                  )
+                  value = match.group(1).strip() if match else ""
+                  values[field] = value
+                  if not value or placeholders.fullmatch(value):
+                      errors.append(f"UAT 的‘{field}’必须填写具体内容。")
+
+              person = values.get("验收人", "")
+              if person and len(re.sub(r"\s+", "", person)) < 2:
+                  errors.append("UAT 的‘验收人’必须写明具体人员姓名或 GitHub 用户。")
+
+              matter = values.get("验收事项", "")
+              if matter and len(re.sub(r"\s+", "", matter)) < 6:
+                  errors.append("UAT 的‘验收事项’必须描述具体要验收的业务事项。")
+
+              conclusion = values.get("验收结论", "")
+              if conclusion and conclusion not in {"通过", "有条件通过", "不通过"}:
+                  errors.append(
+                      "UAT 的‘验收结论’只能填写‘通过’‘有条件通过’或‘不通过’。"
+                  )
+
+          if errors:
+              print("PR 正文未满足强制证据要求：")
+              for error in errors:
+                  print(f"- {error}")
+                  print(f"::error title=PR 证据要求未满足::{error}")
+              sys.exit(1)
+
+          print("PR 正文已包含功能截图 PNG、功能录屏 GIF、具体 UAT 和 UAT 录屏 GIF。")
+          PY
