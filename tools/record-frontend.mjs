@@ -12,6 +12,10 @@ const SCREENSHOT_PATH = resolve(ARTIFACT_DIR, 'frontend-page.png');
 const SUMMARY_PATH = resolve(ARTIFACT_DIR, 'summary.md');
 const DIAGNOSTIC_HTML_PATH = resolve(ARTIFACT_DIR, 'diagnostic.html');
 const SERVER_LOG_PATH = resolve(ARTIFACT_DIR, 'frontend-server.log');
+const configuredResponseTimeout = Number.parseInt(process.env.FRONTEND_RECORD_RESPONSE_TIMEOUT_MS || '', 10);
+const RESPONSE_TIMEOUT_MS = Number.isFinite(configuredResponseTimeout) && configuredResponseTimeout > 0
+  ? configuredResponseTimeout
+  : 120_000;
 
 const COMMON_FRONTEND_URLS = [
   'http://127.0.0.1:5173',
@@ -191,7 +195,7 @@ async function recordBusinessSkillStudioScenario(page, snapshots) {
 
     await Promise.all([
       page.waitForURL((url) => !url.pathname.startsWith('/login'), {
-        timeout: 30_000
+        timeout: RESPONSE_TIMEOUT_MS
       }),
       page.getByRole('button', { name: '登录' }).click()
     ]);
@@ -209,13 +213,19 @@ async function recordBusinessSkillStudioScenario(page, snapshots) {
   const messageBox = page.getByPlaceholder('描述流程、例外、输出要求或给一个真实案例');
   await messageBox.fill('我们每周都要看客户健康度，判断哪些账号需要 CSM 介入。请把这个流程沉淀成可以复用的 skill。');
 
-  const chatPromise = page.waitForResponse((response) => response.url().includes('/api/chat'));
+  const chatPromise = page.waitForResponse(
+    (response) => response.url().includes('/api/chat'),
+    { timeout: RESPONSE_TIMEOUT_MS }
+  );
   await page.getByRole('button', { name: '发送给 AI' }).click();
   await chatPromise;
   await page.waitForTimeout(500);
   snapshots.push(await captureSnapshot(page, '02-after-chat-response'));
 
-  const draftPromise = page.waitForResponse((response) => response.url().includes('/api/skills/draft'));
+  const draftPromise = page.waitForResponse(
+    (response) => response.url().includes('/api/skills/draft'),
+    { timeout: RESPONSE_TIMEOUT_MS }
+  );
   await page.getByRole('button', { name: '生成 Skill 草稿' }).click();
   await draftPromise;
   await page.waitForTimeout(500);
