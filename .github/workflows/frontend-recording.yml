@@ -69,24 +69,9 @@ jobs:
         run: |
           if [ -z "$ANTHROPIC_API_KEY" ] && [ "$EVENT_NAME" = "pull_request" ]; then
             cp package.json package.recording.original.json
-            node - <<'NODE'
-            const fs = require('node:fs')
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
-            if (pkg.dependencies) {
-              delete pkg.dependencies['@anthropic-ai/claude-agent-sdk']
-            }
-            fs.writeFileSync('package.json', `${JSON.stringify(pkg, null, 2)}\n`)
-            NODE
+            node -e 'const fs=require("node:fs"); const pkg=JSON.parse(fs.readFileSync("package.json", "utf8")); if (pkg.dependencies) delete pkg.dependencies["@anthropic-ai/claude-agent-sdk"]; fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n")'
             npm install --no-package-lock --legacy-peer-deps
-            mkdir -p node_modules/@anthropic-ai/claude-agent-sdk
-            cat > node_modules/@anthropic-ai/claude-agent-sdk/package.json <<'EOF'
-            {"name":"@anthropic-ai/claude-agent-sdk","version":"0.0.0-recording-stub","type":"module","main":"index.js"}
-            EOF
-            cat > node_modules/@anthropic-ai/claude-agent-sdk/index.js <<'EOF'
-            export async function* query() {
-              yield { text: 'Recording stub response from Claude Agent SDK.' }
-            }
-            EOF
+            node -e 'const fs=require("node:fs"); const dir="node_modules/@anthropic-ai/claude-agent-sdk"; fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(dir + "/package.json", JSON.stringify({ name: "@anthropic-ai/claude-agent-sdk", version: "0.0.0-recording-stub", type: "module", main: "index.js" }) + "\n"); fs.writeFileSync(dir + "/index.js", "export async function* query() {\n  yield { text: \"Recording stub response from Claude Agent SDK.\" }\n}\n")'
             mv package.recording.original.json package.json
           else
             npm install --no-package-lock --legacy-peer-deps
