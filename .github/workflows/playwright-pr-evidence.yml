@@ -42,6 +42,18 @@ jobs:
       - name: Install Playwright browsers and system dependencies
         run: npx playwright install --with-deps chromium
 
+      - name: Load trusted PR evidence renderer
+        id: trusted_renderer
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          renderer="$RUNNER_TEMP/update-pr-evidence.mjs"
+          git show "${BASE_SHA}:scripts/update-pr-evidence.mjs" > "$renderer"
+          echo "path=$renderer" >> "$GITHUB_OUTPUT"
+
       - name: Run Playwright tests
         id: playwright
         continue-on-error: true
@@ -88,7 +100,6 @@ jobs:
             mkdir -p "$dest/videos"
             find test-results -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) -exec cp {} "$dest/videos/" \; || true
           fi
-
 
           video_file="$(find "$dest" -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) | sort | head -n 1 || true)"
           if [ -n "$video_file" ]; then
@@ -137,12 +148,12 @@ jobs:
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
           TEST_OUTCOME: ${{ steps.playwright.outcome }}
-          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           EVIDENCE_TITLE: Playwright PR 视觉证据
           EVIDENCE_MARKER: playwright-evidence
           EVIDENCE_MEDIA_PATH: ${{ steps.publish_media.outputs.media_path }}
           EVIDENCE_MEDIA_REF: ${{ steps.publish_media.outputs.media_ref }}
-        run: node scripts/update-pr-evidence.mjs
+        run: node "${{ steps.trusted_renderer.outputs.path }}"
 
       - name: Fail if Playwright failed
         if: ${{ steps.playwright.outcome == 'failure' }}
