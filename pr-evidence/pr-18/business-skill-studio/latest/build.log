@@ -11,7 +11,7 @@ https://nextjs.org/telemetry
    ▲ Next.js 15.5.20
 
    Creating an optimized production build ...
- ⚠ Compiled with warnings in 2.5s
+ ⚠ Compiled with warnings in 2.1s
 
 ./node_modules/bcryptjs/dist/bcrypt.js
 A Node.js API is used (process.nextTick at line: 351) which is not supported in the Edge Runtime.
@@ -55,7 +55,7 @@ Learn more: https://nextjs.org/docs/api-reference/edge-runtime
 
 Import trace for requested module:
 ./node_modules/jose/dist/webapi/lib/deflate.js
-./node_modules/jose/dist/webapi/jwe/flattened/decrypt.js
+./node_modules/jose/dist/webapi/jwe/flattened/encrypt.js
 ./node_modules/jose/dist/webapi/index.js
 ./node_modules/@auth/core/jwt.js
 ./node_modules/@auth/core/lib/init.js
@@ -70,7 +70,7 @@ Learn more: https://nextjs.org/docs/api-reference/edge-runtime
 
 Import trace for requested module:
 ./node_modules/jose/dist/webapi/lib/deflate.js
-./node_modules/jose/dist/webapi/jwe/flattened/decrypt.js
+./node_modules/jose/dist/webapi/jwe/flattened/encrypt.js
 ./node_modules/jose/dist/webapi/index.js
 ./node_modules/@auth/core/jwt.js
 ./node_modules/@auth/core/lib/init.js
@@ -79,19 +79,19 @@ Import trace for requested module:
 ./node_modules/next-auth/index.js
 ./auth.ts
 
- ✓ Compiled successfully in 12.0s
+ ✓ Compiled successfully in 10.4s
    Linting and checking validity of types ...
 Failed to compile.
 
-./auth.ts:5:52
-Type error: This expression is not callable.
-  Type 'typeof import("/home/runner/work/WinBrain/WinBrain/apps/business-skill-studio/next-auth")' has no call signatures.
+./lib/skill-store.ts:29:101
+Type error: Argument of type 'string | undefined' is not assignable to parameter of type 'string | ArrayBufferView<ArrayBufferLike> | Iterable<string | ArrayBufferView<ArrayBufferLike>> | AsyncIterable<...>'.
+  Type 'undefined' is not assignable to type 'string | ArrayBufferView<ArrayBufferLike> | Iterable<string | ArrayBufferView<ArrayBufferLike>> | AsyncIterable<...>'.
 
-[0m [90m 3 |[39m [36mimport[39m { verifyPasswordUser } [36mfrom[39m [32m'@/lib/auth-users'[39m
- [90m 4 |[39m
-[31m[1m>[22m[39m[90m 5 |[39m [36mexport[39m [36mconst[39m { handlers[33m,[39m auth[33m,[39m signIn[33m,[39m signOut } [33m=[39m [33mNextAuth[39m({
- [90m   |[39m                                                    [31m[1m^[22m[39m
- [90m 6 |[39m   trustHost[33m:[39m [36mtrue[39m[33m,[39m
- [90m 7 |[39m   session[33m:[39m {
- [90m 8 |[39m     strategy[33m:[39m [32m'jwt'[39m[0m
+[0m [90m 27 |[39m       [36mconst[39m evalDir [33m=[39m path[33m.[39mjoin(dir[33m,[39m [32m'evals'[39m)
+ [90m 28 |[39m       [36myield[39m[33m*[39m tryPromiseEffect([32m'Create evals directory'[39m[33m,[39m () [33m=>[39m mkdir(evalDir[33m,[39m { recursive[33m:[39m [36mtrue[39m }))
+[31m[1m>[22m[39m[90m 29 |[39m       [36myield[39m[33m*[39m tryPromiseEffect([32m'Write evals.json'[39m[33m,[39m () [33m=>[39m writeFile(path[33m.[39mjoin(evalDir[33m,[39m [32m'evals.json'[39m)[33m,[39m input[33m.[39mevalsJson[33m,[39m [32m'utf8'[39m))
+ [90m    |[39m                                                                                                     [31m[1m^[22m[39m
+ [90m 30 |[39m     }
+ [90m 31 |[39m
+ [90m 32 |[39m     [36mreturn[39m {[0m
 Next.js build worker exited with code: 1 and signal: null
