@@ -89,6 +89,18 @@ jobs:
             find test-results -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) -exec cp {} "$dest/videos/" \; || true
           fi
 
+
+          video_file="$(find "$dest" -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) | sort | head -n 1 || true)"
+          if [ -n "$video_file" ]; then
+            if ! command -v ffmpeg >/dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y ffmpeg
+            fi
+            ffmpeg -y -i "$video_file" -t 15 \
+              -vf "fps=6,scale=720:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5" \
+              "$dest/recording-preview.gif"
+          fi
+
           find "$dest" -type f | sort > "$dest/manifest.txt"
           git add -f "$dest"
 
