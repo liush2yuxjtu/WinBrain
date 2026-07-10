@@ -2,10 +2,10 @@ import assert from 'node:assert/strict'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import test from 'node:test'
+import test, { type TestContext } from 'node:test'
 import { FileSystemSkillRepository } from '../lib/repositories/filesystem-skill-repository'
 
-async function createRepository(t: test.TestContext) {
+async function createRepository(t: TestContext) {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'winbrain-skill-store-'))
   t.after(async () => {
     await rm(directory, { recursive: true, force: true })
