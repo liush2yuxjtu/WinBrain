@@ -1,0 +1,43 @@
+name: winbrain-local-databases
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: winbrain
+      POSTGRES_USER: winbrain
+      POSTGRES_PASSWORD: winbrain
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U winbrain -d winbrain"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - winbrain-postgres-data:/var/lib/postgresql/data
+
+  fmcg-test-db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: local-root-password
+      MYSQL_DATABASE: uat_dws
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -plocal-root-password --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - ./test-db/mysql-init:/docker-entrypoint-initdb.d:ro
+      - winbrain-fmcg-test-data:/var/lib/mysql
+
+volumes:
+  winbrain-postgres-data:
+  winbrain-fmcg-test-data:

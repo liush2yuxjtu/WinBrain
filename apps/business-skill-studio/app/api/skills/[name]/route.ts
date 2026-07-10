@@ -14,14 +14,18 @@ async function authorized() {
   return Boolean(session?.user)
 }
 
-export async function GET(_request: Request, context: RouteContext) {
+function requestOrganizationId(request: Request): string | undefined {
+  return new URL(request.url).searchParams.get('organizationId') || undefined
+}
+
+export async function GET(request: Request, context: RouteContext) {
   if (!await authorized()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
     const { name } = await context.params
-    const skill = await readSkillDetail(name)
+    const skill = await readSkillDetail(name, requestOrganizationId(request))
     if (!skill) return NextResponse.json({ error: 'Skill not found' }, { status: 404 })
 
     return NextResponse.json({ skill }, { headers: { 'Cache-Control': 'no-store' } })
@@ -36,7 +40,7 @@ export async function PUT(request: Request, context: RouteContext) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body: Partial<SkillSaveRequest>
+  let body: Partial<SkillSaveRequest> & { expectedVersion?: number }
   try {
     body = await request.json()
   } catch {
@@ -49,13 +53,24 @@ export async function PUT(request: Request, context: RouteContext) {
   if (body.evalsJson !== undefined && typeof body.evalsJson !== 'string') {
     return NextResponse.json({ error: 'evalsJson must be a string when provided' }, { status: 400 })
   }
+  if (body.organizationId !== undefined) {
+    return NextResponse.json({ error: 'organizationId must be provided as a query parameter' }, { status: 400 })
+  }
+  if (body.expertId !== undefined && typeof body.expertId !== 'string') {
+    return NextResponse.json({ error: 'expertId must be a string when provided' }, { status: 400 })
+  }
+  if (!Number.isInteger(body.expectedVersion) || Number(body.expectedVersion) < 1) {
+    return NextResponse.json({ error: 'expectedVersion must be a positive integer' }, { status: 400 })
+  }
 
   try {
     const { name } = await context.params
     const skill = await updateSkill(name, {
       skillMarkdown: body.skillMarkdown,
-      evalsJson: body.evalsJson
-    })
+      evalsJson: body.evalsJson,
+      expertId: body.expertId,
+      expectedVersion: body.expectedVersion
+    }, requestOrganizationId(request))
     if (!skill) return NextResponse.json({ error: 'Skill not found' }, { status: 404 })
 
     return NextResponse.json({ skill })
@@ -65,14 +80,14 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
+export async function DELETE(request: Request, context: RouteContext) {
   if (!await authorized()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
     const { name } = await context.params
-    const deleted = await deleteSkill(name)
+    const deleted = await deleteSkill(name, requestOrganizationId(request))
     if (!deleted) return NextResponse.json({ error: 'Skill not found' }, { status: 404 })
 
     return NextResponse.json({ deleted: true })

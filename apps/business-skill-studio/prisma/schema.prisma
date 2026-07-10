@@ -1,0 +1,124 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DataSourceKind {
+  MYSQL
+  OCEANBASE_MYSQL
+}
+
+enum DataSourceSslMode {
+  DISABLED
+  REQUIRED
+}
+
+enum DataSourceHealth {
+  UNTESTED
+  HEALTHY
+  WARNING
+  FAILED
+}
+
+model Organization {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  name        String
+  industry    String?
+  description String?      @db.Text
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  experts     Expert[]
+  dataSources DataSource[]
+  skills      Skill[]
+
+  @@map("organizations")
+}
+
+model Expert {
+  id              String       @id @default(cuid())
+  organizationId  String       @map("organization_id")
+  name            String
+  email           String?
+  role            String
+  department      String?
+  expertise       String?      @db.Text
+  businessContext String?      @db.Text @map("business_context")
+  isActive        Boolean      @default(true) @map("is_active")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  dataSources     DataSource[]
+  skills          Skill[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId, isActive])
+  @@map("experts")
+}
+
+model DataSource {
+  id                String           @id @default(cuid())
+  organizationId    String           @map("organization_id")
+  expertId          String?          @map("expert_id")
+  name              String
+  kind              DataSourceKind
+  host              String
+  port              Int
+  username          String
+  passwordEncrypted String           @db.Text @map("password_encrypted")
+  databaseName      String           @map("database_name")
+  charset           String           @default("utf8mb4")
+  sslMode           DataSourceSslMode @default(DISABLED) @map("ssl_mode")
+  lastStatus        DataSourceHealth  @default(UNTESTED) @map("last_status")
+  lastTestedAt      DateTime?         @map("last_tested_at")
+  lastLatencyMs     Int?              @map("last_latency_ms")
+  lastTableCount    Int?              @map("last_table_count")
+  lastServerVersion String?           @map("last_server_version")
+  lastError         String?           @db.Text @map("last_error")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expert            Expert?           @relation(fields: [expertId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, name])
+  @@index([organizationId, lastStatus])
+  @@map("data_sources")
+}
+
+model Skill {
+  id             String          @id @default(cuid())
+  scopeKey       String          @default("global") @map("scope_key")
+  organizationId String?         @map("organization_id")
+  expertId       String?         @map("expert_id")
+  slug           String
+  name           String
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  expert         Expert?         @relation(fields: [expertId], references: [id], onDelete: SetNull)
+  revisions      SkillRevision[]
+
+  @@unique([scopeKey, slug])
+  @@index([organizationId, updatedAt])
+  @@map("skills")
+}
+
+model SkillRevision {
+  id            String   @id @default(cuid())
+  skillId       String   @map("skill_id")
+  version       Int
+  skillMarkdown String   @db.Text @map("skill_markdown")
+  evalsJson     String?  @db.Text @map("evals_json")
+  createdAt     DateTime @default(now()) @map("created_at")
+  skill         Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([skillId, version])
+  @@index([skillId, createdAt])
+  @@map("skill_revisions")
+}

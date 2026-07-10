@@ -8,7 +8,7 @@ This repository is configured with Playwright-based PR evidence automation and p
 
 `apps/business-skill-studio` is a Next.js MVP that lets business experts chat with AI and turn recurring expert workflows into reusable Claude skills.
 
-The authenticated `/skills` workspace manages locally generated skills with search, filtering, creation/import, `SKILL.md` and eval editing, JSON backup export, and confirmed deletion.
+The authenticated `/skills` workspace manages versioned generated skills in the filesystem or PostgreSQL Skill Store, with search, filtering, creation/import, `SKILL.md` and eval editing, JSON backup export, and confirmed deletion.
 
 It uses these project-level assets:
 
@@ -37,7 +37,8 @@ The workflow:
 2. Installs Chromium and required Playwright system dependencies.
 3. Runs `npm run test:e2e`.
 4. Uploads Playwright evidence as a GitHub Actions artifact.
-5. Updates the PR body with a `Playwright evidence` section that links to the workflow run and downloadable artifact.
+5. Publishes the latest curated screenshots and recording preview under `pr-evidence/` on the PR branch.
+6. Updates the PR body with inline evidence plus links to the workflow run and downloadable artifact.
 
 The artifact includes:
 
@@ -92,6 +93,6 @@ Use a task prompt like this:
 Implement the requested change. Before opening the PR, install dependencies if needed, run `npm run test:e2e`, and inspect the Playwright report. Do not commit generated files from `artifacts/`, `test-results/`, or `playwright-report/`. After the PR is opened, GitHub Actions will upload screenshots/videos and update the PR body.
 ```
 
-## Important limitation
+## Evidence storage
 
-GitHub PR bodies are Markdown. The workflow writes links to the uploaded artifact into the PR body. For inline images/videos directly visible in the body, the media needs a stable URL, such as GitHub Pages, object storage, or a file committed to the PR branch. The current setup avoids committing generated binary evidence to the repository.
+Local Playwright output remains ignored. In pull requests, the workflow keeps a single curated `latest` evidence set under `pr-evidence/` so screenshots and a short GIF can render inline; full reports, traces, and recordings remain available as short-lived workflow artifacts.

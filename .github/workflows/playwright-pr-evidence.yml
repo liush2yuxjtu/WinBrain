@@ -96,10 +96,12 @@ jobs:
             cp -R artifacts/screenshots/. "$dest/screenshots/"
           fi
 
-          if [ -d test-results ]; then
-            mkdir -p "$dest/videos"
-            find test-results -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) -exec cp {} "$dest/videos/" \; || true
-          fi
+          mkdir -p "$dest/videos"
+          for source in test-results artifacts/playwright-output; do
+            if [ -d "$source" ]; then
+              find "$source" -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) -exec cp {} "$dest/videos/" \; || true
+            fi
+          done
 
           video_file="$(find "$dest" -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) | sort | head -n 1 || true)"
           if [ -n "$video_file" ]; then
@@ -188,6 +190,18 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Load trusted Skill library evidence renderer
+        id: trusted_skill_renderer
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          renderer="$RUNNER_TEMP/update-skill-library-pr-evidence.mjs"
+          git show "${BASE_SHA}:scripts/update-pr-evidence.mjs" > "$renderer"
+          echo "path=$renderer" >> "$GITHUB_OUTPUT"
+
       - name: Run authenticated Skill library flow
         env:
           CI: 'true'
@@ -202,6 +216,7 @@ jobs:
           AUTH_USER_ROLE: admin
           AUTH_USER_PASSWORD_HASH: '$2a$12$YfOqnbazKIJhTpFhPXokXuWMIHesv9N6xW/ueInK1T3mebgnT8WmC'
           NEXTAUTH_URL: http://127.0.0.1:3000
+          SKILL_STORE_DRIVER: filesystem
           SKILL_STUDIO_STORAGE_DIR: ${{ runner.temp }}/winbrain-skill-library
         run: npx playwright test tests/skill-library.spec.ts --project=chrome
 
@@ -287,4 +302,4 @@ jobs:
           EVIDENCE_MARKER: skill-library-evidence
           EVIDENCE_MEDIA_PATH: ${{ steps.publish_skill_media.outputs.media_path }}
           EVIDENCE_MEDIA_REF: ${{ steps.publish_skill_media.outputs.media_ref }}
-        run: node scripts/update-pr-evidence.mjs
+        run: node "${{ steps.trusted_skill_renderer.outputs.path }}"

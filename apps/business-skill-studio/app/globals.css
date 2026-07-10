@@ -237,6 +237,8 @@ button { cursor: pointer; }
 .button.danger:hover:not(:disabled) { border-color: #fca5a5; background: #fef2f2; box-shadow: 0 7px 16px rgba(220, 38, 38, .12); }
 .button.danger.solid { border-color: #dc2626; background: #dc2626; color: white; }
 .library-notice { margin: 12px 18px 0; border-radius: 10px; padding: 9px 11px; font-size: 10px; font-weight: 700; }
+.library-global-notice { margin: 0 0 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.library-global-notice button { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }
 .library-notice.success { border: 1px solid #bbf7d0; background: #ecfdf5; color: #047857; }
 .library-notice.error { border: 1px solid #fecaca; background: #fef2f2; color: #b91c1c; }
 .skill-file-meta { min-height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 20px; border-bottom: 1px solid #eef2f7; color: var(--gray-400); font-size: 8px; }
@@ -326,6 +328,7 @@ button { cursor: pointer; }
   .studio-sidebar.mobile-open { transform: translateX(0); }
   .studio-sidebar.collapsed .brand-copy, .studio-sidebar.collapsed .nav-label, .studio-sidebar.collapsed .nav-text, .studio-sidebar.collapsed .nav-chevron, .studio-sidebar.collapsed .user-copy, .studio-sidebar.collapsed .sign-out-button { display: initial; }
   .studio-sidebar.collapsed .sidebar-brand { padding-inline: 14px; }
+  .studio-sidebar .sidebar-collapse { display: none; }
   .studio-sidebar.collapsed .sidebar-collapse { position: static; }
   .studio-sidebar.collapsed .sidebar-nav { padding: 20px 10px; }
   .studio-sidebar.collapsed .sidebar-nav-item { justify-content: flex-start; padding: 8px 10px; }
@@ -364,6 +367,7 @@ button { cursor: pointer; }
   .library-overview-actions .button { width: 100%; }
   .library-toolbar { padding: 11px; }
   .library-search input, .library-selects select { font-size: 16px; }
+  .library-dialog .field input, .library-dialog .field textarea { font-size: 16px; }
   .skill-detail-header { padding: 15px; }
   .skill-detail-title { align-items: flex-start; flex-direction: column; }
   .skill-file-meta { padding-inline: 15px; flex-wrap: wrap; }

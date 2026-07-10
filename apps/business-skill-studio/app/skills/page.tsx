@@ -11,10 +11,10 @@ export default function SkillsPage() {
           <div className="title-row">
             <div>
               <h1>Skill 库管理</h1>
-              <p>集中查看、维护和校准团队沉淀的本地生成 Skill。</p>
+              <p>集中查看、维护和校准团队沉淀的版本化 Skill。</p>
             </div>
             <div className="status-cluster">
-              <span className="status-pill"><i />本地 Skill Store</span>
+              <span className="status-pill"><i />Skill Store</span>
               <span className="technology-pill">SKILL.md + evals</span>
             </div>
           </div>

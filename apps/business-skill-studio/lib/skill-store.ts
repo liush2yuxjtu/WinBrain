@@ -1,402 +1,272 @@
-import { Effect } from 'effect'
-import { randomUUID } from 'node:crypto'
-import { lstat, mkdir, open, readFile, readdir, rename, rm, rmdir, writeFile } from 'node:fs/promises'
-import path from 'node:path'
-import { AppError, runAppEffect, tryPromiseEffect } from './effect-runtime'
+import { getPrismaClient } from './db'
+import { FileSystemSkillRepository } from './repositories/filesystem-skill-repository'
+import { PrismaSkillRepository } from './repositories/prisma-skill-repository'
+import {
+  SkillRepositoryConflictError,
+  SkillRepositoryInputError,
+  type SkillRepository
+} from './repositories/skill-repository'
+import { isReadableSkillStoreSlug, skillStoreSlug } from './repositories/skill-slug'
+import { parseSkillMetadata } from './skill-metadata'
 import type { SkillSaveRequest, StoredSkillDetail, StoredSkillSummary } from './types'
-import { normalizeSkillName } from './skill-creator'
 
-const DEFAULT_STORAGE_DIR = 'data/generated-skills'
 const MAX_SKILL_BYTES = 1_000_000
 const MAX_EVALS_BYTES = 1_000_000
-const SUMMARY_READ_BYTES = 64 * 1024
 
-export class SkillInputError extends Error {
+export class SkillStoreValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SkillStoreValidationError'
+  }
+}
+
+export class SkillInputError extends SkillStoreValidationError {
   constructor(message: string) {
     super(message)
     this.name = 'SkillInputError'
   }
 }
 
-export class SkillConflictError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'SkillConflictError'
-  }
+let cachedRepository: { driver: string; repository: SkillRepository } | null = null
+
+function configuredDriver(): string {
+  return process.env.SKILL_STORE_DRIVER?.trim().toLowerCase() || 'filesystem'
 }
 
-type PreparedSkill = {
-  name: string
-  skillMarkdown: string
-  evalsJson: string | null
-}
+function repository(): SkillRepository {
+  const driver = configuredDriver()
+  if (cachedRepository?.driver === driver) return cachedRepository.repository
 
-type SkillMetadata = {
-  frontmatterName: string
-  title: string
-  description: string
-}
-
-function storageRoot(): string {
-  return path.resolve(process.cwd(), process.env.SKILL_STUDIO_STORAGE_DIR || DEFAULT_STORAGE_DIR)
-}
-
-function isNodeError(error: unknown, code: string): boolean {
-  return error instanceof Error && 'code' in error && error.code === code
-}
-
-function assertStoredSkillName(skillName: string): string {
-  if (!isStoredSkillName(skillName)) {
-    throw new SkillInputError('Skill name must be a lowercase slug containing only letters, numbers, and hyphens')
+  let selected: SkillRepository
+  if (driver === 'filesystem') {
+    selected = new FileSystemSkillRepository()
+  } else if (driver === 'database') {
+    selected = new PrismaSkillRepository(getPrismaClient())
+  } else {
+    throw new Error(`Unsupported SKILL_STORE_DRIVER: ${driver}`)
   }
 
-  return skillName
+  cachedRepository = { driver, repository: selected }
+  return selected
 }
 
-function isStoredSkillName(skillName: string): boolean {
-  // New names are capped at 64 characters, while reads keep compatibility
-  // with the previous 80-character normalizer.
-  return /^(?!.*--)[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(skillName)
-}
-
-function storedSkillDirectory(skillName: string): string {
-  return path.join(storageRoot(), assertStoredSkillName(skillName))
-}
-
-export function skillDirectory(skillName: string): string {
-  return storedSkillDirectory(normalizeSkillName(skillName))
-}
-
-function displayPath(skillName: string): string {
-  const configuredRoot = process.env.SKILL_STUDIO_STORAGE_DIR || DEFAULT_STORAGE_DIR
-  const rootLabel = path.isAbsolute(configuredRoot) ? '[external-skill-store]' : configuredRoot
-  return path.join(rootLabel, skillName).split(path.sep).join('/')
-}
-
-function unquoteYamlValue(value: string): string {
-  const trimmed = value.trim()
-  if (trimmed.length >= 2 && ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'")))) {
-    return trimmed.slice(1, -1).trim()
+function optionalIdentifier(value: string | undefined, field: string): string | undefined {
+  if (!value?.trim()) return undefined
+  const cleaned = value.trim()
+  if (cleaned.length > 128 || !/^[a-zA-Z0-9_-]+$/.test(cleaned)) {
+    throw new SkillStoreValidationError(`${field} is invalid`)
   }
-  return trimmed
+  return cleaned
 }
 
-function parseSkillMetadata(markdown: string, fallbackName: string): SkillMetadata {
-  const frontmatter = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1] || ''
-  const field = (name: string) => {
-    const match = frontmatter.match(new RegExp(`^${name}:\\s*(.+)$`, 'mi'))
-    return match?.[1] ? unquoteYamlValue(match[1]) : ''
+export function normalizeSkillSaveRequest(input: SkillSaveRequest): SkillSaveRequest {
+  const skillName = input.skillName?.trim()
+  const skillMarkdown = input.skillMarkdown
+
+  if (!skillName) throw new SkillStoreValidationError('skillName is required')
+  if (!skillMarkdown?.trim()) throw new SkillStoreValidationError('skillMarkdown is required')
+  if (Buffer.byteLength(skillMarkdown, 'utf8') > MAX_SKILL_BYTES) {
+    throw new SkillStoreValidationError('SKILL.md must be smaller than 1 MB')
   }
-  const heading = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim()
+
+  const rawEvalsJson = input.evalsJson?.trim()
+  let evalsJson: string | undefined
+  if (rawEvalsJson) {
+    if (Buffer.byteLength(rawEvalsJson, 'utf8') > MAX_EVALS_BYTES) {
+      throw new SkillStoreValidationError('evals/evals.json must be smaller than 1 MB')
+    }
+    let parsedEvals: unknown
+    try {
+      parsedEvals = JSON.parse(rawEvalsJson)
+    } catch {
+      throw new SkillStoreValidationError('evals/evals.json must contain valid JSON')
+    }
+    evalsJson = `${JSON.stringify(parsedEvals, null, 2)}\n`
+    if (Buffer.byteLength(evalsJson, 'utf8') > MAX_EVALS_BYTES) {
+      throw new SkillStoreValidationError('evals/evals.json must be smaller than 1 MB after formatting')
+    }
+  }
 
   return {
-    frontmatterName: field('name'),
-    title: heading || fallbackName,
-    description: field('description')
+    skillName,
+    skillMarkdown,
+    evalsJson,
+    organizationId: optionalIdentifier(input.organizationId, 'organizationId'),
+    expertId: optionalIdentifier(input.expertId, 'expertId')
   }
 }
 
-function validateSkillInput(input: SkillSaveRequest, expectedName?: string): PreparedSkill {
-  if (!input.skillName?.trim()) {
-    throw new SkillInputError('Skill name is required')
-  }
+function normalizeManagedSkillRequest(
+  input: SkillSaveRequest,
+  options: { requireFrontmatter: boolean; expectedFrontmatterName?: string }
+): SkillSaveRequest {
+  const normalized = normalizeSkillSaveRequest(input)
+  const metadata = parseSkillMetadata(normalized.skillMarkdown, normalized.skillName)
 
-  const name = normalizeSkillName(input.skillName)
-  if (expectedName && name !== assertStoredSkillName(expectedName)) {
-    throw new SkillInputError('The skill name in the request does not match the stored skill')
-  }
-
-  const skillMarkdown = input.skillMarkdown?.trim()
-  if (!skillMarkdown) {
-    throw new SkillInputError('SKILL.md content is required')
-  }
-  if (Buffer.byteLength(skillMarkdown, 'utf8') > MAX_SKILL_BYTES) {
-    throw new SkillInputError('SKILL.md must be smaller than 1 MB')
-  }
-
-  const metadata = parseSkillMetadata(skillMarkdown, name)
-  if (!metadata.frontmatterName || !metadata.description) {
+  if (options.requireFrontmatter && (!metadata.frontmatterName || !metadata.description)) {
     throw new SkillInputError('SKILL.md must start with YAML frontmatter containing name and description')
   }
-  if (metadata.frontmatterName !== name) {
-    throw new SkillInputError(`SKILL.md frontmatter name must match "${name}"`)
+  if (options.expectedFrontmatterName && metadata.frontmatterName !== options.expectedFrontmatterName) {
+    throw new SkillInputError(`SKILL.md frontmatter name must remain "${options.expectedFrontmatterName}"`)
+  }
+  if (options.expectedFrontmatterName && normalized.evalsJson) {
+    const evals = JSON.parse(normalized.evalsJson) as unknown
+    if (
+      evals && typeof evals === 'object' && !Array.isArray(evals)
+      && 'skill_name' in evals
+      && (evals as { skill_name?: unknown }).skill_name !== options.expectedFrontmatterName
+    ) {
+      throw new SkillInputError(`evals/evals.json skill_name must match "${options.expectedFrontmatterName}"`)
+    }
+  }
+  return normalized
+}
+
+function canonicalizeSkillIdentity(input: SkillSaveRequest, canonicalName: string): SkillSaveRequest {
+  const match = input.skillMarkdown.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+  let skillMarkdown = input.skillMarkdown
+  if (match) {
+    const namePattern = /^name:\s*.*$/mi
+    const frontmatter = namePattern.test(match[1])
+      ? match[1].replace(namePattern, `name: ${canonicalName}`)
+      : `name: ${canonicalName}\n${match[1]}`
+    skillMarkdown = `---\n${frontmatter}\n---${input.skillMarkdown.slice(match[0].length)}`
   }
 
-  const evalsJson = input.evalsJson?.trim() || null
-  if (evalsJson) {
-    if (Buffer.byteLength(evalsJson, 'utf8') > MAX_EVALS_BYTES) {
-      throw new SkillInputError('evals/evals.json must be smaller than 1 MB')
-    }
+  let evalsJson = input.evalsJson
+  if (evalsJson?.trim()) {
     try {
-      JSON.parse(evalsJson)
+      const evals = JSON.parse(evalsJson) as unknown
+      if (evals && typeof evals === 'object' && !Array.isArray(evals)) {
+        evalsJson = JSON.stringify({ ...evals, skill_name: canonicalName })
+      }
     } catch {
-      throw new SkillInputError('evals/evals.json must contain valid JSON')
+      // Validation below returns the user-facing malformed JSON error.
     }
   }
-
   return {
-    name,
-    skillMarkdown: `${skillMarkdown}\n`,
-    evalsJson: evalsJson ? `${evalsJson}\n` : null
-  }
-}
-
-async function atomicWrite(filePath: string, content: string): Promise<void> {
-  const temporaryPath = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${randomUUID()}.tmp`)
-  try {
-    await writeFile(temporaryPath, content, { encoding: 'utf8', flag: 'wx' })
-    await rename(temporaryPath, filePath)
-  } catch (error) {
-    await rm(temporaryPath, { force: true }).catch(() => undefined)
-    throw error
-  }
-}
-
-async function removeEvalsFile(skillDir: string): Promise<void> {
-  const evalDir = path.join(skillDir, 'evals')
-  const evalDirStats = await optionalLstat(evalDir)
-  if (!evalDirStats) return
-  if (!evalDirStats.isDirectory() || evalDirStats.isSymbolicLink()) {
-    throw new SkillInputError('The managed evals entry is not a safe directory')
-  }
-
-  const evalFileStats = await optionalLstat(path.join(evalDir, 'evals.json'))
-  if (evalFileStats?.isSymbolicLink()) {
-    throw new SkillInputError('The managed evals file must not be a symbolic link')
-  }
-  await rm(path.join(evalDir, 'evals.json'), { force: true })
-  await rmdir(evalDir).catch((error: unknown) => {
-    if (!isNodeError(error, 'ENOENT') && !isNodeError(error, 'ENOTEMPTY') && !isNodeError(error, 'EEXIST')) throw error
-  })
-}
-
-async function optionalLstat(filePath: string) {
-  try {
-    return await lstat(filePath)
-  } catch (error) {
-    if (isNodeError(error, 'ENOENT')) return null
-    throw error
-  }
-}
-
-async function ensureSafeDirectory(dir: string, label: string): Promise<void> {
-  const existing = await optionalLstat(dir)
-  if (!existing) {
-    await mkdir(dir)
-    return
-  }
-  if (!existing.isDirectory() || existing.isSymbolicLink()) {
-    throw new SkillInputError(`${label} is not a safe directory`)
-  }
-}
-
-function saveSkillEffect(prepared: PreparedSkill, overwrite: boolean) {
-  return Effect.gen(function* () {
-    const root = storageRoot()
-    const dir = storedSkillDirectory(prepared.name)
-
-    yield* tryPromiseEffect('Create skill storage root', () => mkdir(root, { recursive: true }))
-    yield* tryPromiseEffect('Prepare skill directory', async () => {
-      if (overwrite) {
-        try {
-          const existing = await lstat(dir)
-          if (!existing.isDirectory() || existing.isSymbolicLink()) {
-            throw new SkillInputError(`The storage entry for "${prepared.name}" is not a safe directory`)
-          }
-        } catch (error) {
-          if (isNodeError(error, 'ENOENT')) {
-            await mkdir(dir)
-            return
-          }
-          throw error
-        }
-        return
-      }
-
-      try {
-        await mkdir(dir)
-      } catch (error) {
-        if (isNodeError(error, 'EEXIST')) {
-          throw new SkillConflictError(`A skill named "${prepared.name}" already exists`)
-        }
-        throw error
-      }
-    })
-
-    yield* tryPromiseEffect('Write SKILL.md', () => atomicWrite(path.join(dir, 'SKILL.md'), prepared.skillMarkdown))
-
-    if (prepared.evalsJson) {
-      const evalDir = path.join(dir, 'evals')
-      yield* tryPromiseEffect('Create evals directory', () => ensureSafeDirectory(evalDir, 'The managed evals entry'))
-      yield* tryPromiseEffect('Write evals.json', () => atomicWrite(path.join(evalDir, 'evals.json'), prepared.evalsJson!))
-    } else {
-      yield* tryPromiseEffect('Remove stale evals.json', () => removeEvalsFile(dir))
-    }
-
-    const detail = yield* tryPromiseEffect('Read saved skill', () => readStoredSkill(prepared.name))
-    if (!detail) throw new AppError('The skill was saved but could not be read back')
-    return detail
-  })
-}
-
-async function inspectStoredSkillFiles(skillName: string) {
-  const name = assertStoredSkillName(skillName)
-  const dir = storedSkillDirectory(name)
-  const skillPath = path.join(dir, 'SKILL.md')
-  const dirStats = await optionalLstat(dir)
-  if (!dirStats) return null
-  if (!dirStats.isDirectory() || dirStats.isSymbolicLink()) {
-    throw new SkillInputError(`The storage entry for "${name}" is not a safe directory`)
-  }
-
-  const skillStats = await optionalLstat(skillPath)
-  if (!skillStats) return null
-  if (!skillStats.isFile() || skillStats.isSymbolicLink()) {
-    throw new SkillInputError(`The SKILL.md entry for "${name}" is not a safe file`)
-  }
-
-  const evalDir = path.join(dir, 'evals')
-  const evalDirStats = await optionalLstat(evalDir)
-  if (evalDirStats && (!evalDirStats.isDirectory() || evalDirStats.isSymbolicLink())) {
-    throw new SkillInputError(`The evals entry for "${name}" is not a safe directory`)
-  }
-
-  const evalPath = path.join(evalDir, 'evals.json')
-  const evalStats = evalDirStats ? await optionalLstat(evalPath) : null
-  if (evalStats && (!evalStats.isFile() || evalStats.isSymbolicLink())) {
-    throw new SkillInputError(`The evals.json entry for "${name}" is not a safe file`)
-  }
-
-  return { name, skillPath, skillStats, evalPath, evalStats }
-}
-
-async function readFilePrefix(filePath: string): Promise<string> {
-  const handle = await open(filePath, 'r')
-  try {
-    const buffer = Buffer.alloc(SUMMARY_READ_BYTES)
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
-    return buffer.toString('utf8', 0, bytesRead)
-  } finally {
-    await handle.close()
-  }
-}
-
-async function readStoredSkill(skillName: string): Promise<StoredSkillDetail | null> {
-  const files = await inspectStoredSkillFiles(skillName)
-  if (!files) return null
-
-  const [skillMarkdown, evalsJson] = await Promise.all([
-    readFile(files.skillPath, 'utf8'),
-    files.evalStats ? readFile(files.evalPath, 'utf8') : Promise.resolve(null)
-  ])
-
-  if (!skillMarkdown) return null
-
-  const metadata = parseSkillMetadata(skillMarkdown, files.name)
-  return {
-    name: files.name,
-    title: metadata.title,
-    description: metadata.description || '暂无描述',
-    path: displayPath(files.name),
-    updatedAt: new Date(Math.max(files.skillStats.mtimeMs, files.evalStats?.mtimeMs || 0)).toISOString(),
-    sizeBytes: files.skillStats.size + (files.evalStats?.size || 0),
-    hasEvals: Boolean(evalsJson),
+    ...input,
     skillMarkdown,
-    evalsJson
+    evalsJson,
+    organizationId: optionalIdentifier(input.organizationId, 'organizationId'),
+    expertId: optionalIdentifier(input.expertId, 'expertId')
   }
 }
 
-async function readStoredSkillSummary(skillName: string): Promise<StoredSkillSummary | null> {
-  const files = await inspectStoredSkillFiles(skillName)
-  if (!files) return null
-
-  const metadata = parseSkillMetadata(await readFilePrefix(files.skillPath), files.name)
-  return {
-    name: files.name,
-    title: metadata.title,
-    description: metadata.description || '暂无描述',
-    path: displayPath(files.name),
-    updatedAt: new Date(Math.max(files.skillStats.mtimeMs, files.evalStats?.mtimeMs || 0)).toISOString(),
-    sizeBytes: files.skillStats.size + (files.evalStats?.size || 0),
-    hasEvals: Boolean(files.evalStats?.size)
+export async function saveSkill(
+  input: SkillSaveRequest,
+  options: { overwrite?: boolean } = {}
+): Promise<StoredSkillDetail> {
+  const createOnly = options.overwrite === false
+  const selectedRepository = repository()
+  const normalizedInput = normalizeSkillSaveRequest(input)
+  const existingSlug = await selectedRepository.resolveSlug(
+    normalizedInput.skillName,
+    normalizedInput.organizationId
+  )
+  if (createOnly && existingSlug) {
+    throw new SkillRepositoryConflictError(`A skill named "${normalizedInput.skillName}" already exists`)
   }
-}
-
-function listSkillsEffect() {
-  return Effect.gen(function* () {
-    const root = storageRoot()
-    yield* tryPromiseEffect('Create skill storage root', () => mkdir(root, { recursive: true }))
-
-    const entries = yield* tryPromiseEffect('Read skill storage root', () => readdir(root, { withFileTypes: true }))
-    const summaries = yield* tryPromiseEffect('Read local skill metadata', () => Promise.all(entries
-      .filter((entry) => entry.isDirectory() && isStoredSkillName(entry.name))
-      .map((entry) => readStoredSkillSummary(entry.name))))
-
-    return summaries
-      .filter((summary): summary is StoredSkillSummary => summary !== null)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  const resolvedSlug = existingSlug || skillStoreSlug(normalizedInput.skillName)
+  const canonicalInput = canonicalizeSkillIdentity(normalizedInput, resolvedSlug)
+  const normalized = createOnly
+    ? normalizeManagedSkillRequest(canonicalInput, {
+        requireFrontmatter: true,
+        expectedFrontmatterName: resolvedSlug
+      })
+    : normalizeSkillSaveRequest(canonicalInput)
+  const saved = await selectedRepository.save(normalized, {
+    createOnly,
+    targetSlug: existingSlug || undefined
   })
+  const detail = await selectedRepository.readDetail(saved.slug, normalized.organizationId)
+  if (!detail) throw new Error('The Skill was saved but could not be read back')
+  return detail
 }
 
-function readSkillDetailEffect(skillName: string) {
-  return tryPromiseEffect('Read local skill', () => readStoredSkill(skillName))
-}
-
-function deleteSkillEffect(skillName: string) {
-  return tryPromiseEffect('Delete local skill', async () => {
-    const dir = storedSkillDirectory(skillName)
-    try {
-      const stats = await lstat(dir)
-      if (!stats.isDirectory() || stats.isSymbolicLink()) return false
-    } catch (error) {
-      if (isNodeError(error, 'ENOENT')) return false
-      throw error
-    }
-
-    await rm(dir, { recursive: true })
-    return true
-  })
-}
-
-export async function saveSkill(input: SkillSaveRequest, options: { overwrite?: boolean } = {}): Promise<StoredSkillDetail> {
-  const prepared = validateSkillInput(input)
-  return runAppEffect(saveSkillEffect(prepared, options.overwrite ?? true))
-}
-
-export async function updateSkill(skillName: string, input: Omit<SkillSaveRequest, 'skillName'>): Promise<StoredSkillDetail | null> {
-  const name = assertStoredSkillName(skillName)
-  const existing = await readSkillDetail(name)
+export async function updateSkill(
+  skillName: string,
+  input: Omit<SkillSaveRequest, 'skillName'> & { expectedVersion?: number },
+  organizationId?: string
+): Promise<StoredSkillDetail | null> {
+  const normalizedOrganizationId = optionalIdentifier(organizationId, 'organizationId')
+  const existing = await readSkillDetail(skillName, normalizedOrganizationId)
   if (!existing) return null
+  if (input.expectedVersion !== undefined && input.expectedVersion !== existing.version) {
+    throw new SkillRepositoryConflictError('This Skill has a newer version; reload it before saving')
+  }
 
-  const prepared = validateSkillInput({ ...input, skillName: name }, name)
-  return runAppEffect(saveSkillEffect(prepared, true))
+  if (input.organizationId !== undefined && optionalIdentifier(input.organizationId, 'organizationId') !== normalizedOrganizationId) {
+    throw new SkillInputError('organizationId cannot be changed while updating a Skill')
+  }
+
+  const currentMetadata = parseSkillMetadata(existing.skillMarkdown, existing.slug)
+  const normalized = normalizeManagedSkillRequest({
+    skillMarkdown: input.skillMarkdown,
+    evalsJson: input.evalsJson,
+    skillName: existing.name,
+    organizationId: normalizedOrganizationId,
+    expertId: input.expertId === undefined ? existing.expertId : input.expertId
+  }, {
+    requireFrontmatter: Boolean(currentMetadata.frontmatterName || currentMetadata.description),
+    expectedFrontmatterName: currentMetadata.frontmatterName || undefined
+  })
+  const saved = await repository().save(normalized, {
+    targetSlug: existing.slug,
+    expectedVersion: input.expectedVersion
+  })
+  return repository().readDetail(saved.slug, normalizedOrganizationId)
 }
 
-export async function listSkills(): Promise<StoredSkillSummary[]> {
-  return runAppEffect(listSkillsEffect())
+export async function listSkills(organizationId?: string): Promise<StoredSkillSummary[]> {
+  return repository().list(optionalIdentifier(organizationId, 'organizationId'))
 }
 
-export async function readSkillDetail(skillName: string): Promise<StoredSkillDetail | null> {
-  return runAppEffect(readSkillDetailEffect(assertStoredSkillName(skillName)))
+export async function readSkillDetail(
+  skillName: string,
+  organizationId?: string
+): Promise<StoredSkillDetail | null> {
+  const normalizedName = skillName.trim()
+  if (!normalizedName) return null
+  if (!isReadableSkillStoreSlug(normalizedName)) throw new SkillInputError('Invalid Skill slug')
+  return repository().readDetail(
+    normalizedName,
+    optionalIdentifier(organizationId, 'organizationId')
+  )
 }
 
-export async function readSkill(skillName: string): Promise<string | null> {
-  return (await readSkillDetail(skillName))?.skillMarkdown || null
+export async function readSkill(skillName: string, organizationId?: string): Promise<string | null> {
+  const normalizedName = skillName.trim()
+  if (!normalizedName) return null
+  return repository().read(normalizedName, optionalIdentifier(organizationId, 'organizationId'))
 }
 
-export async function deleteSkill(skillName: string): Promise<boolean> {
-  return runAppEffect(deleteSkillEffect(assertStoredSkillName(skillName)))
+export async function deleteSkill(skillName: string, organizationId?: string): Promise<boolean> {
+  const normalizedName = skillName.trim()
+  if (!normalizedName) return false
+  if (!isReadableSkillStoreSlug(normalizedName)) throw new SkillInputError('Invalid Skill slug')
+  return repository().delete(
+    normalizedName,
+    optionalIdentifier(organizationId, 'organizationId')
+  )
 }
 
 export function skillStoreHttpError(error: unknown): { status: number; message: string } {
   let current: unknown = error
 
-  for (let depth = 0; depth < 6 && current; depth += 1) {
-    if (current instanceof SkillInputError) return { status: 400, message: current.message }
-    if (current instanceof SkillConflictError) return { status: 409, message: current.message }
+  for (let depth = 0; depth < 8 && current; depth += 1) {
+    if (current instanceof SkillStoreValidationError || current instanceof SkillRepositoryInputError) {
+      return { status: 400, message: current.message }
+    }
+    if (current instanceof SkillRepositoryConflictError) {
+      return { status: 409, message: current.message }
+    }
     current = current instanceof Error && 'cause' in current ? current.cause : null
   }
 
   console.error('Skill store request failed', error)
-  return { status: 500, message: 'Skill store operation failed' }
+  return {
+    status: 503,
+    message: 'Skill store is unavailable. Check the server logs and storage configuration.'
+  }
 }

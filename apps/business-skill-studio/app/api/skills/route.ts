@@ -5,14 +5,13 @@ import type { SkillSaveRequest } from '@/lib/types'
 
 export const runtime = 'nodejs'
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth()
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const skills = await listSkills()
+    const organizationId = new URL(request.url).searchParams.get('organizationId') || undefined
+    const skills = await listSkills(organizationId)
     return NextResponse.json({ skills }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     const responseError = skillStoreHttpError(error)
@@ -22,12 +21,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const session = await auth()
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   let body: Partial<SkillSaveRequest>
-
   try {
     body = await request.json()
   } catch {
@@ -45,8 +41,10 @@ export async function POST(request: Request) {
     const skill = await saveSkill({
       skillName: body.skillName,
       skillMarkdown: body.skillMarkdown,
-      evalsJson: body.evalsJson
-    }, { overwrite: body.overwrite === true })
+      evalsJson: body.evalsJson,
+      organizationId: typeof body.organizationId === 'string' ? body.organizationId : undefined,
+      expertId: typeof body.expertId === 'string' ? body.expertId : undefined
+    }, { overwrite: body.overwrite === false ? false : true })
 
     return NextResponse.json({ skill }, { status: 201 })
   } catch (error) {

@@ -2,29 +2,14 @@ import type { SkillDraftRequest, StudioChatMessage } from './types'
 
 export const SKILL_CREATOR_SOURCE = 'https://github.com/anthropics/skills/tree/main/skills/skill-creator'
 
-function shortStableHash(input: string): string {
-  let hash = 2166136261
-
-  for (const character of input) {
-    hash ^= character.codePointAt(0) || 0
-    hash = Math.imul(hash, 16777619)
-  }
-
-  return (hash >>> 0).toString(36).padStart(6, '0').slice(0, 6)
-}
-
 export function normalizeSkillName(input: string): string {
-  const trimmed = input.trim()
-  const asciiName = trimmed
-    .normalize('NFKD')
+  return input
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-  const baseName = asciiName || 'business-skill'
-  const suffix = /[^\u0000-\u007f]/.test(trimmed) ? `-${shortStableHash(trimmed)}` : ''
-
-  return `${baseName.slice(0, 64 - suffix.length).replace(/-+$/g, '')}${suffix}`
+    .slice(0, 80)
+    .replace(/-+$/g, '') || 'business-skill'
 }
 
 export function formatTranscript(messages: StudioChatMessage[]): string {
