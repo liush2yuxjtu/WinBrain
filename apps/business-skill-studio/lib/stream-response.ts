@@ -1,5 +1,9 @@
 type StreamEvent = Record<string, unknown> & { type?: string }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 export function progressiveJsonResponse(events: AsyncIterable<StreamEvent>): Response {
   const encoder = new TextEncoder()
 
@@ -7,37 +11,42 @@ export function progressiveJsonResponse(events: AsyncIterable<StreamEvent>): Res
     async start(controller) {
       let first = true
       let finalEvent: StreamEvent | undefined
+      let failure: string | undefined
 
       controller.enqueue(encoder.encode('{"events":[\n'))
+
+      const enqueueEvent = (event: StreamEvent) => {
+        const prefix = first ? '' : ','
+        first = false
+        controller.enqueue(encoder.encode(`${prefix}${JSON.stringify(event)}\n`))
+      }
 
       try {
         for await (const event of events) {
           if (event.type === 'result') finalEvent = event
-          const prefix = first ? '' : ','
-          first = false
-          controller.enqueue(encoder.encode(`${prefix}${JSON.stringify(event)}\n`))
+          enqueueEvent(event)
         }
       } catch (error) {
-        finalEvent = {
-          type: 'result',
-          text: '',
-          usedLiveModel: false,
-          usedAgentSdk: false,
-          provider: 'claude-agent-sdk',
-          warnings: [`Streaming response failed: ${error instanceof Error ? error.message : String(error)}`]
-        }
-        const prefix = first ? '' : ','
-        controller.enqueue(encoder.encode(`${prefix}${JSON.stringify(finalEvent)}\n`))
+        failure = errorMessage(error)
+        enqueueEvent({
+          type: 'error',
+          error: failure
+        })
       }
 
-      const rootFields = finalEvent
-        ? Object.fromEntries(Object.entries(finalEvent).filter(([key]) => key !== 'type'))
+      if (!failure && !finalEvent) {
+        failure = 'Stream ended without a final result event.'
+        enqueueEvent({
+          type: 'error',
+          error: failure
+        })
+      }
+
+      const rootFields = failure
+        ? { ok: false, error: failure }
         : {
-            text: '',
-            usedLiveModel: false,
-            usedAgentSdk: false,
-            provider: 'claude-agent-sdk',
-            warnings: ['Stream ended without a final result event.']
+            ok: true,
+            ...Object.fromEntries(Object.entries(finalEvent as StreamEvent).filter(([key]) => key !== 'type'))
           }
 
       const rootJson = JSON.stringify(rootFields)

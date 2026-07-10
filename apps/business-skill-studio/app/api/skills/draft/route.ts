@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { streamSkillDraft, type AgentSdkStreamEvent } from '@/lib/agent-sdk'
+import {
+  AgentSdkConfigurationError,
+  assertAgentSdkConfigured,
+  streamSkillDraft,
+  type AgentSdkStreamEvent
+} from '@/lib/agent-sdk'
 import { progressiveJsonResponse } from '@/lib/stream-response'
 import type { SkillDraftRequest } from '@/lib/types'
 
@@ -29,6 +34,15 @@ export async function POST(request: Request) {
 
   if (!body || !body.skillName || !body.expertRole || !body.businessGoal || !Array.isArray(body.transcript)) {
     return NextResponse.json({ error: 'skillName, expertRole, businessGoal, and transcript are required' }, { status: 400 })
+  }
+
+  try {
+    assertAgentSdkConfigured()
+  } catch (error) {
+    if (error instanceof AgentSdkConfigurationError) {
+      return NextResponse.json({ error: error.message }, { status: 503 })
+    }
+    throw error
   }
 
   return progressiveJsonResponse(draftEvents({

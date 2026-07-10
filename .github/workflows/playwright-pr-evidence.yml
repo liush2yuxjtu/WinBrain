@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
+      - name: Install root dependencies
         shell: bash
         run: |
           if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
@@ -39,8 +39,41 @@ jobs:
             npm install
           fi
 
+      - name: Install Business Skill Studio dependencies
+        run: npm install --prefix apps/business-skill-studio --no-package-lock --legacy-peer-deps
+
       - name: Install Playwright browsers and system dependencies
         run: npx playwright install --with-deps chromium
+
+      - name: Start the real Business Skill Studio
+        shell: bash
+        env:
+          AUTH_SECRET: playwright-pr-evidence-auth-secret-32-bytes
+          NEXTAUTH_URL: http://127.0.0.1:3000
+          AUTH_USER_EMAIL: playwright@example.com
+          AUTH_USER_NAME: Playwright Reviewer
+          AUTH_USER_ROLE: admin
+          AUTH_USER_PASSWORD_HASH: $2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+          SKILL_STORE_DRIVER: filesystem
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          (
+            cd apps/business-skill-studio
+            nohup npm run dev -- --hostname 127.0.0.1 --port 3000 > ../../artifacts/business-skill-studio.log 2>&1 &
+            echo $! > ../../artifacts/business-skill-studio.pid
+          )
+
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/login > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          cat artifacts/business-skill-studio.log
+          echo "Business Skill Studio did not become reachable" >&2
+          exit 1
 
       - name: Load trusted PR evidence renderer
         id: trusted_renderer
@@ -58,7 +91,7 @@ jobs:
         id: playwright
         continue-on-error: true
         env:
-          PLAYWRIGHT_TARGET_URL: ${{ vars.PLAYWRIGHT_TARGET_URL }}
+          PLAYWRIGHT_TARGET_URL: http://127.0.0.1:3000/login
         run: npm run test:e2e
 
       - name: Upload Playwright evidence artifact backup
