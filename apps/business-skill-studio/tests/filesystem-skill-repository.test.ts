@@ -29,14 +29,8 @@ test('filesystem repository keeps current content and numbered revisions', async
   assert.equal(first.version, 1)
   assert.equal(second.version, 2)
   assert.equal(await repository.read('Renewal Review'), '# Version 2')
-  assert.equal(
-    await readFile(path.join(directory, second.slug, 'revisions', '1', 'SKILL.md'), 'utf8'),
-    '# Version 1'
-  )
-  assert.equal(
-    await readFile(path.join(directory, second.slug, 'revisions', '2', 'SKILL.md'), 'utf8'),
-    '# Version 2'
-  )
+  assert.equal(await readFile(path.join(directory, second.slug, 'revisions', '1', 'SKILL.md'), 'utf8'), '# Version 1')
+  assert.equal(await readFile(path.join(directory, second.slug, 'revisions', '2', 'SKILL.md'), 'utf8'), '# Version 2')
 
   const listed = await repository.list()
   assert.equal(listed.length, 1)
@@ -46,16 +40,31 @@ test('filesystem repository keeps current content and numbered revisions', async
 test('filesystem repository creates distinct stable slugs for non-Latin names', async (t) => {
   const { repository } = await createRepository(t)
 
-  const first = await repository.save({
-    skillName: '客户续约评审',
-    skillMarkdown: '# Renewal'
-  })
-  const second = await repository.save({
-    skillName: '销售线索评分',
-    skillMarkdown: '# Lead scoring'
-  })
+  const first = await repository.save({ skillName: '客户续约评审', skillMarkdown: '# Renewal' })
+  const second = await repository.save({ skillName: '销售线索评分', skillMarkdown: '# Lead scoring' })
 
   assert.notEqual(first.slug, second.slug)
   assert.match(first.slug, /^business-skill-[a-f0-9]{12}$/)
   assert.equal((await repository.list()).length, 2)
+})
+
+test('filesystem repository isolates the same skill name by organization', async (t) => {
+  const { repository } = await createRepository(t)
+
+  const first = await repository.save({
+    organizationId: 'company-a',
+    skillName: 'Weekly Sales Review',
+    skillMarkdown: '# Company A'
+  })
+  const second = await repository.save({
+    organizationId: 'company-b',
+    skillName: 'Weekly Sales Review',
+    skillMarkdown: '# Company B'
+  })
+
+  assert.notEqual(first.id, second.id)
+  assert.equal(await repository.read('Weekly Sales Review', 'company-a'), '# Company A')
+  assert.equal(await repository.read('Weekly Sales Review', 'company-b'), '# Company B')
+  assert.equal((await repository.list('company-a')).length, 1)
+  assert.equal((await repository.list('company-b')).length, 1)
 })
