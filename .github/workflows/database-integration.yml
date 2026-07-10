@@ -7,18 +7,22 @@ on:
       - 'apps/business-skill-studio/**'
       - 'tools/verify-skill-database.mjs'
       - '.github/workflows/database-integration.yml'
+      - '.github/workflows/docker-postgres-kimi-uat.yml'
   push:
     branches: [main]
     paths:
       - 'apps/business-skill-studio/**'
+      - 'tools/verify-skill-database.mjs'
       - '.github/workflows/database-integration.yml'
+      - '.github/workflows/docker-postgres-kimi-uat.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  skill-store:
+  database-integration:
+    name: Docker PostgreSQL 与 MySQL 集成测试
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -26,7 +30,7 @@ jobs:
         env:
           POSTGRES_DB: winbrain_test
           POSTGRES_USER: winbrain
-          POSTGRES_PASSWORD: winbrain
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
@@ -37,20 +41,20 @@ jobs:
       mysql:
         image: mysql:8.4
         env:
-          MYSQL_ROOT_PASSWORD: local-root-password
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
         ports:
           - 3306:3306
         options: >-
-          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -plocal-root-password --silent"
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot --silent"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
     env:
-      DATABASE_URL: postgresql://winbrain:winbrain@127.0.0.1:5432/winbrain_test?schema=public
-      TEST_DATABASE_URL: postgresql://winbrain:winbrain@127.0.0.1:5432/winbrain_test?schema=public
+      DATABASE_URL: postgresql://winbrain@127.0.0.1:5432/winbrain_test?schema=public
+      TEST_DATABASE_URL: postgresql://winbrain@127.0.0.1:5432/winbrain_test?schema=public
       TEST_CUSTOMER_DB_HOST: 127.0.0.1
       TEST_CUSTOMER_DB_PORT: '3306'
-      TEST_CUSTOMER_DB_ROOT_PASSWORD: local-root-password
+      TEST_CUSTOMER_DB_ROOT_PASSWORD: ''
       DATA_SOURCE_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
       ALLOW_PRIVATE_DATA_SOURCE_HOSTS: 'true'
     defaults:
@@ -72,7 +76,7 @@ jobs:
       - name: Generate Prisma client
         run: npm run db:generate
 
-      - name: Apply database migrations
+      - name: Apply Docker PostgreSQL migrations
         run: npm run db:migrate:deploy
 
       - name: Run filesystem, encryption, and validation tests
@@ -108,215 +112,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  real-stack-evidence:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}
-    needs: skill-store
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    permissions:
-      contents: write
-      pull-requests: write
-      actions: read
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: winbrain_evidence
-          POSTGRES_USER: winbrain
-          POSTGRES_PASSWORD: winbrain
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U winbrain -d winbrain_evidence"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgresql://winbrain:winbrain@127.0.0.1:5432/winbrain_evidence?schema=public
-      SKILL_STORE_DRIVER: database
-      DATA_SOURCE_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
-      ANTHROPIC_API_KEY_PRIMARY: ${{ secrets.ANTHROPIC_API_KEY_PRIMARY }}
-      ANTHROPIC_API_KEY_FALLBACK: ${{ secrets.ANTHROPIC_API_KEY_FALLBACK }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
-      ANTHROPIC_BASE_URL: ${{ vars.ANTHROPIC_BASE_URL }}
-      ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
-      AGENT_SDK_ATTEMPT_TIMEOUT_MS: '600000'
-      FRONTEND_API_RESPONSE_TIMEOUT_MS: '1250000'
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: ${{ vars.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC }}
-      FRONTEND_URL: http://127.0.0.1:3000
-      FRONTEND_RECORD_SCENARIO: business-skill-studio
-      PLAYWRIGHT_CHANNEL: chrome
-
-    steps:
-      - name: Checkout pull request head
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref || github.ref }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Require live model credentials
-        shell: bash
+      - name: Document live UAT separation
         run: |
-          set -euo pipefail
-          if [ -z "$ANTHROPIC_API_KEY_PRIMARY" ] && [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$ANTHROPIC_AUTH_TOKEN" ]; then
-            echo "::error::At least one live Claude Agent SDK credential is required."
-            exit 1
-          fi
-          test -n "$ANTHROPIC_BASE_URL" || { echo "::error::ANTHROPIC_BASE_URL variable is required"; exit 1; }
-          test -n "$ANTHROPIC_MODEL" || { echo "::error::ANTHROPIC_MODEL variable is required"; exit 1; }
-
-      - name: Install dependencies
-        shell: bash
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
-          cd apps/business-skill-studio
-          if [ -f package-lock.json ]; then npm ci --legacy-peer-deps; else npm install --no-package-lock --legacy-peer-deps; fi
-
-      - name: Configure deterministic recording authentication
-        shell: bash
-        working-directory: apps/business-skill-studio
-        env:
-          RECORDING_EMAIL: recording@example.com
-          RECORDING_PASSWORD: winbrain-recording-password
-        run: |
-          set -euo pipefail
-          password_hash="$(node -e 'const bcrypt = require("bcryptjs"); process.stdout.write(bcrypt.hashSync(process.env.RECORDING_PASSWORD, 10));')"
-          {
-            echo "AUTH_SECRET=winbrain-real-stack-recording-secret-000000000000"
-            echo "AUTH_USER_EMAIL=$RECORDING_EMAIL"
-            echo "AUTH_USER_NAME=Real Stack Recording User"
-            echo "AUTH_USER_ROLE=admin"
-            echo "AUTH_USER_PASSWORD_HASH=$password_hash"
-            echo "AUTH_URL=http://127.0.0.1:3000"
-            echo "NEXTAUTH_URL=http://127.0.0.1:3000"
-            echo "FRONTEND_RECORD_EMAIL=$RECORDING_EMAIL"
-            echo "FRONTEND_RECORD_PASSWORD=$RECORDING_PASSWORD"
-          } >> "$GITHUB_ENV"
-
-      - name: Install Chrome
-        run: npx playwright install --with-deps chrome
-
-      - name: Apply PostgreSQL migrations
-        working-directory: apps/business-skill-studio
-        run: npm run db:migrate:deploy
-
-      - name: Build application
-        working-directory: apps/business-skill-studio
-        run: npm run build
-
-      - name: Load trusted evidence renderer
-        id: trusted_renderer
-        shell: bash
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          set -euo pipefail
-          renderer="$RUNNER_TEMP/update-pr-evidence.mjs"
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            git fetch --no-tags --depth=1 origin "$BASE_SHA"
-            git show "${BASE_SHA}:scripts/update-pr-evidence.mjs" > "$renderer"
-          else
-            cp scripts/update-pr-evidence.mjs "$renderer"
-          fi
-          echo "path=$renderer" >> "$GITHUB_OUTPUT"
-
-      - name: Start application
-        shell: bash
-        run: |
-          cd apps/business-skill-studio
-          nohup npm run start -- --hostname 127.0.0.1 --port 3000 > ../../frontend-server.log 2>&1 &
-          for attempt in $(seq 1 60); do
-            if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then exit 0; fi
-            sleep 2
-          done
-          cat ../../frontend-server.log
-          exit 1
-
-      - name: Record live LLM workflow
-        id: record
-        run: npm run record:frontend
-
-      - name: Verify PostgreSQL persistence through authenticated UI
-        run: node tools/verify-skill-database.mjs
-
-      - name: Add server log to evidence
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          mkdir -p artifacts/frontend-recording
-          cp frontend-server.log artifacts/frontend-recording/frontend-server.log || true
-
-      - name: Upload evidence artifact backup
-        id: upload
-        if: ${{ always() && !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: real-stack-visual-evidence
-          path: artifacts/frontend-recording
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Publish evidence to pull request branch
-        id: publish
-        if: ${{ success() && github.event_name == 'pull_request' }}
-        shell: bash
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin "${HEAD_BRANCH}:refs/remotes/origin/${HEAD_BRANCH}"
-          git reset --hard "origin/${HEAD_BRANCH}"
-          dest="pr-evidence/pr-${PR_NUMBER}/real-stack/latest"
-          rm -rf "$dest"
-          mkdir -p "$dest"
-          cp -R artifacts/frontend-recording/. "$dest/"
-          video_file="$(find "$dest" -type f \( -name '*.webm' -o -name '*.mp4' \) | sort | head -n 1 || true)"
-          if [ -n "$video_file" ]; then
-            if ! command -v ffmpeg >/dev/null 2>&1; then
-              sudo apt-get update
-              sudo apt-get install -y ffmpeg
-            fi
-            ffmpeg -y -i "$video_file" -t 15 -vf "fps=6,scale=720:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96[p];[s1][p]paletteuse" "$dest/recording-preview.gif"
-          fi
-          find "$dest" -type f | sort > "$dest/manifest.txt"
-          git add -f "$dest"
-          if git diff --cached --quiet; then
-            echo "published=false" >> "$GITHUB_OUTPUT"
-          else
-            git commit -m "chore: publish PR ${PR_NUMBER} real-stack evidence [skip ci]"
-            pushed=false
-            for attempt in 1 2 3; do
-              if git push origin HEAD:"${HEAD_BRANCH}"; then pushed=true; break; fi
-              git fetch origin "${HEAD_BRANCH}:refs/remotes/origin/${HEAD_BRANCH}"
-              git rebase "origin/${HEAD_BRANCH}"
-            done
-            test "$pushed" = "true"
-            echo "published=true" >> "$GITHUB_OUTPUT"
-          fi
-          echo "media_path=$dest" >> "$GITHUB_OUTPUT"
-          echo "media_ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Update pull request body with visual evidence
-        if: ${{ success() && github.event_name == 'pull_request' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          RUN_ID: ${{ github.run_id }}
-          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
-          TEST_OUTCOME: ${{ steps.record.outcome }}
-          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          EVIDENCE_TITLE: 真实 LLM 与 PostgreSQL 视觉证据
-          EVIDENCE_MARKER: real-stack-visual-evidence
-          EVIDENCE_MEDIA_PATH: ${{ steps.publish.outputs.media_path }}
-          EVIDENCE_MEDIA_REF: ${{ steps.publish.outputs.media_ref }}
-        run: node "${{ steps.trusted_renderer.outputs.path }}"
+          echo "Live Kimi, temporary Auth, and PostgreSQL UI readback run in the protected Docker PostgreSQL + Kimi UAT workflow."
+          echo "This pull-request job is deterministic and receives no live model credential."
