@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { randomUUID } from 'node:crypto'
-import { lstat, mkdir, readFile, readdir, rename, rm, rmdir, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, open, readFile, readdir, rename, rm, rmdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { AppError, runAppEffect, tryPromiseEffect } from './effect-runtime'
 import type { SkillSaveRequest, StoredSkillDetail, StoredSkillSummary } from './types'
@@ -9,6 +9,7 @@ import { normalizeSkillName } from './skill-creator'
 const DEFAULT_STORAGE_DIR = 'data/generated-skills'
 const MAX_SKILL_BYTES = 1_000_000
 const MAX_EVALS_BYTES = 1_000_000
+const SUMMARY_READ_BYTES = 64 * 1024
 
 export class SkillInputError extends Error {
   constructor(message: string) {
@@ -238,7 +239,7 @@ function saveSkillEffect(prepared: PreparedSkill, overwrite: boolean) {
   })
 }
 
-async function readStoredSkill(skillName: string): Promise<StoredSkillDetail | null> {
+async function inspectStoredSkillFiles(skillName: string) {
   const name = assertStoredSkillName(skillName)
   const dir = storedSkillDirectory(name)
   const skillPath = path.join(dir, 'SKILL.md')
@@ -266,24 +267,58 @@ async function readStoredSkill(skillName: string): Promise<StoredSkillDetail | n
     throw new SkillInputError(`The evals.json entry for "${name}" is not a safe file`)
   }
 
+  return { name, skillPath, skillStats, evalPath, evalStats }
+}
+
+async function readFilePrefix(filePath: string): Promise<string> {
+  const handle = await open(filePath, 'r')
+  try {
+    const buffer = Buffer.alloc(SUMMARY_READ_BYTES)
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
+    return buffer.toString('utf8', 0, bytesRead)
+  } finally {
+    await handle.close()
+  }
+}
+
+async function readStoredSkill(skillName: string): Promise<StoredSkillDetail | null> {
+  const files = await inspectStoredSkillFiles(skillName)
+  if (!files) return null
+
   const [skillMarkdown, evalsJson] = await Promise.all([
-    readFile(skillPath, 'utf8'),
-    evalStats ? readFile(evalPath, 'utf8') : Promise.resolve(null)
+    readFile(files.skillPath, 'utf8'),
+    files.evalStats ? readFile(files.evalPath, 'utf8') : Promise.resolve(null)
   ])
 
   if (!skillMarkdown) return null
 
-  const metadata = parseSkillMetadata(skillMarkdown, name)
+  const metadata = parseSkillMetadata(skillMarkdown, files.name)
   return {
-    name,
+    name: files.name,
     title: metadata.title,
     description: metadata.description || '暂无描述',
-    path: displayPath(name),
-    updatedAt: new Date(Math.max(skillStats.mtimeMs, evalStats?.mtimeMs || 0)).toISOString(),
-    sizeBytes: skillStats.size + (evalStats?.size || 0),
+    path: displayPath(files.name),
+    updatedAt: new Date(Math.max(files.skillStats.mtimeMs, files.evalStats?.mtimeMs || 0)).toISOString(),
+    sizeBytes: files.skillStats.size + (files.evalStats?.size || 0),
     hasEvals: Boolean(evalsJson),
     skillMarkdown,
     evalsJson
+  }
+}
+
+async function readStoredSkillSummary(skillName: string): Promise<StoredSkillSummary | null> {
+  const files = await inspectStoredSkillFiles(skillName)
+  if (!files) return null
+
+  const metadata = parseSkillMetadata(await readFilePrefix(files.skillPath), files.name)
+  return {
+    name: files.name,
+    title: metadata.title,
+    description: metadata.description || '暂无描述',
+    path: displayPath(files.name),
+    updatedAt: new Date(Math.max(files.skillStats.mtimeMs, files.evalStats?.mtimeMs || 0)).toISOString(),
+    sizeBytes: files.skillStats.size + (files.evalStats?.size || 0),
+    hasEvals: Boolean(files.evalStats?.size)
   }
 }
 
@@ -293,13 +328,12 @@ function listSkillsEffect() {
     yield* tryPromiseEffect('Create skill storage root', () => mkdir(root, { recursive: true }))
 
     const entries = yield* tryPromiseEffect('Read skill storage root', () => readdir(root, { withFileTypes: true }))
-    const details = yield* tryPromiseEffect('Read local skill metadata', () => Promise.all(entries
+    const summaries = yield* tryPromiseEffect('Read local skill metadata', () => Promise.all(entries
       .filter((entry) => entry.isDirectory() && isStoredSkillName(entry.name))
-      .map((entry) => readStoredSkill(entry.name))))
+      .map((entry) => readStoredSkillSummary(entry.name))))
 
-    return details
-      .filter((detail): detail is StoredSkillDetail => detail !== null)
-      .map(({ skillMarkdown: _skillMarkdown, evalsJson: _evalsJson, ...summary }): StoredSkillSummary => summary)
+    return summaries
+      .filter((summary): summary is StoredSkillSummary => summary !== null)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   })
 }

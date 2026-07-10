@@ -1,6 +1,7 @@
 "use client"
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import type { StoredSkillDetail, StoredSkillSummary } from '@/lib/types'
 
 type LibraryFilter = 'all' | 'with-evals' | 'without-evals'
@@ -119,6 +120,7 @@ async function responseError(response: Response): Promise<Error> {
 }
 
 export function SkillLibrary() {
+  const searchParams = useSearchParams()
   const [skills, setSkills] = useState<StoredSkillSummary[]>([])
   const [selectedName, setSelectedName] = useState('')
   const [detail, setDetail] = useState<StoredSkillDetail | null>(null)
@@ -181,10 +183,11 @@ export function SkillLibrary() {
     }
   }, [])
 
+  const preferredName = searchParams.get('selected') || undefined
+
   useEffect(() => {
-    const preferredName = new URLSearchParams(window.location.search).get('selected') || undefined
     void loadSkills(preferredName)
-  }, [loadSkills])
+  }, [loadSkills, preferredName])
 
   useEffect(() => {
     selectedNameRef.current = selectedName
@@ -353,14 +356,18 @@ export function SkillLibrary() {
       return
     }
 
-    const markdown = await file.text()
-    const frontmatterName = readFrontmatterField(markdown, 'name')
-    const description = readFrontmatterField(markdown, 'description')
-    setCreateName(frontmatterName || file.name.replace(/\.(md|markdown)$/i, ''))
-    setCreateDescription(description)
-    setImportedMarkdown(markdown)
-    setCreateError('')
-    setCreateOpen(true)
+    try {
+      const markdown = await file.text()
+      const frontmatterName = readFrontmatterField(markdown, 'name')
+      const description = readFrontmatterField(markdown, 'description')
+      setCreateName(frontmatterName || file.name.replace(/\.(md|markdown)$/i, ''))
+      setCreateDescription(description)
+      setImportedMarkdown(markdown)
+      setCreateError('')
+      setCreateOpen(true)
+    } catch {
+      setNotice({ type: 'error', message: '读取或解析 SKILL.md 失败，请重试' })
+    }
   }
 
   async function saveChanges() {
@@ -436,8 +443,10 @@ export function SkillLibrary() {
     const anchor = document.createElement('a')
     anchor.href = url
     anchor.download = `${detail.name}.winbrain-skill.json`
+    document.body.appendChild(anchor)
     anchor.click()
-    URL.revokeObjectURL(url)
+    document.body.removeChild(anchor)
+    window.setTimeout(() => URL.revokeObjectURL(url), 0)
   }
 
   const proposedName = createName.trim() ? normalizeProposedName(createName) : 'skill-name'
