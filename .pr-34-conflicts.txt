@@ -1,0 +1,2 @@
+apps/business-skill-studio/app/page.tsx
+apps/business-skill-studio/components/studio-shell.tsx
