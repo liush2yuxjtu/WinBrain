@@ -2,7 +2,6 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type {
-  ChatResponse,
   CompanySetupPayload,
   ExpertSummary,
   StoredSkillSummary,
@@ -289,7 +288,7 @@ export default function Home() {
     <main className="workbench" id="studio-home">
       <header className="workbench-topbar">
         <div className="workbench-title">
-          <div className="workbench-breadcrumb"><span>WinBrain</span><span>/</span><b>Skill Studio</b></div>
+          <div className="workbench-breadcrumb"><span>WinBrain Business Skill Studio</span><span>/</span><b>Skill Studio</b></div>
           <h1>业务 Skill 工作台</h1>
         </div>
         <div className="workbench-tools">
@@ -448,7 +447,7 @@ export default function Home() {
                   event.currentTarget.form?.requestSubmit()
                 }
               }}
-              placeholder="询问流程、例外或让 AI 修改草稿…"
+              placeholder="描述流程、例外、输出要求或给一个真实案例"
             />
             <div className="assistant-composer-footer">
               <div className="composer-tools"><button type="button" aria-label="添加上下文">＋</button><span>Agent</span></div>
