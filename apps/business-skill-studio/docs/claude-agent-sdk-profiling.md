@@ -12,7 +12,11 @@ Set `AGENT_SDK_PROFILE_LOGGING` in the server environment:
 | `summary` | Emits one summary for each credential attempt and one end-to-end trace summary. |
 | `verbose` | Emits summaries plus trace, attempt, and first-occurrence milestone events. |
 
-Aliases such as `true`, `1`, and `enabled` select `summary`; `debug` selects `verbose`; `false`, `0`, and `disabled` select `off`.
+Accepted aliases match the parser exactly:
+
+- `off`, `false`, `0`, `disabled`, and `none` select `off`;
+- `summary`, `true`, `1`, `on`, and `enabled` select `summary`;
+- `verbose`, `debug`, and `milestones` select `verbose`.
 
 When the variable is omitted, `NODE_ENV=development` defaults to `summary`. Production and test environments default to `off`, so profiling remains opt-in outside local development.
 
@@ -51,7 +55,10 @@ Credential attempts also include `attempt` and `credentialSlot`. A request that 
 - `heartbeatCount`: number of 15-second waiting heartbeats;
 - `outputChars`: final accumulated output size;
 - `sdkDurationMs`, `sdkApiDurationMs`, and `sdkNumTurns`: SDK-reported result metrics when supplied by the installed SDK version;
-- `outcome`, `errorName`, and `errorKind`: safe completion classification without error-message contents.
+- `outcome`, `errorName`, and `errorKind`: safe primary-operation completion classification without error-message contents;
+- `cleanupErrorName` and `cleanupErrorKind`: safe classification for a suppressed `close()` failure, when one occurs.
+
+A handle-close failure is diagnostic only: it is recorded separately and does not replace a successful result or mask the primary SDK exception.
 
 In `verbose` mode, `attempt.milestone` events expose the first occurrence of query readiness, SDK initialization, first message, first text, first assistant message, and final result.
 
@@ -79,7 +86,7 @@ The profiler does **not** write any of the following to logs:
 - prompt or system-prompt contents;
 - model response contents;
 - credential values;
-- raw SDK error messages;
+- raw SDK or cleanup error messages;
 - thinking or reasoning text.
 
 Only character counts, timing values, SDK message classifications, credential slot names, and normalized error categories are recorded. Existing application status messages and warnings retain their current behavior and are separate from the profiling output.
@@ -93,3 +100,4 @@ For latency investigation, start with `trace.summary`, then filter by its `trace
 3. Compare adapter-observed values with `sdkApiDurationMs` when the SDK reports it; large differences can indicate SDK startup, stream handling, or downstream backpressure.
 4. Inspect multiple attempts and `failoverCount` to quantify credential failover cost.
 5. Use `heartbeatCount` to identify requests that spent extended periods waiting for the next SDK message.
+6. Inspect `cleanupErrorName` and `cleanupErrorKind` for handle shutdown problems that did not alter the primary request result.
