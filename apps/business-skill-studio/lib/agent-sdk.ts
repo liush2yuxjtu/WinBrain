@@ -31,8 +31,19 @@ function extractTextFromSdkMessage(message: unknown): string {
 
   if (typeof record.result === 'string') return record.result
   if (typeof record.message === 'string') return record.message
+  if (record.message && typeof record.message === 'object') {
+    return extractTextFromSdkMessage(record.message)
+  }
 
   return ''
+}
+
+function isFinalSdkResult(message: unknown): boolean {
+  return Boolean(
+    message &&
+    typeof message === 'object' &&
+    (message as Record<string, unknown>).type === 'result'
+  )
 }
 
 async function collectAgentSdkOutput(result: unknown): Promise<string> {
@@ -45,13 +56,18 @@ async function collectAgentSdkOutput(result: unknown): Promise<string> {
   if (typeof maybeAsync[Symbol.asyncIterator] === 'function') {
     const chunks: string[] = []
     for await (const message of maybeAsync) {
-      chunks.push(extractTextFromSdkMessage(message))
+      const text = extractTextFromSdkMessage(message)
+      if (text) chunks.push(text)
+
+      if (isFinalSdkResult(message)) {
+        return chunks.join('').trim()
+      }
     }
     return chunks.join('').trim()
   }
 
   if (Array.isArray(resolved)) {
-    return resolved.map(extractTextFromSdkMessage).join('').trim()
+    return resolved.map(extractTextFromSdkMessage).filter(Boolean).join('').trim()
   }
 
   return extractTextFromSdkMessage(resolved).trim()
