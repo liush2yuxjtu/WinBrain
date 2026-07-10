@@ -278,11 +278,15 @@ async function* streamWithCredential(
       }
 
       if (type === 'result') {
-        if (record.subtype !== 'success' || record.is_error === true) {
+        if (record.subtype !== 'success') {
           throw resultError(record)
         }
 
         const resultText = extractText(record)
+        if (!resultText && record.is_error === true) {
+          throw resultError(record)
+        }
+
         const appended = appendNonDuplicate(fullText, resultText)
         if (appended.delta) {
           fullText = appended.text
