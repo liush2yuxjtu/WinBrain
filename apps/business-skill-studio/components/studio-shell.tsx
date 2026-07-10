@@ -1,5 +1,6 @@
 "use client"
 
+import Link from 'next/link'
 import { useEffect, useState, type ReactNode } from 'react'
 
 type StudioShellProps = {
@@ -13,8 +14,8 @@ const navigation = [
   { href: '/#studio-home', label: '概览', icon: '⌂', active: (location: string) => location === '/' || location === '/#studio-home' },
   { href: '/#skill-draft', label: 'Skill Library', icon: '◇', active: (location: string) => location === '/#skill-draft' },
   { href: '/#expert-interview', label: '业务专家', icon: '◎', active: (location: string) => location === '/#expert-interview' },
-  { href: '/settings#data-sources', label: '数据源', icon: '⌁', active: (location: string) => location === '/settings#data-sources' },
-  { href: '/settings', label: '设置', icon: '⚙', active: (location: string) => location === '/settings' }
+  { href: '/settings#data-sources', label: '数据源', icon: '⌁', active: (location: string) => location.startsWith('/settings') && location.includes('#data-sources') },
+  { href: '/settings', label: '设置', icon: '⚙', active: (location: string) => location.startsWith('/settings') && !location.includes('#data-sources') }
 ]
 
 export function StudioShell({ children, userName, userEmail, signOutAction }: StudioShellProps) {
@@ -29,7 +30,7 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
       console.warn('Unable to read the sidebar preference from localStorage.', error)
     }
 
-    const syncLocation = () => setActiveLocation(`${window.location.pathname}${window.location.hash}`)
+    const syncLocation = () => setActiveLocation(`${window.location.pathname}${window.location.search}${window.location.hash}`)
     syncLocation()
     window.addEventListener('hashchange', syncLocation)
     window.addEventListener('popstate', syncLocation)
@@ -66,14 +67,14 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
           </button>
         </div>
 
-        <a className="sidebar-create" href="/#expert-interview" onClick={() => setMobileOpen(false)}>
+        <Link className="sidebar-create" href="/#expert-interview" onClick={() => setMobileOpen(false)}>
           <span aria-hidden="true">＋</span><b>新建 Skill</b>
-        </a>
+        </Link>
 
         <nav className="sidebar-nav">
           <p className="nav-label">工作区</p>
           {navigation.slice(0, 3).map((item) => (
-            <a
+            <Link
               className={`sidebar-nav-item${item.active(activeLocation) ? ' active' : ''}`}
               href={item.href}
               key={item.href}
@@ -81,12 +82,12 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
             >
               <span className="nav-icon" aria-hidden="true">{item.icon}</span>
               <span className="nav-text">{item.label}</span>
-            </a>
+            </Link>
           ))}
 
           <p className="nav-label nav-label-secondary">管理</p>
           {navigation.slice(3).map((item) => (
-            <a
+            <Link
               className={`sidebar-nav-item${item.active(activeLocation) ? ' active' : ''}`}
               href={item.href}
               key={item.href}
@@ -94,7 +95,7 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
             >
               <span className="nav-icon" aria-hidden="true">{item.icon}</span>
               <span className="nav-text">{item.label}</span>
-            </a>
+            </Link>
           ))}
         </nav>
 

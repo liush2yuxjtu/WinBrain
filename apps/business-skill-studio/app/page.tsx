@@ -292,7 +292,7 @@ export default function Home() {
           <h1>业务 Skill 工作台</h1>
         </div>
         <div className="workbench-tools">
-          <button className="command-button" type="button" aria-label="打开命令面板">
+          <button className="command-button" type="button" aria-label="打开命令面板" disabled>
             <span>⌕</span><span>搜索或运行命令</span><kbd>⌘ K</kbd>
           </button>
           <span className="workspace-state"><i />{selectedOrganization?.name || '工作区已就绪'}</span>
@@ -308,7 +308,15 @@ export default function Home() {
                 <h2>把业务经验转成可执行、可评估的 AI 能力</h2>
                 <p>配置业务上下文，和右侧 AI 访谈，再生成并发布 Skill。整个流程保留在同一工作台。</p>
               </div>
-              <button className="button primary hero-action" disabled={busy || messages.length < 2} type="button" onClick={generateDraft}>
+              <button
+                className="button primary hero-action"
+                disabled={busy || messages.length < 2}
+                type="button"
+                onClick={() => {
+                  if (draft.trim() && !window.confirm('重新生成将覆盖您当前在编辑器中的修改，确定要重新生成吗？')) return
+                  void generateDraft()
+                }}
+              >
                 <span>✦</span> 生成 Skill 草稿
               </button>
             </section>
@@ -393,7 +401,16 @@ export default function Home() {
                     : <span>{busy && streamStatus ? streamStatus : '草稿仅在当前会话中保留'}</span>}
                 </div>
                 <div className="draft-actions">
-                  <button className="button secondary" disabled={busy || !draft} type="button" onClick={() => setDraft('')}>清空</button>
+                  <button
+                    className="button secondary"
+                    disabled={busy || !draft}
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('确定要清空当前生成的草稿吗？此操作不可撤销。')) setDraft('')
+                    }}
+                  >
+                    清空
+                  </button>
                   <button className="button primary" disabled={busy || !draft.trim()} type="button" onClick={saveDraft}>发布到 Skill Store</button>
                 </div>
               </div>
@@ -408,15 +425,15 @@ export default function Home() {
               <span className="assistant-mark">✦</span>
               <div><strong>WinBrain Copilot</strong><span><i /> 正在读取当前工作区</span></div>
             </div>
-            <button type="button" className="icon-button" aria-label="AI 助手菜单">•••</button>
+            <button type="button" className="icon-button" aria-label="AI 助手菜单" disabled>•••</button>
           </div>
 
           <div className="assistant-context">
             <span>上下文</span>
             <div className="context-chips">
-              <button type="button">@ {selectedOrganization?.name || '当前公司'}</button>
-              <button type="button"># {expertRole}</button>
-              {draft ? <button type="button">◇ SKILL.md</button> : null}
+              <span className="context-chip">@ {selectedOrganization?.name || '当前公司'}</span>
+              {expertRole.trim() ? <span className="context-chip"># {expertRole}</span> : null}
+              {draft ? <span className="context-chip">◇ SKILL.md</span> : null}
             </div>
           </div>
 
@@ -450,7 +467,7 @@ export default function Home() {
               placeholder="描述流程、例外、输出要求或给一个真实案例"
             />
             <div className="assistant-composer-footer">
-              <div className="composer-tools"><button type="button" aria-label="添加上下文">＋</button><span>Agent</span></div>
+              <div className="composer-tools"><button type="button" aria-label="添加上下文" disabled>＋</button><span>Agent</span></div>
               <button className="assistant-send" disabled={busy || !input.trim()} type="submit" aria-label="发送给 AI">↑</button>
             </div>
           </form>
