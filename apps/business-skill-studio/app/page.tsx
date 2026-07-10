@@ -183,9 +183,20 @@ export default function Home() {
 
             <form className="composer" onSubmit={sendMessage}>
               <label className="sr-only" htmlFor="next-message">下一条消息</label>
-              <textarea id="next-message" value={input} onChange={(event) => setInput(event.target.value)} placeholder="描述流程、例外、输出要求或给一个真实案例" />
+              <textarea
+                id="next-message"
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                    event.preventDefault()
+                    event.currentTarget.form?.requestSubmit()
+                  }
+                }}
+                placeholder="描述流程、例外、输出要求或给一个真实案例"
+              />
               <div className="composer-actions">
-                <span>Enter 发送 · 可补充真实案例</span>
+                <span>Enter 发送 · Shift+Enter 换行</span>
                 <div>
                   <button className="button secondary" disabled={busy || messages.length < 2} type="button" onClick={generateDraft}>生成 Skill 草稿</button>
                   <button className="button primary" disabled={busy} type="submit">发送给 AI <span aria-hidden="true">↑</span></button>
@@ -209,7 +220,14 @@ export default function Home() {
               <div className="editor-tabs"><span className="active">SKILL.md</span><span>evals/evals.json</span></div>
               <span>{draft.length.toLocaleString()} 字符</span>
             </div>
-            <textarea className="draft-editor" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="生成的 SKILL.md 与 evals 会显示在这里" spellCheck={false} />
+            <textarea
+              aria-label="Skill 草稿编辑器"
+              className="draft-editor"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="生成的 SKILL.md 与 evals 会显示在这里"
+              spellCheck={false}
+            />
             <div className="draft-footer">
               <div className="save-feedback" aria-live="polite">
                 {savedPath ? <span className="success-message">✓ 已保存：{savedPath}</span> : <span>草稿仅在当前会话中保留</span>}
