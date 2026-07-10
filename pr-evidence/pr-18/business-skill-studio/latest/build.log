@@ -11,7 +11,7 @@ https://nextjs.org/telemetry
    ▲ Next.js 15.5.20
 
    Creating an optimized production build ...
- ⚠ Compiled with warnings in 1946ms
+ ⚠ Compiled with warnings in 1896ms
 
 ./node_modules/bcryptjs/dist/bcrypt.js
 A Node.js API is used (process.nextTick at line: 351) which is not supported in the Edge Runtime.
@@ -79,16 +79,19 @@ Import trace for requested module:
 ./node_modules/next-auth/index.js
 ./auth.ts
 
- ✓ Compiled successfully in 9.2s
+ ✓ Compiled successfully in 8.6s
    Linting and checking validity of types ...
 Failed to compile.
 
-./lib/agent-sdk.ts:1:22
-Type error: '"@anthropic-ai/claude-agent-sdk"' has no exported member named 'Query'. Did you mean 'query'?
+./lib/agent-sdk.ts:207:20
+Type error: Element implicitly has an 'any' type because expression of type 'unique symbol' can't be used to index type 'AsyncIterable<unknown> | Promise<unknown>'.
+  Property '[SymbolConstructor.asyncIterator]' does not exist on type 'AsyncIterable<unknown> | Promise<unknown>'.
 
-[0m[31m[1m>[22m[39m[90m 1 |[39m [36mimport[39m { query[33m,[39m type [33mQuery[39m } [36mfrom[39m [32m'@anthropic-ai/claude-agent-sdk'[39m
- [90m   |[39m                      [31m[1m^[22m[39m
- [90m 2 |[39m [36mimport[39m type { [33mChatRequest[39m[33m,[39m [33mSkillDraftRequest[39m } [36mfrom[39m [32m'./types'[39m
- [90m 3 |[39m [36mimport[39m {
- [90m 4 |[39m   buildBusinessChatSystemPrompt[33m,[39m[0m
+[0m [90m 205 |[39m   })
+ [90m 206 |[39m
+[31m[1m>[22m[39m[90m 207 |[39m   [36mconst[39m iterator [33m=[39m handle[[33mSymbol[39m[33m.[39masyncIterator]()
+ [90m     |[39m                    [31m[1m^[22m[39m
+ [90m 208 |[39m   [36mconst[39m startedAt [33m=[39m [33mDate[39m[33m.[39mnow()
+ [90m 209 |[39m   [36mconst[39m deadlineAt [33m=[39m startedAt [33m+[39m attemptTimeoutMs()
+ [90m 210 |[39m   [36mlet[39m pendingNext [33m=[39m iterator[33m.[39mnext()[0m
 Next.js build worker exited with code: 1 and signal: null
