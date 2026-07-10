@@ -2,7 +2,6 @@ import { chromium } from 'playwright';
 import { createWriteStream } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
 const ARTIFACT_DIR = resolve('artifacts/frontend-recording');
@@ -10,7 +9,6 @@ const VIDEO_DIR = resolve(ARTIFACT_DIR, 'video');
 const SNAPSHOT_DIR = resolve(ARTIFACT_DIR, 'snapshots');
 const SCREENSHOT_PATH = resolve(ARTIFACT_DIR, 'frontend-page.png');
 const SUMMARY_PATH = resolve(ARTIFACT_DIR, 'summary.md');
-const DIAGNOSTIC_HTML_PATH = resolve(ARTIFACT_DIR, 'diagnostic.html');
 const SERVER_LOG_PATH = resolve(ARTIFACT_DIR, 'frontend-server.log');
 const configuredApiTimeout = Number(process.env.FRONTEND_API_RESPONSE_TIMEOUT_MS || 180_000);
 const API_RESPONSE_TIMEOUT_MS = Number.isFinite(configuredApiTimeout) && configuredApiTimeout > 0
@@ -86,26 +84,35 @@ async function startFrontendIfRequested() {
   return child;
 }
 
+async function stopFrontendProcess(child) {
+  if (!child || child.killed) return;
+  try {
+    if (process.platform !== 'win32' && child.pid) process.kill(-child.pid, 'SIGTERM');
+    else child.kill('SIGTERM');
+  } catch {
+    child.kill?.('SIGTERM');
+  }
+}
+
 async function resolveTargetUrl() {
   if (process.env.FRONTEND_URL) {
     return { url: process.env.FRONTEND_URL, mode: 'explicit FRONTEND_URL' };
   }
 
   const processHandle = await startFrontendIfRequested();
-  const detected = await waitForReachable(COMMON_FRONTEND_URLS, processHandle ? 60_000 : 3_000);
-  if (detected) {
-    return {
-      url: detected,
-      mode: processHandle ? 'FRONTEND_START_COMMAND + auto-detected URL' : 'auto-detected existing local URL',
-      process: processHandle
-    };
+  if (!processHandle) {
+    throw new Error('Set FRONTEND_URL or FRONTEND_START_COMMAND; recording will not use a diagnostic fallback page.');
   }
 
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>WinBrain Frontend Diagnostic</title></head><body><main><h1>Frontend not detected</h1><p>Set FRONTEND_URL or FRONTEND_START_COMMAND.</p></main></body></html>`;
-  await writeFile(DIAGNOSTIC_HTML_PATH, html, 'utf8');
+  const detected = await waitForReachable(COMMON_FRONTEND_URLS, 60_000);
+  if (!detected) {
+    await stopFrontendProcess(processHandle);
+    throw new Error('FRONTEND_START_COMMAND did not expose a reachable frontend within 60 seconds.');
+  }
+
   return {
-    url: pathToFileURL(DIAGNOSTIC_HTML_PATH).href,
-    mode: 'diagnostic fallback page',
+    url: detected,
+    mode: 'FRONTEND_START_COMMAND + auto-detected URL',
     process: processHandle
   };
 }
@@ -117,16 +124,6 @@ async function launchBrowser() {
   } catch (error) {
     console.warn(`Could not launch Chromium channel '${channel}'. Falling back to bundled Chromium.`, error.message);
     return chromium.launch({ headless: true, args: ['--no-sandbox'] });
-  }
-}
-
-async function stopFrontendProcess(child) {
-  if (!child || child.killed) return;
-  try {
-    if (process.platform !== 'win32' && child.pid) process.kill(-child.pid, 'SIGTERM');
-    else child.kill('SIGTERM');
-  } catch {
-    child.kill?.('SIGTERM');
   }
 }
 
@@ -155,6 +152,10 @@ async function readApiPayload(response, label) {
 
   if (!response.ok()) {
     throw new Error(`${label} failed with status ${response.status()}: ${JSON.stringify(payload)}`);
+  }
+
+  if (payload?.ok === false || payload?.error) {
+    throw new Error(`${label} reported an application error: ${JSON.stringify(payload?.error || payload)}`);
   }
 
   if (payload?.usedAgentSdk !== true) {
