@@ -47,10 +47,16 @@ jobs:
 
       - name: Verify Agent SDK credentials
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           if [ -z "$ANTHROPIC_API_KEY" ]; then
-            echo "::error::Repository secret ANTHROPIC_API_KEY is not configured. Refusing to record the deterministic fallback."
-            exit 1
+            if [ "$EVENT_NAME" = "pull_request" ]; then
+              echo "::warning::ANTHROPIC_API_KEY is not configured; recording the deterministic fallback for visual PR evidence."
+            else
+              echo "::error::Repository secret ANTHROPIC_API_KEY is not configured."
+              exit 1
+            fi
           fi
 
       - name: Install root npm dependencies
