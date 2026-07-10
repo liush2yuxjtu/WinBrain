@@ -34,7 +34,9 @@ export interface SkillSaveRequest {
 }
 
 export interface StoredSkillSummary {
+  id: string
   name: string
-  path: string
+  slug: string
+  version: number
   updatedAt: string
 }
