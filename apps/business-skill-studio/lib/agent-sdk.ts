@@ -44,6 +44,10 @@ type QueryInput = {
   systemPrompt: string
 }
 
+export type AgentPromptRequest = QueryInput & {
+  fallbackText: string
+}
+
 const MINIMUM_ATTEMPT_TIMEOUT_MS = 600_000
 const HEARTBEAT_INTERVAL_MS = 15_000
 
@@ -403,6 +407,13 @@ export function streamSkillDraft(input: SkillDraftRequest): AsyncGenerator<Agent
   }, fallbackSkillDraft(input))
 }
 
+export function streamAgentPrompt(input: AgentPromptRequest): AsyncGenerator<AgentSdkStreamEvent, void, void> {
+  return streamWithFailover({
+    prompt: input.prompt,
+    systemPrompt: input.systemPrompt
+  }, input.fallbackText)
+}
+
 async function collectResult(stream: AsyncIterable<AgentSdkStreamEvent>): Promise<AgentSdkResult> {
   let result: AgentSdkResult | undefined
   for await (const event of stream) {
@@ -422,4 +433,8 @@ export function runAgentChat(input: ChatRequest): Promise<AgentSdkResult> {
 
 export function draftSkillWithAgent(input: SkillDraftRequest): Promise<AgentSdkResult> {
   return collectResult(streamSkillDraft(input))
+}
+
+export function runAgentPrompt(input: AgentPromptRequest): Promise<AgentSdkResult> {
+  return collectResult(streamAgentPrompt(input))
 }

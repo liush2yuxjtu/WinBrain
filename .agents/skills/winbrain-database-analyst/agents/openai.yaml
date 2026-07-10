@@ -1,0 +1,4 @@
+interface:
+  display_name: "WinBrain Database Analyst"
+  short_description: "Explore and explain WinBrain database metadata safely"
+  default_prompt: "Use $winbrain-database-analyst to explore the WinBrain schema and draft a read-only SQL query."

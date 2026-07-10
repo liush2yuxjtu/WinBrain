@@ -11,6 +11,19 @@ A project-level app scaffold for helping business experts chat with AI and turn 
    - `evals/evals.json`
    - assumptions and open questions
 4. Saves generated skills to a local skill store for review and later packaging.
+5. Provides a Database Explorer that searches the WinBrain OceanBase schema snapshot, renders table details, and grounds a dedicated Claude Agent SDK database chat agent.
+
+## Database Explorer
+
+Open `/database` after signing in. The explorer provides:
+
+- schema-wide table and field search;
+- table metadata, estimated rows, primary keys, columns, indexes, constraints, and DDL;
+- a dedicated database analyst agent grounded in the most relevant schema context;
+- OceanBase/MySQL-compatible read-only SQL suggestions and data-quality checks;
+- deterministic schema summaries when no Agent SDK credential is configured.
+
+The bundled 2026-07-09 snapshot contains metadata only and no business rows. The database agent never executes SQL and is instructed to generate only `SELECT`, `WITH`, `SHOW`, `DESCRIBE`, or `EXPLAIN` statements.
 
 ## Authentication
 
@@ -39,6 +52,8 @@ Protected resources:
 - `/api/chat`
 - `/api/skills`
 - `/api/skills/draft`
+- `/api/database/schema`
+- `/api/database/chat`
 
 Auth routes under `/api/auth/*` stay public for sign-in callbacks.
 
@@ -48,6 +63,8 @@ Server-side operational boundaries use the `effect` package for typed error hand
 
 - `lib/effect-runtime.ts` defines `AppError`, `tryPromiseEffect`, `trySyncEffect`, and `runAppEffect`.
 - `lib/agent-sdk.ts` wraps Agent SDK imports, query calls, and output collection in `Effect.gen` programs.
+- `lib/database-agent.ts` defines the database-specific Agent SDK prompt, grounding, fallback, and read-only boundary.
+- `lib/database-schema.ts` loads and searches the bundled schema snapshot without exposing its filesystem path to clients.
 - `lib/skill-store.ts` wraps filesystem reads/writes and skill metadata listing in Effect programs.
 
 The UI and API route surfaces stay simple; Effect is concentrated at I/O boundaries where failures need consistent handling.
@@ -56,6 +73,7 @@ The UI and API route surfaces stay simple; Effect is concentrated at I/O boundar
 
 - Skill authoring pattern: `anthropics/skills/skills/skill-creator`
 - Chat / agent app pattern: `anthropics/claude-plugins-official/plugins/agent-sdk-dev`
+- Data exploration pattern: `anthropics/knowledge-work-plugins/data`
 - Existing project plugin/skill store: repository-level `.agents/` with `.codex/` mirror
 
 ## Run locally
@@ -79,6 +97,8 @@ npm run build
 ```
 
 The app includes a deterministic fallback path when `ANTHROPIC_API_KEY` is missing. That lets product/design review the UI and skill flow before Agent SDK credentials are configured.
+
+Optionally override the bundled schema snapshot location with `WINBRAIN_SCHEMA_PATH`. Relative values are resolved from the app working directory.
 
 ## Data storage
 
@@ -107,6 +127,7 @@ Included:
 - Local skill save/list API
 - TypeScript Effect wrappers for Agent SDK and filesystem I/O
 - Project-level `.agents` and `.codex` references for `skill-creator` and `agent-sdk-dev`
+- Read-only WinBrain database explorer, schema APIs, and database-specific Agent SDK adapter
 
 Not yet included:
 

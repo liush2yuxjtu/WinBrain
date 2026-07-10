@@ -5,8 +5,8 @@ import { auth, signOut } from '@/auth'
 import { StudioShell } from '@/components/studio-shell'
 
 export const metadata: Metadata = {
-  title: 'WinBrain Business Skill Studio',
-  description: 'Chat with business experts and turn their know-how into reusable Claude skills.'
+  title: 'WinBrain AI Workspace',
+  description: 'Create reusable Claude skills and explore WinBrain database metadata with dedicated agents.'
 }
 
 async function signOutAction() {

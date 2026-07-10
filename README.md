@@ -8,11 +8,14 @@ This repository is configured with Playwright-based PR evidence automation and p
 
 `apps/business-skill-studio` is a Next.js MVP that lets business experts chat with AI and turn recurring expert workflows into reusable Claude skills.
 
+It also includes an authenticated Database Explorer at `/database` for browsing the bundled OceanBase schema snapshot, viewing columns/indexes/DDL, and chatting with a dedicated read-only Claude Agent SDK database analyst.
+
 It uses these project-level assets:
 
 - `.agents/skills/skill-creator/` — Anthropic-inspired workflow for drafting `SKILL.md` and `evals/evals.json`.
 - `.agents/plugins/agent-sdk-dev/` — Agent SDK development plugin reference for TypeScript app setup and verification.
 - `.agents/plugins/knowledge-work-plugins/` — vendored Anthropic Knowledge Work Plugins source registry and skill tree references.
+- `.agents/skills/winbrain-database-analyst/` — WinBrain-specific schema exploration, SQL safety, and data-quality workflow, mirrored under `.codex/skills/`.
 
 Run locally:
 

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, type ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 
 type StudioShellProps = {
   children: ReactNode
@@ -10,12 +11,14 @@ type StudioShellProps = {
 }
 
 const navigation = [
-  { href: '#studio-home', label: 'Skill 工作台', icon: '✦' },
-  { href: '#expert-interview', label: '专家访谈', icon: '⌁' },
-  { href: '#skill-draft', label: 'Skill 草稿', icon: '◇' }
+  { href: '/#studio-home', hash: '#studio-home', label: 'Skill 工作台', icon: '✦' },
+  { href: '/#expert-interview', hash: '#expert-interview', label: '专家访谈', icon: '⌁' },
+  { href: '/#skill-draft', hash: '#skill-draft', label: 'Skill 草稿', icon: '◇' },
+  { href: '/database', path: '/database', label: '数据库探索', icon: '⌗' }
 ]
 
 export function StudioShell({ children, userName, userEmail, signOutAction }: StudioShellProps) {
+  const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [activeHash, setActiveHash] = useState('#studio-home')
@@ -71,11 +74,11 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
           <p className="nav-label">工作流</p>
           {navigation.map((item) => (
             <a
-              className={`sidebar-nav-item${activeHash === item.href ? ' active' : ''}`}
+              className={`sidebar-nav-item${(item.path ? pathname === item.path : pathname === '/' && activeHash === item.hash) ? ' active' : ''}`}
               href={item.href}
               key={item.href}
               onClick={() => {
-                setActiveHash(item.href)
+                if (item.hash) setActiveHash(item.hash)
                 setMobileOpen(false)
               }}
             >
