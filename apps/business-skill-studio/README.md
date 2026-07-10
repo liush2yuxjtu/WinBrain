@@ -6,14 +6,14 @@ A project-level app for helping experts from different companies turn recurring 
 
 1. Creates company records and organization-scoped workspaces.
 2. Stores expert profiles, roles, specialties, and business context.
-3. Streams Claude Agent SDK status and text updates with primary/fallback credential handling.
+3. Streams Kimi Code responses through Claude Agent SDK with primary/fallback credential handling.
 4. Produces `SKILL.md`, `evals/evals.json`, assumptions, and open questions.
 5. Saves every Skill revision inside the selected company scope.
 6. Stores and tests read-only MySQL / OceanBase MySQL customer data sources.
 
 ## Security notice
 
-Never commit or paste production database passwords into source files, issue bodies, pull requests, screenshots, or CI logs. Rotate any credential after accidental disclosure.
+Never commit or paste production Kimi API keys, database passwords, or other secrets into source files, issue bodies, pull requests, screenshots, or CI logs. Rotate any credential after accidental disclosure.
 
 Customer database passwords are:
 
@@ -44,17 +44,20 @@ AUTH_USER_ROLE=admin
 AUTH_USER_PASSWORD_HASH=replace_with_bcrypt_hash
 ```
 
-## Claude Agent SDK
+## Kimi Code via Claude Agent SDK
 
 ```bash
-ANTHROPIC_API_KEY_PRIMARY=your_primary_api_key
-ANTHROPIC_API_KEY_FALLBACK=your_fallback_api_key
-ANTHROPIC_BASE_URL=https://api.minimaxi.com/anthropic
-ANTHROPIC_MODEL=MiniMax-M3
+KIMI_API_KEY_PRIMARY=your_primary_kimi_api_key
+KIMI_API_KEY_FALLBACK=your_fallback_kimi_api_key
+KIMI_BASE_URL=https://api.kimi.com/coding/
+KIMI_THINKING_TOKENS=32768
+CLAUDE_CODE_AUTO_COMPACT_WINDOW=262144
 AGENT_SDK_ATTEMPT_TIMEOUT_MS=600000
 ```
 
-Legacy `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` remain supported for local compatibility. Chat and Skill drafting emit progressive status/text events and switch credentials after SDK errors, timeouts, or quota failures.
+Kimi's Claude-compatible endpoint routes requests to K2.7 Code when Thinking mode is enabled. The app therefore supplies a positive Thinking budget by default, removes stale model overrides from the SDK child process, and lets Kimi select the current coding model. Do not configure `ANTHROPIC_MODEL=kimi-2.7-code`; that is not the model identifier used by this endpoint.
+
+Legacy `KIMI_API_KEY`, `ANTHROPIC_API_KEY_PRIMARY`, `ANTHROPIC_API_KEY_FALLBACK`, `ANTHROPIC_AUTH_TOKEN_PRIMARY`, `ANTHROPIC_AUTH_TOKEN_FALLBACK`, `ANTHROPIC_API_KEY`, and `ANTHROPIC_AUTH_TOKEN` remain supported during migration. Chat and Skill drafting emit progressive status/text events and switch credentials after SDK errors, timeouts, or quota failures.
 
 ## Application database
 
@@ -189,7 +192,7 @@ The `Database Integration` workflow starts PostgreSQL 17 and MySQL 8.4, applies 
 Included:
 
 - administrator authentication;
-- streaming Claude Agent SDK chat and drafting with credential failover;
+- streaming Kimi Code (K2.7 Thinking) through Claude Agent SDK with credential failover;
 - multiple organizations and experts;
 - organization-scoped Skills;
 - encrypted MySQL/OceanBase data-source settings;
