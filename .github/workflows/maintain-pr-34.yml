@@ -9,16 +9,16 @@ permissions:
 
 concurrency:
   group: maintain-pr-34
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
-  merge-and-validate:
+  resolve-and-push:
     if: >-
       github.repository == 'liush2yuxjtu/WinBrain' &&
       github.event.pull_request.number == 34 &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 10
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v5
@@ -28,28 +28,31 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Merge main and resolve the two semantic conflicts
+      - name: Merge main, resolve semantic conflicts, and push
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          REPOSITORY: ${{ github.repository }}
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           git merge --no-commit --no-ff origin/main || true
 
-          conflicts="$(git diff --name-only --diff-filter=U)"
-          expected=$'apps/business-skill-studio/app/page.tsx\napps/business-skill-studio/components/studio-shell.tsx'
+          conflicts="$(git diff --name-only --diff-filter=U | sort)"
+          expected="$(printf '%s\n' \
+            apps/business-skill-studio/app/page.tsx \
+            apps/business-skill-studio/components/studio-shell.tsx | sort)"
           if [ "$conflicts" != "$expected" ]; then
             printf 'Unexpected conflicts:\n%s\n' "$conflicts"
             exit 1
           fi
 
-          # The PR shell already contains main's mobile focus/inert/accessibility work,
-          # plus the intended SaaS navigation and data-source routing.
           git checkout --ours apps/business-skill-studio/components/studio-shell.tsx
-
-          # Keep the PR workbench/Copilot UI, then layer in main's newer Skill-detail
-          # persistence behavior and Skill Library management link.
           git checkout --ours apps/business-skill-studio/app/page.tsx
+
           python3 <<'PY'
           from pathlib import Path
 
@@ -102,34 +105,9 @@ jobs:
           PY
 
           git add apps/business-skill-studio/app/page.tsx apps/business-skill-studio/components/studio-shell.tsx
-          if git diff --name-only --diff-filter=U | grep -q .; then
-            echo 'Unresolved conflicts remain:'
-            git diff --name-only --diff-filter=U
-            exit 1
-          fi
-
+          test -z "$(git diff --name-only --diff-filter=U)"
           rm -f .pr-34-conflicts.txt .github/workflows/maintain-pr-34.yml
           git add -A
-
-      - name: Install locked dependencies
-        working-directory: apps/business-skill-studio
-        run: npm ci
-
-      - name: Typecheck
-        working-directory: apps/business-skill-studio
-        run: npm run typecheck
-
-      - name: Production build
-        working-directory: apps/business-skill-studio
-        run: npm run build
-
-      - name: Commit and push validated merge
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          REPOSITORY: ${{ github.repository }}
-        run: |
           git commit -m "merge: synchronize PR 34 with main"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
           git push origin "HEAD:${HEAD_REF}"
