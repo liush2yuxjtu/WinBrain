@@ -5,7 +5,7 @@ const required = ['GITHUB_TOKEN', 'GITHUB_REPOSITORY', 'PR_NUMBER', 'RUN_ID'];
 const missing = required.filter((name) => !process.env[name]);
 
 if (missing.length > 0) {
-  throw new Error(`Missing required environment variable(s): ${missing.join(', ')}`);
+  throw new Error(`缺少必需的环境变量：${missing.join(', ')}`);
 }
 
 const token = process.env.GITHUB_TOKEN;
@@ -17,7 +17,7 @@ const artifactUrl = process.env.ARTIFACT_URL || `${runUrl}#artifacts`;
 const outcome = process.env.TEST_OUTCOME || 'unknown';
 const sha = process.env.GITHUB_SHA || 'unknown';
 const generatedAt = new Date().toISOString();
-const evidenceTitle = process.env.EVIDENCE_TITLE || 'Playwright evidence';
+const evidenceTitle = process.env.EVIDENCE_TITLE || 'Playwright 视觉证据';
 const markerName = process.env.EVIDENCE_MARKER || 'playwright-evidence';
 const mediaPath = process.env.EVIDENCE_MEDIA_PATH || '';
 const mediaRef = process.env.EVIDENCE_MEDIA_REF || sha;
@@ -40,7 +40,7 @@ async function github(apiPath, options = {}) {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`GitHub API ${options.method || 'GET'} ${apiPath} failed: ${response.status} ${text}`);
+    throw new Error(`GitHub API ${options.method || 'GET'} ${apiPath} 调用失败：${response.status} ${text}`);
   }
 
   if (response.status === 204) return null;
@@ -93,7 +93,7 @@ function repositoryFileUrl(relativePath, { raw = false } = {}) {
 function renderMediaSection() {
   const files = mediaPath ? walkFiles(mediaPath).sort() : [];
   if (files.length === 0) {
-    return 'No committed media files were found.';
+    return '未找到已提交的媒体文件。';
   }
 
   const screenshots = files.filter((file) => /\.(png|jpe?g|webp)$/i.test(file));
@@ -103,51 +103,64 @@ function renderMediaSection() {
   const screenshotMarkdown = screenshots.length
     ? screenshots.slice(0, 8).map((file) => {
       const url = repositoryFileUrl(file, { raw: true });
-      return `#### ${file}\n\n![${file}](${url})`;
+      return `#### ${file}\n\n![视觉证据：${file}](${url})`;
     }).join('\n\n')
-    : 'No committed screenshot files were found for inline rendering.';
+    : '未找到可直接内联展示的截图文件。';
 
   const previewMarkdown = recordingPreviews.length
     ? recordingPreviews.slice(0, 2).map((file) => {
       const url = repositoryFileUrl(file, { raw: true });
-      return `#### ${file}\n\n![Animated recording preview for ${file}](${url})`;
+      return `#### ${file}\n\n![录屏预览：${file}](${url})`;
     }).join('\n\n')
-    : 'No animated recording preview was generated.';
+    : '本次没有生成可内联展示的 GIF 录屏预览。';
 
   const videoMarkdown = videos.length
     ? videos.map((file) => {
       const url = repositoryFileUrl(file);
-      return `- [Open original recording: ${file}](${url})`;
+      return `- [打开原始录屏：${file}](${url})`;
     }).join('\n')
-    : 'No committed video files were found.';
+    : '未找到已提交的原始录屏文件。';
 
   const manifest = files.length
     ? files.map((file) => `- [${file}](${repositoryFileUrl(file)})`).join('\n')
-    : '- No media manifest files found.';
+    : '- 未找到媒体清单文件。';
 
-  return `### Inline screenshots\n\n${screenshotMarkdown}\n\n### Inline recording preview\n\n${previewMarkdown}\n\n### Original recordings\n\n${videoMarkdown}\n\n<details>\n<summary>Committed media manifest</summary>\n\n${manifest}\n\n</details>`;
+  return `### 内联截图\n\n${screenshotMarkdown}\n\n### 内联录屏预览\n\n${previewMarkdown}\n\n### 原始录屏\n\n${videoMarkdown}\n\n<details>\n<summary>已提交媒体清单</summary>\n\n${manifest}\n\n</details>`;
+}
+
+function translateStatus(value) {
+  const labels = {
+    success: '通过',
+    passed: '通过',
+    failure: '失败',
+    failed: '失败',
+    cancelled: '已取消',
+    skipped: '已跳过',
+    unknown: '未知',
+  };
+  return labels[value] || value;
 }
 
 const startMarker = `<!-- ${markerName}:start -->`;
 const endMarker = `<!-- ${markerName}:end -->`;
-const statusLabel = outcome === 'success' ? 'passed' : outcome === 'failure' ? 'failed' : outcome;
+const statusLabel = translateStatus(outcome);
 const inlineMedia = renderMediaSection();
 const mediaLocation = mediaPath
-  ? `Committed media path: \`${mediaPath}\` at ref \`${mediaRef}\`.`
-  : 'No committed media path was provided.';
+  ? `已提交媒体路径：\`${mediaPath}\`；媒体提交：\`${mediaRef}\`。`
+  : '未提供已提交媒体路径。';
 
 const block = `${startMarker}
 
 ## ${evidenceTitle}
 
-| Field | Value |
+| 项目 | 内容 |
 | --- | --- |
-| Status | ${statusLabel} |
-| Workflow run | [Open run](${runUrl}) |
-| Artifact backup | [Download artifact](${artifactUrl}) |
-| Commit tested | \`${sha}\` |
-| Media ref | \`${mediaRef}\` |
-| Generated | ${generatedAt} |
+| 状态 | ${statusLabel} |
+| 工作流运行 | [打开运行记录](${runUrl}) |
+| Artifact 备份 | [下载备份](${artifactUrl}) |
+| 已验证提交 | \`${sha}\` |
+| 媒体提交 | \`${mediaRef}\` |
+| 生成时间 | ${generatedAt} |
 
 ${mediaLocation}
 
@@ -171,10 +184,10 @@ await github(`/pulls/${prNumber}`, {
   body: JSON.stringify({ body: nextBody }),
 });
 
-const summary = `## ${evidenceTitle}\n\n- Status: ${statusLabel}\n- Workflow run: ${runUrl}\n- Artifact backup: ${artifactUrl}\n- Media path: ${mediaPath || 'not published'}\n- Media ref: ${mediaRef}\n- Commit: ${sha}\n`;
+const summary = `## ${evidenceTitle}\n\n- 状态：${statusLabel}\n- 工作流运行：${runUrl}\n- Artifact 备份：${artifactUrl}\n- 媒体路径：${mediaPath || '未发布'}\n- 媒体提交：${mediaRef}\n- 已验证提交：${sha}\n`;
 
 if (process.env.GITHUB_STEP_SUMMARY) {
   appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
 }
 
-console.log(`Updated PR #${prNumber} body with inline ${evidenceTitle}.`);
+console.log(`已使用内联 ${evidenceTitle} 更新 PR #${prNumber} 正文。`);
