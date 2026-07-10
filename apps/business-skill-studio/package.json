@@ -17,15 +17,16 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "pretest:unit": "prisma generate",
-    "test:unit": "node --import tsx --test tests/filesystem-skill-repository.test.ts tests/skill-store-validation.test.ts",
+    "test:unit": "node --import tsx --test tests/filesystem-skill-repository.test.ts tests/skill-store-validation.test.ts tests/data-source-security.test.ts tests/data-source-crypto.test.ts",
     "pretest:integration": "prisma generate",
-    "test:integration": "node --import tsx --test tests/prisma-skill-repository.integration.test.ts"
+    "test:integration": "node --import tsx --test --test-concurrency=1 tests/prisma-skill-repository.integration.test.ts tests/company-settings.integration.test.ts tests/customer-database.integration.test.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.0.0",
     "@prisma/client": "^7.0.0",
     "bcryptjs": "^2.4.3",
     "effect": "^3.0.0",
+    "mysql2": "^3.14.0",
     "next": "^15.0.0",
     "next-auth": "^5.0.0-beta.29",
     "pg": "^8.16.0",
