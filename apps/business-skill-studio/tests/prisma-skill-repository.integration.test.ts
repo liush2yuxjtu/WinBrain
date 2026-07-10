@@ -67,7 +67,7 @@ test('serializes concurrent saves into unique version numbers', async () => {
   assert.deepEqual(saved.map((skill) => skill.version).sort((left, right) => left - right), [1, 2])
 
   const revisions = await prisma.skillRevision.findMany({
-    where: { skill: { slug: saved[0]!.slug } },
+    where: { skillId: saved[0]!.id },
     orderBy: { version: 'asc' }
   })
   assert.deepEqual(revisions.map((revision) => revision.version), [1, 2])
