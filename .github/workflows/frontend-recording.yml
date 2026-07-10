@@ -174,7 +174,7 @@ jobs:
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
           TEST_OUTCOME: ${{ steps.record_frontend.outcome }}
           GITHUB_SHA: ${{ github.sha }}
-          EVIDENCE_TITLE: Business Skill Studio frontend recording
+          EVIDENCE_TITLE: Business Skill Studio 前端录屏证据
           EVIDENCE_MARKER: business-skill-studio-recording
           EVIDENCE_MEDIA_PATH: ${{ steps.publish_media.outputs.media_path }}
           EVIDENCE_MEDIA_REF: ${{ steps.publish_media.outputs.media_ref }}
