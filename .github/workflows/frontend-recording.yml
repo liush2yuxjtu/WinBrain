@@ -22,6 +22,7 @@ permissions:
 jobs:
   record:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
       ANTHROPIC_API_KEY_PRIMARY: ${{ secrets.ANTHROPIC_API_KEY_PRIMARY }}
       ANTHROPIC_API_KEY_FALLBACK: ${{ secrets.ANTHROPIC_API_KEY_FALLBACK }}
@@ -34,8 +35,8 @@ jobs:
       ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.ANTHROPIC_DEFAULT_HAIKU_MODEL }}
       API_TIMEOUT_MS: ${{ vars.API_TIMEOUT_MS }}
       API_MAX_INPUT_TOKENS: ${{ vars.API_MAX_INPUT_TOKENS }}
-      AGENT_SDK_ATTEMPT_TIMEOUT_MS: '150000'
-      FRONTEND_API_RESPONSE_TIMEOUT_MS: '360000'
+      AGENT_SDK_ATTEMPT_TIMEOUT_MS: '600000'
+      FRONTEND_API_RESPONSE_TIMEOUT_MS: '1250000'
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: ${{ vars.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC }}
       CLAUDE_CODE_MAX_CONTEXT_TOKENS: ${{ vars.CLAUDE_CODE_MAX_CONTEXT_TOKENS }}
       CLAUDE_CODE_AUTO_COMPACT_WINDOW: ${{ vars.CLAUDE_CODE_AUTO_COMPACT_WINDOW }}
@@ -73,6 +74,9 @@ jobs:
             echo "::error::ANTHROPIC_BASE_URL and ANTHROPIC_MODEL repository variables are required."
             exit 1
           fi
+          echo "Claude Agent SDK primary/fallback credentials are configured."
+          echo "Per-key timeout: ${AGENT_SDK_ATTEMPT_TIMEOUT_MS}ms"
+          echo "Frontend response timeout: ${FRONTEND_API_RESPONSE_TIMEOUT_MS}ms"
 
       - name: Install root npm dependencies
         run: npm install
