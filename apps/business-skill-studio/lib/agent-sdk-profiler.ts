@@ -55,12 +55,15 @@ export type AgentSdkAttemptSummary = {
   sdkNumTurns?: number
   errorName?: string
   errorKind?: 'timeout' | 'aborted' | 'sdk' | 'unknown'
+  cleanupErrorName?: string
+  cleanupErrorKind?: 'timeout' | 'aborted' | 'sdk' | 'unknown'
 }
 
 export type AgentSdkAttemptFinish = {
   outcome: AgentSdkAttemptOutcome
   outputChars: number
   error?: unknown
+  cleanupError?: unknown
 }
 
 export type AgentSdkTraceFinish = {
@@ -270,7 +273,9 @@ export class AgentSdkAttemptProfiler {
       sdkApiDurationMs: this.sdkApiDurationMs,
       sdkNumTurns: this.sdkNumTurns,
       errorName: input.error === undefined ? undefined : errorName(input.error),
-      errorKind: input.error === undefined ? undefined : errorKind(input.error)
+      errorKind: input.error === undefined ? undefined : errorKind(input.error),
+      cleanupErrorName: input.cleanupError === undefined ? undefined : errorName(input.cleanupError),
+      cleanupErrorKind: input.cleanupError === undefined ? undefined : errorKind(input.cleanupError)
     }
 
     this.trace.recordAttempt(summary)
