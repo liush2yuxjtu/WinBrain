@@ -1,4 +1,4 @@
-import { query, type Query } from '@anthropic-ai/claude-agent-sdk'
+import { query } from '@anthropic-ai/claude-agent-sdk'
 import type { ChatRequest, SkillDraftRequest } from './types'
 import {
   buildBusinessChatSystemPrompt,
@@ -42,6 +42,10 @@ type CredentialCandidate = {
 type QueryInput = {
   prompt: string
   systemPrompt: string
+}
+
+type StreamingQueryHandle = AsyncIterable<unknown> & {
+  close(): void
 }
 
 const MINIMUM_ATTEMPT_TIMEOUT_MS = 600_000
@@ -189,7 +193,7 @@ async function* streamWithCredential(
   input: QueryInput
 ): AsyncGenerator<AgentSdkStreamEvent, string, void> {
   const abortController = new AbortController()
-  const handle: Query = query({
+  const handle = query({
     prompt: input.prompt,
     options: {
       abortController,
@@ -202,7 +206,7 @@ async function* streamWithCredential(
       persistSession: false,
       includePartialMessages: true
     }
-  })
+  }) as StreamingQueryHandle
 
   const iterator = handle[Symbol.asyncIterator]()
   const startedAt = Date.now()
@@ -240,7 +244,7 @@ async function* streamWithCredential(
 
       const message = outcome.value.value
       if (!message || typeof message !== 'object') continue
-      const record = message as unknown as Record<string, unknown>
+      const record = message as Record<string, unknown>
 
       const status = statusForSdkMessage(record)
       if (status) {
@@ -274,11 +278,15 @@ async function* streamWithCredential(
       }
 
       if (type === 'result') {
-        if (record.subtype !== 'success' || record.is_error === true) {
+        if (record.subtype !== 'success') {
           throw resultError(record)
         }
 
         const resultText = extractText(record)
+        if (!resultText && record.is_error === true) {
+          throw resultError(record)
+        }
+
         const appended = appendNonDuplicate(fullText, resultText)
         if (appended.delta) {
           fullText = appended.text
