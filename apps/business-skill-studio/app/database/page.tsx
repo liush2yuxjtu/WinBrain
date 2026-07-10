@@ -13,11 +13,14 @@ import type { StudioChatMessage } from '@/lib/types'
 type DetailTab = 'columns' | 'indexes' | 'ddl'
 
 function newMessage(role: 'user' | 'assistant', content: string): StudioChatMessage {
-  return { id: crypto.randomUUID(), role, content, createdAt: new Date().toISOString() }
+  const id = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return { id, role, content, createdAt: new Date().toISOString() }
 }
 
-function formatCount(value: number | null): string {
-  return value === null ? '未知' : new Intl.NumberFormat('zh-CN', { notation: value > 9_999_999 ? 'compact' : 'standard' }).format(value)
+function formatCount(value: number | null | undefined): string {
+  return value == null ? '未知' : new Intl.NumberFormat('zh-CN', { notation: value > 9_999_999 ? 'compact' : 'standard' }).format(value)
 }
 
 async function readError(response: Response): Promise<Error> {
@@ -28,7 +31,7 @@ async function readError(response: Response): Promise<Error> {
 function includesSearch(table: DatabaseTableSummary, query: string): boolean {
   const normalized = query.trim().toLocaleLowerCase()
   if (!normalized) return true
-  return [table.tableName, table.comment, ...table.headers]
+  return [table.tableName, table.comment, ...(table.headers || [])]
     .join(' ')
     .toLocaleLowerCase()
     .includes(normalized)
@@ -80,6 +83,7 @@ export default function DatabasePage() {
 
   useEffect(() => {
     if (!selectedTable) return
+    let active = true
     const controller = new AbortController()
     setDetailBusy(true)
     setDetail(null)
@@ -88,13 +92,20 @@ export default function DatabasePage() {
         if (!response.ok) throw await readError(response)
         return response.json() as Promise<DatabaseTableResponse>
       })
-      .then((data) => setDetail(data.table))
+      .then((data) => {
+        if (active) setDetail(data.table)
+      })
       .catch((error) => {
         if (error instanceof DOMException && error.name === 'AbortError') return
-        setCatalogError(error instanceof Error ? error.message : String(error))
+        if (active) setCatalogError(error instanceof Error ? error.message : String(error))
       })
-      .finally(() => setDetailBusy(false))
-    return () => controller.abort()
+      .finally(() => {
+        if (active) setDetailBusy(false)
+      })
+    return () => {
+      active = false
+      controller.abort()
+    }
   }, [selectedTable])
 
   const visibleTables = useMemo(() => {
@@ -123,6 +134,7 @@ export default function DatabasePage() {
       if (!response.ok) throw await readError(response)
 
       const data = await response.json() as DatabaseChatResponse
+      if (!data.message) throw new Error('Malformed response from database agent')
       setMessages((current) => [...current, data.message])
       setGroundedTables(data.groundedTables || [])
       setChatWarnings(data.warnings || [])
