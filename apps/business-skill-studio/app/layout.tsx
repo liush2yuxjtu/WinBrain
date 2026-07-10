@@ -1,5 +1,6 @@
 import './globals.css'
 import './settings.css'
+import './database.css'
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { auth, signOut } from '@/auth'

@@ -15,6 +15,7 @@ const navigation = [
   { href: '/#expert-interview', hash: '#expert-interview', label: '专家访谈', icon: '⌁' },
   { href: '/#skill-draft', hash: '#skill-draft', label: 'Skill 草稿', icon: '◇' },
   { href: '/skills', path: '/skills', label: 'Skill 库', icon: '▦' },
+  { href: '/database', path: '/database', label: '数据库探索', icon: '▤' },
   { href: '/settings', path: '/settings', label: '公司与数据源', icon: '⚙' }
 ]
 
