@@ -1,85 +1,79 @@
-import { Effect } from 'effect'
-import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
-import path from 'node:path'
-import { runAppEffect, tryPromiseEffect } from './effect-runtime'
+import { getPrismaClient } from './db'
+import { FileSystemSkillRepository } from './repositories/filesystem-skill-repository'
+import { PrismaSkillRepository } from './repositories/prisma-skill-repository'
+import type { SkillRepository } from './repositories/skill-repository'
 import type { SkillSaveRequest, StoredSkillSummary } from './types'
-import { normalizeSkillName } from './skill-creator'
 
-const DEFAULT_STORAGE_DIR = 'data/generated-skills'
-
-function storageRoot(): string {
-  return path.resolve(process.cwd(), process.env.SKILL_STUDIO_STORAGE_DIR || DEFAULT_STORAGE_DIR)
+export class SkillStoreValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SkillStoreValidationError'
+  }
 }
 
-export function skillDirectory(skillName: string): string {
-  return path.join(storageRoot(), normalizeSkillName(skillName))
+let cachedRepository: { driver: string; repository: SkillRepository } | null = null
+
+function configuredDriver(): string {
+  return process.env.SKILL_STORE_DRIVER?.trim().toLowerCase() || 'filesystem'
 }
 
-function saveSkillEffect(input: SkillSaveRequest) {
-  return Effect.gen(function* () {
-    const name = normalizeSkillName(input.skillName)
-    const dir = skillDirectory(name)
+function repository(): SkillRepository {
+  const driver = configuredDriver()
+  if (cachedRepository?.driver === driver) return cachedRepository.repository
 
-    yield* tryPromiseEffect('Create skill directory', () => mkdir(dir, { recursive: true }))
-    yield* tryPromiseEffect('Write SKILL.md', () => writeFile(path.join(dir, 'SKILL.md'), input.skillMarkdown, 'utf8'))
+  let selected: SkillRepository
+  if (driver === 'filesystem') {
+    selected = new FileSystemSkillRepository()
+  } else if (driver === 'database') {
+    selected = new PrismaSkillRepository(getPrismaClient())
+  } else {
+    throw new Error(`Unsupported SKILL_STORE_DRIVER: ${driver}`)
+  }
 
-    if (input.evalsJson?.trim()) {
-      const evalDir = path.join(dir, 'evals')
-      yield* tryPromiseEffect('Create evals directory', () => mkdir(evalDir, { recursive: true }))
-      yield* tryPromiseEffect('Write evals.json', () => writeFile(path.join(evalDir, 'evals.json'), input.evalsJson, 'utf8'))
+  cachedRepository = { driver, repository: selected }
+  return selected
+}
+
+export function normalizeSkillSaveRequest(input: SkillSaveRequest): SkillSaveRequest {
+  const skillName = input.skillName?.trim()
+  const skillMarkdown = input.skillMarkdown
+
+  if (!skillName) {
+    throw new SkillStoreValidationError('skillName is required')
+  }
+
+  if (!skillMarkdown?.trim()) {
+    throw new SkillStoreValidationError('skillMarkdown is required')
+  }
+
+  const rawEvalsJson = input.evalsJson?.trim()
+  let evalsJson: string | undefined
+
+  if (rawEvalsJson) {
+    try {
+      evalsJson = `${JSON.stringify(JSON.parse(rawEvalsJson), null, 2)}\n`
+    } catch {
+      throw new SkillStoreValidationError('evalsJson must be valid JSON')
     }
+  }
 
-    return {
-      name,
-      path: dir,
-      updatedAt: new Date().toISOString()
-    }
-  })
-}
-
-function listSkillsEffect() {
-  return Effect.gen(function* () {
-    const root = storageRoot()
-    yield* tryPromiseEffect('Create skill storage root', () => mkdir(root, { recursive: true }))
-
-    const entries = yield* tryPromiseEffect('Read skill storage root', () => readdir(root, { withFileTypes: true }))
-    const summaries = yield* tryPromiseEffect('Read local skill metadata', async () => Promise.all(entries
-      .filter((entry) => entry.isDirectory())
-      .map(async (entry) => {
-        const skillPath = path.join(root, entry.name, 'SKILL.md')
-        const stats = await stat(skillPath).catch(() => null)
-        if (!stats) return null
-
-        return {
-          name: entry.name,
-          path: path.dirname(skillPath),
-          updatedAt: stats.mtime.toISOString()
-        }
-      })))
-
-    return summaries
-      .filter((summary): summary is StoredSkillSummary => summary !== null)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-  })
-}
-
-function readSkillEffect(skillName: string) {
-  const filePath = path.join(skillDirectory(skillName), 'SKILL.md')
-
-  return Effect.catchAll(
-    tryPromiseEffect('Read local skill', () => readFile(filePath, 'utf8')),
-    () => Effect.succeed(null)
-  )
+  return {
+    skillName,
+    skillMarkdown,
+    evalsJson
+  }
 }
 
 export async function saveSkill(input: SkillSaveRequest): Promise<StoredSkillSummary> {
-  return runAppEffect(saveSkillEffect(input))
+  return repository().save(normalizeSkillSaveRequest(input))
 }
 
 export async function listSkills(): Promise<StoredSkillSummary[]> {
-  return runAppEffect(listSkillsEffect())
+  return repository().list()
 }
 
 export async function readSkill(skillName: string): Promise<string | null> {
-  return runAppEffect(readSkillEffect(skillName))
+  const normalizedName = skillName.trim()
+  if (!normalizedName) return null
+  return repository().read(normalizedName)
 }
