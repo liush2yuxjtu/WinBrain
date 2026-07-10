@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { runAgentChat } from '@/lib/agent-sdk'
+import { runAgentChat } from '@/lib/model-provider'
 import type { ChatRequest, StudioChatMessage } from '@/lib/types'
 
 export const runtime = 'nodejs'
@@ -41,7 +41,9 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     message: assistantMessage(result.text),
+    usedLiveModel: result.usedLiveModel,
     usedAgentSdk: result.usedAgentSdk,
+    provider: result.provider,
     warnings: result.warnings
   })
 }
