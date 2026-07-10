@@ -81,7 +81,6 @@ function encodedPathSegments(filePath) {
   return filePath.replace(/\\/g, '/').split('/').filter(Boolean).map(encodeURIComponent);
 }
 
-// Route private media through github.com first so repository authentication is preserved.
 function repositoryFileUrl(relativePath, { raw = false } = {}) {
   const encodedPath = [
     ...encodedPathSegments(mediaPath),
@@ -93,8 +92,12 @@ function repositoryFileUrl(relativePath, { raw = false } = {}) {
 
 function renderMediaSection() {
   const files = mediaPath ? walkFiles(mediaPath).sort() : [];
+  if (files.length === 0) {
+    return 'No committed media files were found.';
+  }
+
   const screenshots = files.filter((file) => /\.(png|jpe?g|webp)$/i.test(file));
-  const recordingPreviews = files.filter((file) => /(?:recording|video)-preview\.gif$/i.test(file));
+  const recordingPreviews = files.filter((file) => /(?:^|\/)(?:recording|video)-preview\.gif$/i.test(file));
   const videos = files.filter((file) => /\.(webm|mp4|mov)$/i.test(file));
 
   const screenshotMarkdown = screenshots.length
@@ -107,12 +110,12 @@ function renderMediaSection() {
   const previewMarkdown = recordingPreviews.length
     ? recordingPreviews.slice(0, 2).map((file) => {
       const url = repositoryFileUrl(file, { raw: true });
-      return `#### ${file}\n\n![Animated recording preview](${url})`;
+      return `#### ${file}\n\n![Animated recording preview for ${file}](${url})`;
     }).join('\n\n')
     : 'No animated recording preview was generated.';
 
   const videoMarkdown = videos.length
-    ? videos.slice(0, 4).map((file) => {
+    ? videos.map((file) => {
       const url = repositoryFileUrl(file);
       return `- [Open original recording: ${file}](${url})`;
     }).join('\n')

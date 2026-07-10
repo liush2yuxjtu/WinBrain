@@ -1,1 +1,0 @@
-pr-evidence/pr-15/playwright/latest/screenshots/chrome-pr-evidence.png

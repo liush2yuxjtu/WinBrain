@@ -22,6 +22,18 @@ permissions:
 jobs:
   record:
     runs-on: ubuntu-latest
+    env:
+      # Stored as a GitHub Actions secret. Never commit the credential itself.
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # MiniMax's Anthropic-compatible endpoint accepts the same credential as a bearer token.
+      ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_API_KEY }}
+      ANTHROPIC_BASE_URL: https://api.minimaxi.com/anthropic
+      ANTHROPIC_MODEL: MiniMax-M3
+      ANTHROPIC_DEFAULT_SONNET_MODEL: MiniMax-M3
+      ANTHROPIC_DEFAULT_OPUS_MODEL: MiniMax-M3
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: MiniMax-M3
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1'
+      API_TIMEOUT_MS: '3000000'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,32 +45,20 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Verify Agent SDK credentials
+        shell: bash
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::Repository secret ANTHROPIC_API_KEY is not configured. Refusing to record the deterministic fallback."
+            exit 1
+          fi
+
       - name: Install root npm dependencies
         run: npm install
 
       - name: Install Business Skill Studio dependencies
         working-directory: apps/business-skill-studio
-        run: |
-          cp package.json package.recording.original.json
-          node - <<'NODE'
-          const fs = require('node:fs')
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
-          if (pkg.dependencies) {
-            delete pkg.dependencies['@anthropic-ai/claude-agent-sdk']
-          }
-          fs.writeFileSync('package.json', `${JSON.stringify(pkg, null, 2)}\n`)
-          NODE
-          npm install --no-package-lock --legacy-peer-deps
-          mkdir -p node_modules/@anthropic-ai/claude-agent-sdk
-          cat > node_modules/@anthropic-ai/claude-agent-sdk/package.json <<'EOF'
-          {"name":"@anthropic-ai/claude-agent-sdk","version":"0.0.0-recording-stub","type":"module","main":"index.js"}
-          EOF
-          cat > node_modules/@anthropic-ai/claude-agent-sdk/index.js <<'EOF'
-          export async function* query() {
-            yield { text: 'Recording stub response from Claude Agent SDK.' }
-          }
-          EOF
-          mv package.recording.original.json package.json
+        run: npm install --no-package-lock --legacy-peer-deps
 
       - name: Install Chrome for Playwright
         run: |
