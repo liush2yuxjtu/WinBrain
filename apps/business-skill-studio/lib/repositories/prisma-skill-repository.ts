@@ -16,22 +16,46 @@ export class PrismaSkillRepository implements SkillRepository {
 
   async save(input: SkillSaveRequest): Promise<StoredSkillSummary> {
     const slug = skillStoreSlug(input.skillName)
+    const organizationId = input.organizationId || undefined
+    const expertId = input.expertId || undefined
+    const scopeKey = organizationId || 'global'
 
     for (let attempt = 1; attempt <= MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
       try {
         return await this.prisma.$transaction(async (transaction) => {
+          if (organizationId) {
+            const organization = await transaction.organization.findUnique({
+              where: { id: organizationId },
+              select: { id: true }
+            })
+            if (!organization) throw new Error('Selected organization does not exist')
+          }
+
+          if (expertId) {
+            const expert = await transaction.expert.findUnique({
+              where: { id: expertId },
+              select: { organizationId: true }
+            })
+            if (!expert || expert.organizationId !== organizationId) {
+              throw new Error('Selected expert does not belong to the selected organization')
+            }
+          }
+
           const existing = await transaction.skill.findUnique({
-            where: { slug },
+            where: { scopeKey_slug: { scopeKey, slug } },
             select: { id: true }
           })
 
           const skill = existing
             ? await transaction.skill.update({
                 where: { id: existing.id },
-                data: { name: input.skillName }
+                data: { name: input.skillName, organizationId, expertId }
               })
             : await transaction.skill.create({
                 data: {
+                  scopeKey,
+                  organizationId,
+                  expertId,
                   slug,
                   name: input.skillName
                 }
@@ -57,7 +81,9 @@ export class PrismaSkillRepository implements SkillRepository {
             name: skill.name,
             slug: skill.slug,
             version,
-            updatedAt: skill.updatedAt.toISOString()
+            updatedAt: skill.updatedAt.toISOString(),
+            organizationId: skill.organizationId || undefined,
+            expertId: skill.expertId || undefined
           }
         }, {
           isolationLevel: 'Serializable'
@@ -66,7 +92,6 @@ export class PrismaSkillRepository implements SkillRepository {
         if (attempt < MAX_TRANSACTION_ATTEMPTS && isRetryableTransactionError(error)) {
           continue
         }
-
         throw error
       }
     }
@@ -74,8 +99,9 @@ export class PrismaSkillRepository implements SkillRepository {
     throw new Error('Unable to save skill after retrying the database transaction')
   }
 
-  async list(): Promise<StoredSkillSummary[]> {
+  async list(organizationId?: string): Promise<StoredSkillSummary[]> {
     const skills = await this.prisma.skill.findMany({
+      where: organizationId ? { organizationId } : undefined,
       orderBy: { updatedAt: 'desc' },
       include: {
         revisions: {
@@ -91,13 +117,16 @@ export class PrismaSkillRepository implements SkillRepository {
       name: skill.name,
       slug: skill.slug,
       version: skill.revisions[0]?.version || 0,
-      updatedAt: skill.updatedAt.toISOString()
+      updatedAt: skill.updatedAt.toISOString(),
+      organizationId: skill.organizationId || undefined,
+      expertId: skill.expertId || undefined
     }))
   }
 
-  async read(skillName: string): Promise<string | null> {
+  async read(skillName: string, organizationId?: string): Promise<string | null> {
+    const scopeKey = organizationId || 'global'
     const skill = await this.prisma.skill.findUnique({
-      where: { slug: skillStoreSlug(skillName) },
+      where: { scopeKey_slug: { scopeKey, slug: skillStoreSlug(skillName) } },
       select: {
         revisions: {
           orderBy: { version: 'desc' },
