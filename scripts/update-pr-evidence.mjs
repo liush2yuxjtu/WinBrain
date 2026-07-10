@@ -81,6 +81,7 @@ function encodedPathSegments(filePath) {
   return filePath.replace(/\\/g, '/').split('/').filter(Boolean).map(encodeURIComponent);
 }
 
+// Route private media through github.com first so repository authentication is preserved.
 function repositoryFileUrl(relativePath, { raw = false } = {}) {
   const encodedPath = [
     ...encodedPathSegments(mediaPath),
