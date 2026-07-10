@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { draftSkillWithAgent } from '@/lib/model-provider'
+import { draftSkillWithAgent } from '@/lib/agent-sdk'
 import type { SkillDraftRequest } from '@/lib/types'
 
 export const runtime = 'nodejs'
