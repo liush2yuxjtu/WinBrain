@@ -1,0 +1,35 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Skill {
+  id        String          @id @default(cuid())
+  slug      String          @unique
+  name      String
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+  revisions SkillRevision[]
+
+  @@map("skills")
+}
+
+model SkillRevision {
+  id            String   @id @default(cuid())
+  skillId       String   @map("skill_id")
+  version       Int
+  skillMarkdown String   @db.Text @map("skill_markdown")
+  evalsJson     String?  @db.Text @map("evals_json")
+  createdAt     DateTime @default(now()) @map("created_at")
+  skill         Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([skillId, version])
+  @@index([skillId, createdAt])
+  @@map("skill_revisions")
+}
