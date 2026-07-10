@@ -7,20 +7,15 @@
 - Credential failover: primary -> fallback
 - API response timeout: 1250000ms
 - Final screenshot: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/frontend-page.png
-- Video: not available
+- Video: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/video/22141e58b474495ed281dbbf8dd594e0.webm
 
 ## Staged snapshots
 
 - /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/snapshots/00-page-loaded.png
+- /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/snapshots/01-business-skill-studio-home.png
+- /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/snapshots/02-after-chat-response.png
+- /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/snapshots/03-after-skill-draft.png
 
 ## Console output
 
 - [error] Failed to load resource: the server responded with a status of 503 (Service Unavailable)
-
-## Failure
-
-```text
-Error: Business Skill Studio home was not visible after authentication.
-    at recordBusinessSkillStudioScenario (file:///home/runner/work/WinBrain/WinBrain/.github/.trusted/record-frontend.mjs:202:11)
-    at async file:///home/runner/work/WinBrain/WinBrain/.github/.trusted/record-frontend.mjs:279:3
-```
