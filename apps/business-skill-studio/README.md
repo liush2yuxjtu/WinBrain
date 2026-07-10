@@ -9,7 +9,8 @@ A project-level app for helping experts from different companies turn recurring 
 3. Streams Kimi Code responses through Claude Agent SDK with primary/fallback credential handling.
 4. Produces `SKILL.md`, `evals/evals.json`, assumptions, and open questions.
 5. Saves every Skill revision inside the selected company scope.
-6. Stores and tests read-only MySQL / OceanBase MySQL customer data sources.
+6. Provides a Skill library for searching, creating, importing, editing, exporting, and deleting generated skills.
+7. Stores and tests read-only MySQL / OceanBase MySQL customer data sources.
 
 ## Security notice
 
@@ -43,6 +44,22 @@ AUTH_USER_NAME="Studio Admin"
 AUTH_USER_ROLE=admin
 AUTH_USER_PASSWORD_HASH=replace_with_bcrypt_hash
 ```
+
+Generate the password hash with:
+
+```bash
+npm run auth:hash-password -- "replace_this_password"
+```
+
+Protected resources:
+
+- all app pages except `/login`
+- `/api/chat`
+- `/api/skills`
+- `/api/skills/[name]`
+- `/api/skills/draft`
+
+Auth routes under `/api/auth/*` stay public for sign-in callbacks.
 
 ## Kimi Code via Claude Agent SDK
 
@@ -185,20 +202,56 @@ npm run typecheck
 npm run build
 ```
 
-The `Database Integration` workflow starts PostgreSQL 17 and MySQL 8.4, applies committed migrations, initializes the FMCG schema, tests encrypted data-source persistence, verifies the read-only connection process, checks organization isolation, typechecks, and builds the application.
+The authenticated CRUD scenario lives at `tests/skill-library.spec.ts` and runs automatically in the PR workflow with an isolated temporary store. To run it locally from the repository root, set `SKILL_LIBRARY_START_SERVER=1`, `SKILL_LIBRARY_URL`, `SKILL_LIBRARY_TEST_EMAIL`, `SKILL_LIBRARY_TEST_PASSWORD`, the matching `AUTH_*` server variables, and an isolated `SKILL_STUDIO_STORAGE_DIR`, then run:
+
+```bash
+PLAYWRIGHT_CHANNEL=chromium npx playwright test tests/skill-library.spec.ts --project=chrome
+```
+
+The app includes a deterministic fallback path when `ANTHROPIC_API_KEY` is missing. That lets product/design review the UI and skill flow before Agent SDK credentials are configured.
+
+The `Database Integration` workflow starts PostgreSQL 17 and MySQL 8.4, applies committed migrations, initializes the FMCG schema, tests encrypted data-source persistence, verifies the read-only connection process, checks scoped filesystem and database revisions, typechecks, and builds the application.
+
+## Implementation notes
+
+- PostgreSQL revision creation uses serializable transactions and retries retryable conflicts.
+- `evals.json` is parsed and normalized before persistence.
+- Filesystem mode remains the default, preserving the existing no-database development path.
+- Auth remains the environment-backed single-admin implementation.
+
+## Upstream references
+
+- Skill authoring pattern: `anthropics/skills/skills/skill-creator`
+- Chat / agent app pattern: `anthropics/claude-plugins-official/plugins/agent-sdk-dev`
+- Existing project plugin/skill store: repository-level `.agents/` with `.codex/` mirror
+
+### Skill library management
+
+Open `/skills` after signing in and choose the global scope or a company. The library manages only runtime-generated skills in the configured versioned Skill Store; it does not modify the repository-managed `.agents/skills` or `.codex/skills` trees.
+
+Supported operations:
+
+- Search, filter, sort, and inspect generated skills
+- Create a new Skill or import an existing `SKILL.md`
+- Edit `SKILL.md` and `evals/evals.json`
+- Remove stale evals by saving an empty evals editor
+- Export a WinBrain JSON backup
+- Delete a generated Skill after confirmation
+
+Managed Skill writes validate required YAML frontmatter and eval JSON. New Skill creation rejects duplicate canonical names inside the selected scope instead of silently adding a revision; edits append immutable revisions. The same slug may exist independently in different company scopes.
 
 ## Current scope
 
 Included:
 
-- administrator authentication;
-- streaming Kimi Code (K2.7 Thinking) through Claude Agent SDK with credential failover;
-- multiple organizations and experts;
-- organization-scoped Skills;
-- encrypted MySQL/OceanBase data-source settings;
-- controlled database connection and schema tests;
-- PostgreSQL and filesystem Skill persistence;
-- local FMCG test schema and automated integration tests.
+- Administrator email/password authentication
+- Streaming Kimi Code (K2.7 Thinking) through Claude Agent SDK with credential failover
+- Multiple organizations and experts
+- Organization-scoped, versioned PostgreSQL and filesystem Skills
+- Authenticated Skill Store CRUD API and management page
+- Encrypted MySQL/OceanBase data-source settings and controlled connection tests
+- Prisma migrations, real database integration tests, and local FMCG fixtures
+- Project-level `.agents` and `.codex` references
 
 Not yet included:
 

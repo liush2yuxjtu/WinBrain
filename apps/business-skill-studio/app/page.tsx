@@ -2,10 +2,9 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type {
-  ChatResponse,
   CompanySetupPayload,
   ExpertSummary,
-  StoredSkillSummary,
+  StoredSkillDetail,
   StudioChatMessage
 } from '@/lib/types'
 
@@ -98,7 +97,7 @@ export default function Home() {
   const [warnings, setWarnings] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [streamStatus, setStreamStatus] = useState('')
-  const [savedSkill, setSavedSkill] = useState<StoredSkillSummary | null>(null)
+  const [savedSkill, setSavedSkill] = useState<StoredSkillDetail | null>(null)
   const [setup, setSetup] = useState<CompanySetupPayload>({ organizations: [], experts: [], dataSources: [] })
   const [setupError, setSetupError] = useState('')
   const [selectedOrganizationId, setSelectedOrganizationId] = useState('')
@@ -275,9 +274,17 @@ export default function Home() {
       })
       if (!response.ok) throw await readError(response)
 
-      const data = await response.json() as { skill?: StoredSkillSummary }
-      if (!data.skill) throw new Error('Save response did not include skill metadata')
+      const data = await response.json() as { skill?: StoredSkillDetail }
+      if (!data.skill) throw new Error('Save response did not include canonical Skill content')
       setSavedSkill(data.skill)
+      const savedDetail = data.skill
+      setDraft([
+        '## SKILL.md',
+        '```markdown',
+        savedDetail.skillMarkdown.trimEnd(),
+        '```',
+        savedDetail.evalsJson ? `\n## evals/evals.json\n\`\`\`json\n${savedDetail.evalsJson.trimEnd()}\n\`\`\`` : ''
+      ].filter(Boolean).join('\n'))
     } catch (error) {
       setWarnings([`保存失败：${error instanceof Error ? error.message : String(error)}`])
     } finally {
@@ -413,15 +420,24 @@ export default function Home() {
               <div className="editor-tabs"><span className="active">SKILL.md</span><span>evals/evals.json</span></div>
               <span>{draft.length.toLocaleString()} 字符</span>
             </div>
-            <textarea aria-label="Skill 草稿编辑器" className="draft-editor" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="生成的 SKILL.md 与 evals 会显示在这里" spellCheck={false} />
+            <textarea
+              aria-label="Skill 草稿编辑器"
+              className="draft-editor"
+              value={draft}
+              onChange={(event) => { setDraft(event.target.value); setSavedSkill(null) }}
+              placeholder="生成的 SKILL.md 与 evals 会显示在这里"
+              spellCheck={false}
+            />
             <div className="draft-footer">
               <div className="save-feedback" aria-live="polite">
-                {savedSkill
-                  ? <span className="success-message">✓ 已保存：{savedSkill.name} · v{savedSkill.version}{selectedOrganization ? ` · ${selectedOrganization.name}` : ''}</span>
-                  : <span>{busy && streamStatus ? streamStatus : '草稿仅在当前会话中保留'}</span>}
+                {savedSkill ? (
+                  <span className="success-message">
+                    ✓ 已保存：{savedSkill.name} · v{savedSkill.version}{selectedOrganization ? ` · ${selectedOrganization.name}` : ''} · <a href={`/skills?selected=${encodeURIComponent(savedSkill.slug)}${savedSkill.organizationId ? `&organizationId=${encodeURIComponent(savedSkill.organizationId)}` : ''}`}>在 Skill 库中管理</a>
+                  </span>
+                ) : <span>{busy && streamStatus ? streamStatus : '草稿仅在当前会话中保留'}</span>}
               </div>
               <div className="draft-actions">
-                <button className="button secondary" disabled={busy || !draft} type="button" onClick={() => setDraft('')}>清空草稿</button>
+                <button className="button secondary" disabled={busy || !draft} type="button" onClick={() => { setDraft(''); setSavedSkill(null) }}>清空草稿</button>
                 <button className="button primary" disabled={busy || !draft.trim()} type="button" onClick={saveDraft}>保存到 Skill Store</button>
               </div>
             </div>

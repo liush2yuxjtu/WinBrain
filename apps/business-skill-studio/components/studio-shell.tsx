@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 
 type StudioShellProps = {
   children: ReactNode
@@ -10,16 +11,21 @@ type StudioShellProps = {
 }
 
 const navigation = [
-  { href: '/#studio-home', label: 'Skill 工作台', icon: '✦', active: (location: string) => location === '/' || location === '/#studio-home' },
-  { href: '/#expert-interview', label: '专家访谈', icon: '⌁', active: (location: string) => location === '/#expert-interview' },
-  { href: '/#skill-draft', label: 'Skill 草稿', icon: '◇', active: (location: string) => location === '/#skill-draft' },
-  { href: '/settings', label: '公司与数据源', icon: '⚙', active: (location: string) => location.startsWith('/settings') }
+  { href: '/#studio-home', hash: '#studio-home', label: 'Skill 工作台', icon: '✦' },
+  { href: '/#expert-interview', hash: '#expert-interview', label: '专家访谈', icon: '⌁' },
+  { href: '/#skill-draft', hash: '#skill-draft', label: 'Skill 草稿', icon: '◇' },
+  { href: '/skills', path: '/skills', label: 'Skill 库', icon: '▦' },
+  { href: '/settings', path: '/settings', label: '公司与数据源', icon: '⚙' }
 ]
 
 export function StudioShell({ children, userName, userEmail, signOutAction }: StudioShellProps) {
+  const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [activeLocation, setActiveLocation] = useState('/')
+  const [mobileViewport, setMobileViewport] = useState(false)
+  const [activeHash, setActiveHash] = useState('#studio-home')
+  const sidebarRef = useRef<HTMLElement>(null)
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     try {
@@ -28,16 +34,34 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
       console.warn('Unable to read the sidebar preference from localStorage.', error)
     }
 
-    const syncLocation = () => setActiveLocation(`${window.location.pathname}${window.location.hash}`)
-    syncLocation()
-    window.addEventListener('hashchange', syncLocation)
-    window.addEventListener('popstate', syncLocation)
+    const syncActiveHash = () => setActiveHash(window.location.hash || '#studio-home')
+    syncActiveHash()
+    window.addEventListener('hashchange', syncActiveHash)
 
-    return () => {
-      window.removeEventListener('hashchange', syncLocation)
-      window.removeEventListener('popstate', syncLocation)
-    }
+    return () => window.removeEventListener('hashchange', syncActiveHash)
+  }, [pathname])
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 800px)')
+    const syncViewport = () => setMobileViewport(mediaQuery.matches)
+    syncViewport()
+    mediaQuery.addEventListener('change', syncViewport)
+    return () => mediaQuery.removeEventListener('change', syncViewport)
   }, [])
+
+  useEffect(() => {
+    if (!mobileOpen) return
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMobileOpen(false)
+        window.requestAnimationFrame(() => mobileMenuButtonRef.current?.focus())
+      }
+    }
+    window.requestAnimationFrame(() => sidebarRef.current?.querySelector<HTMLElement>('a[aria-current="page"], .sidebar-nav a')?.focus())
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [mobileOpen])
 
   function toggleSidebar() {
     const next = !collapsed
@@ -53,7 +77,14 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
 
   return (
     <div className="app-shell">
-      <aside className={`studio-sidebar${collapsed ? ' collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`} aria-label="主导航">
+      <aside
+        ref={sidebarRef}
+        id="studio-navigation"
+        className={`studio-sidebar${collapsed ? ' collapsed' : ''}${mobileOpen ? ' mobile-open' : ''}`}
+        aria-label="主导航"
+        aria-hidden={mobileViewport && !mobileOpen ? true : undefined}
+        inert={mobileViewport && !mobileOpen}
+      >
         <div className="sidebar-brand">
           <img src="/winbrain-logo.svg" alt="" width="44" height="44" />
           <div className="brand-copy">
@@ -67,18 +98,28 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
 
         <nav className="sidebar-nav">
           <p className="nav-label">工作流</p>
-          {navigation.map((item) => (
-            <a
-              className={`sidebar-nav-item${item.active(activeLocation) ? ' active' : ''}`}
+          {navigation.map((item) => {
+            const isActive = item.path ? pathname.startsWith(item.path) : pathname === '/' && activeHash === item.hash
+
+            return (
+              <a
+              className={`sidebar-nav-item${isActive ? ' active' : ''}`}
               href={item.href}
               key={item.href}
-              onClick={() => setMobileOpen(false)}
+              aria-label={item.label}
+              aria-current={isActive ? 'page' : undefined}
+              onClick={() => {
+                if (item.hash) setActiveHash(item.hash)
+                setMobileOpen(false)
+                if (mobileViewport) window.requestAnimationFrame(() => mobileMenuButtonRef.current?.focus())
+              }}
             >
               <span className="nav-icon" aria-hidden="true">{item.icon}</span>
               <span className="nav-text">{item.label}</span>
               <span className="nav-chevron" aria-hidden="true">›</span>
             </a>
-          ))}
+            )
+          })}
         </nav>
 
         <div className="sidebar-footer">
@@ -93,10 +134,18 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
         </div>
       </aside>
 
-      {mobileOpen ? <button className="sidebar-backdrop" type="button" aria-label="关闭导航" onClick={() => setMobileOpen(false)} /> : null}
+      {mobileOpen ? <button className="sidebar-backdrop" type="button" aria-label="关闭导航" onClick={() => { setMobileOpen(false); window.requestAnimationFrame(() => mobileMenuButtonRef.current?.focus()) }} /> : null}
 
-      <div className="studio-main">
-        <button className="mobile-menu-button" type="button" aria-label="打开导航" onClick={() => setMobileOpen(true)}>☰</button>
+      <div className="studio-main" inert={mobileViewport && mobileOpen}>
+        <button
+          ref={mobileMenuButtonRef}
+          className="mobile-menu-button"
+          type="button"
+          aria-label={mobileOpen ? '关闭导航' : '打开导航'}
+          aria-expanded={mobileOpen}
+          aria-controls="studio-navigation"
+          onClick={() => setMobileOpen((open) => !open)}
+        >☰</button>
         {children}
       </div>
     </div>
