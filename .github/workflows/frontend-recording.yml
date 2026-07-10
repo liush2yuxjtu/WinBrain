@@ -14,6 +14,10 @@ on:
         required: false
         type: string
 
+concurrency:
+  group: frontend-recording-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
   pull-requests: write
@@ -45,9 +49,11 @@ jobs:
       AUTH_USER_EMAIL: ${{ vars.AUTH_USER_EMAIL }}
       AUTH_USER_NAME: ${{ vars.AUTH_USER_NAME }}
       AUTH_USER_ROLE: ${{ vars.AUTH_USER_ROLE }}
+      AUTH_URL: ${{ vars.AUTH_URL }}
       NEXTAUTH_URL: ${{ vars.NEXTAUTH_URL }}
       FRONTEND_RECORD_EMAIL: ${{ vars.FRONTEND_RECORD_EMAIL }}
       FRONTEND_RECORD_PASSWORD: ${{ secrets.FRONTEND_RECORD_PASSWORD }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -85,12 +91,89 @@ jobs:
         working-directory: apps/business-skill-studio
         run: npm install --no-package-lock --legacy-peer-deps
 
-      - name: Install Chrome for Playwright
+      - name: Configure deterministic PR recording authentication
+        if: ${{ github.event_name == 'pull_request' }}
+        working-directory: apps/business-skill-studio
+        shell: bash
+        env:
+          RECORDING_EMAIL: recording@example.com
+          RECORDING_PASSWORD: winbrain-recording-password
         run: |
-          npx playwright install --with-deps chrome
+          set -euo pipefail
+          password_hash="$(node -e 'const bcrypt = require("bcryptjs"); process.stdout.write(bcrypt.hashSync(process.env.RECORDING_PASSWORD, 10));')"
+          {
+            echo "AUTH_SECRET=winbrain-pr-recording-only-secret-000000000000"
+            echo "AUTH_USER_EMAIL=$RECORDING_EMAIL"
+            echo "AUTH_USER_NAME=PR Recording User"
+            echo "AUTH_USER_ROLE=admin"
+            echo "AUTH_USER_PASSWORD_HASH=$password_hash"
+            echo "AUTH_URL=http://127.0.0.1:3000"
+            echo "NEXTAUTH_URL=http://127.0.0.1:3000"
+            echo "FRONTEND_RECORD_EMAIL=$RECORDING_EMAIL"
+            echo "FRONTEND_RECORD_PASSWORD=$RECORDING_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Verify manual recording authentication
+        if: ${{ github.event_name != 'pull_request' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in AUTH_SECRET AUTH_USER_EMAIL AUTH_USER_PASSWORD_HASH FRONTEND_RECORD_EMAIL FRONTEND_RECORD_PASSWORD; do
+            if [ -z "$(printenv "$name" || true)" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing recording authentication configuration: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Prepare frontend evidence directory
+        run: mkdir -p artifacts/frontend-recording
+
+      - name: Build Business Skill Studio
+        id: build_app
+        continue-on-error: true
+        working-directory: apps/business-skill-studio
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee ../../artifacts/frontend-recording/build.log
+
+      - name: Install Chrome for Playwright
+        if: ${{ steps.build_app.outcome == 'success' }}
+        run: npx playwright install --with-deps chrome
+
+      - name: Load trusted recording and PR rendering tools
+        id: trusted_tools
+        if: ${{ always() && !cancelled() }}
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p .github/.trusted
+          recorder=".github/.trusted/record-frontend.mjs"
+          renderer="$RUNNER_TEMP/update-pr-evidence.mjs"
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+            git show "${BASE_SHA}:tools/record-frontend.mjs" > "$recorder"
+            git show "${BASE_SHA}:scripts/update-pr-evidence.mjs" > "$renderer"
+          else
+            cp tools/record-frontend.mjs "$recorder"
+            cp scripts/update-pr-evidence.mjs "$renderer"
+          fi
+
+          echo "recorder=$recorder" >> "$GITHUB_OUTPUT"
+          echo "renderer=$renderer" >> "$GITHUB_OUTPUT"
 
       - name: Record Business Skill Studio frontend
         id: record_frontend
+        if: ${{ steps.build_app.outcome == 'success' }}
+        continue-on-error: true
         env:
           PLAYWRIGHT_CHANNEL: chrome
           FRONTEND_URL: ${{ inputs.frontend_url }}
@@ -98,9 +181,9 @@ jobs:
           FRONTEND_RECORD_SCENARIO: business-skill-studio
         run: |
           if [ -z "$FRONTEND_URL" ] && [ -z "$FRONTEND_START_COMMAND" ]; then
-            export FRONTEND_START_COMMAND="cd apps/business-skill-studio && npm run dev -- --hostname 127.0.0.1 --port 3000"
+            export FRONTEND_START_COMMAND="cd apps/business-skill-studio && npm run start -- --hostname 127.0.0.1 --port 3000"
           fi
-          npm run record:frontend
+          node "${{ steps.trusted_tools.outputs.recorder }}"
 
       - name: Upload frontend recording artifact backup
         id: upload
@@ -109,12 +192,12 @@ jobs:
         with:
           name: frontend-playwright-recording
           path: artifacts/frontend-recording
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
 
       - name: Publish frontend recording media to PR branch
         id: publish_media
-        if: ${{ success() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        if: ${{ always() && !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
         shell: bash
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -169,7 +252,7 @@ jobs:
           echo "media_ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Update PR body with inline frontend recording
-        if: ${{ success() && github.event_name == 'pull_request' }}
+        if: ${{ always() && !cancelled() && github.event_name == 'pull_request' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -177,10 +260,14 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
-          TEST_OUTCOME: ${{ steps.record_frontend.outcome }}
-          GITHUB_SHA: ${{ github.sha }}
+          TEST_OUTCOME: ${{ steps.build_app.outcome == 'failure' && 'failure' || steps.record_frontend.outcome }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           EVIDENCE_TITLE: Business Skill Studio 前端录屏证据
           EVIDENCE_MARKER: business-skill-studio-recording
           EVIDENCE_MEDIA_PATH: ${{ steps.publish_media.outputs.media_path }}
           EVIDENCE_MEDIA_REF: ${{ steps.publish_media.outputs.media_ref }}
-        run: node scripts/update-pr-evidence.mjs
+        run: node "${{ steps.trusted_tools.outputs.renderer }}"
+
+      - name: Fail if frontend evidence failed
+        if: ${{ steps.build_app.outcome == 'failure' || steps.record_frontend.outcome == 'failure' }}
+        run: exit 1
