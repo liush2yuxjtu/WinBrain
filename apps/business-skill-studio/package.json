@@ -11,7 +11,6 @@
     "auth:hash-password": "node scripts/hash-password.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.206",
     "bcryptjs": "^2.4.3",
     "effect": "^3.0.0",
     "next": "^15.0.0",
