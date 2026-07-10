@@ -8,7 +8,7 @@ import { testCustomerDatabaseConnection } from '../lib/customer-database'
 const host = process.env.TEST_CUSTOMER_DB_HOST || '127.0.0.1'
 const port = Number(process.env.TEST_CUSTOMER_DB_PORT || 3307)
 const rootPassword = process.env.TEST_CUSTOMER_DB_ROOT_PASSWORD || 'local-root-password'
-let rootConnection: Connection
+let rootConnection: Connection | undefined
 
 before(async () => {
   rootConnection = await createConnection({
