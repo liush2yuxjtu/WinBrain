@@ -2,6 +2,7 @@ node_modules
 .next
 .env
 .env.local
+.env.uat
 data/generated-skills
 *.tsbuildinfo
 generated/prisma
