@@ -1,22 +1,40 @@
 # Business Skill Studio
 
-A project-level app scaffold for helping business experts chat with AI and turn recurring know-how into reusable skills.
+A project-level app for helping experts from different companies turn recurring know-how into reusable, versioned skills.
 
 ## What this app does
 
-1. Lets a business expert chat naturally about a recurring workflow.
-2. Uses the server-side live model provider to ask focused follow-up questions.
-3. Applies the `skill-creator` workflow to draft:
-   - `SKILL.md`
-   - `evals/evals.json`
-   - assumptions and open questions
-4. Saves generated skills to a versioned Skill Store for review and later packaging.
+1. Creates company records and organization-scoped workspaces.
+2. Stores expert profiles, roles, specialties, and business context.
+3. Lets an expert chat naturally about a recurring workflow.
+4. Uses the server-side live model provider to ask focused follow-up questions.
+5. Produces `SKILL.md`, `evals/evals.json`, assumptions, and open questions.
+6. Saves every Skill revision inside the selected company scope.
+7. Stores and tests read-only MySQL / OceanBase MySQL customer data sources.
+
+## Security notice
+
+Never commit or paste production database passwords into source files, issue bodies, pull requests, screenshots, or CI logs. Rotate any credential after accidental disclosure.
+
+Customer database passwords are:
+
+- submitted only to authenticated server routes;
+- encrypted with AES-256-GCM before being written to PostgreSQL;
+- never returned by an API;
+- decrypted only for a server-side connection test;
+- redacted from connection errors.
+
+Generate a data-source encryption key:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+```
+
+Set the result as `DATA_SOURCE_ENCRYPTION_KEY` in the deployment secret store.
 
 ## Authentication
 
-The app uses Auth.js / NextAuth credentials auth with a single environment-backed admin user.
-
-Set these in `.env.local` or your deployment secret store:
+The current app uses Auth.js credentials auth with one environment-backed administrator. That administrator can configure multiple companies and experts. Per-expert login, invitations, and role-based tenant administration are not yet included.
 
 ```bash
 AUTH_SECRET=replace_with_32_byte_random_secret
@@ -33,81 +51,139 @@ Generate the password hash with:
 npm run auth:hash-password -- "replace_this_password"
 ```
 
-Protected resources:
+## Application database
 
-- all app pages except `/login`
-- `/api/chat`
-- `/api/skills`
-- `/api/skills/draft`
+PostgreSQL stores:
 
-Auth routes under `/api/auth/*` stay public for sign-in callbacks.
+- organizations;
+- experts;
+- encrypted customer data-source settings;
+- connection-test status summaries;
+- organization-scoped Skills and immutable Skill revisions.
 
-## Skill Store
-
-The Skill Store supports two interchangeable backends:
-
-| Driver | Configuration | Intended use |
-| --- | --- | --- |
-| `filesystem` | `SKILL_STORE_DRIVER=filesystem` | Default local/demo mode with no database dependency |
-| `database` | `SKILL_STORE_DRIVER=database` and `DATABASE_URL=...` | PostgreSQL-backed persistent storage |
-
-Both backends return storage-neutral metadata:
-
-- stable Skill ID
-- display name and slug
-- current revision number
-- last update timestamp
-
-Each save creates a new immutable revision. The latest revision remains the current Skill content.
-
-### Filesystem backend
-
-Generated skills are written under:
-
-```text
-data/generated-skills/
-```
-
-Override the directory with:
+Start PostgreSQL and the local FMCG test database:
 
 ```bash
-SKILL_STUDIO_STORAGE_DIR=/absolute/or/relative/path
-```
-
-The current files remain available at `SKILL.md` and `evals/evals.json`. Historical content is stored under `revisions/<version>/`.
-
-### PostgreSQL backend
-
-Start the local database:
-
-```bash
+cd apps/business-skill-studio
 docker compose -f docker-compose.db.yml up -d
 ```
 
 Configure `.env.local`:
 
 ```bash
-SKILL_STORE_DRIVER=database
 DATABASE_URL=postgresql://winbrain:winbrain@127.0.0.1:5432/winbrain?schema=public
+DATA_SOURCE_ENCRYPTION_KEY=<base64-encoded-32-byte-key>
+ALLOW_PRIVATE_DATA_SOURCE_HOSTS=true
 ```
 
-Install dependencies and apply the development migration:
+Install and migrate:
 
 ```bash
 npm install
 npm run db:migrate
 ```
 
-Useful database commands:
+Open `/settings` after signing in.
 
-```bash
-npm run db:generate
-npm run db:migrate
-npm run db:migrate:deploy
-npm run db:studio
+## Company and expert setup
+
+The settings page provides this sequence:
+
+1. **Create company** — name, industry, and company business background.
+2. **Add expert** — company, name, role, department, email, specialty, and working context.
+3. **Configure data source** — optional expert assignment plus MySQL/OceanBase connection settings.
+4. **Test connection** — validation, DNS/address policy, authentication, `SELECT 1`, grants, and schema inspection.
+5. **Save encrypted settings** — the password is encrypted and removed from browser-visible responses.
+
+Selecting an expert on the Skill workbench automatically loads the expert role and business context. Saving a Skill records its `organizationId` and optional `expertId`. The same Skill name can exist independently in multiple companies.
+
+## Customer database connection test
+
+Supported source types:
+
+- MySQL 8 compatible databases;
+- OceanBase in MySQL compatibility mode.
+
+The test executes only controlled read operations:
+
+```sql
+SELECT 1;
+SELECT VERSION(), DATABASE(), @@character_set_connection;
+SHOW GRANTS FOR CURRENT_USER;
+SELECT ... FROM information_schema.TABLES;
+SELECT ... FROM information_schema.COLUMNS;
 ```
 
-Production and test deployments should run `npm run db:migrate:deploy` before starting the application.
+The UI does not accept arbitrary SQL. The result includes:
+
+- each test step and its status;
+- latency and server version;
+- inferred read-only status from grants;
+- warnings for broad privileges;
+- table/view and column metadata.
+
+Use a dedicated customer account with only `SELECT` and `SHOW VIEW` wherever possible.
+
+### Network target policy
+
+In production, private, loopback, link-local, multicast, and reserved addresses are blocked by default to reduce server-side request forgery risk.
+
+Explicitly allow private targets only when required:
+
+```bash
+ALLOW_PRIVATE_DATA_SOURCE_HOSTS=true
+```
+
+Restrict production hosts with a comma-separated suffix allowlist:
+
+```bash
+DATA_SOURCE_ALLOWED_HOST_SUFFIXES=oceanbase.customer-a.example,db.customer-b.example
+```
+
+The resolver validates all returned addresses and connects to a resolved IP rather than re-resolving during the connection.
+
+## Local FMCG source database
+
+`docker-compose.db.yml` starts a MySQL database on port `3307` with a representative `uat_dws` schema:
+
+- `dim_product`
+- `dim_store`
+- `dim_customer`
+- `fact_sales_daily`
+- `fact_inventory_snapshot`
+- `vw_brand_sales_summary`
+
+Use the **填入本地 FMCG 测试库** button on `/settings`, or enter:
+
+```text
+host: 127.0.0.1
+port: 3307
+user: fmcg_readonly
+password: local-fmcg-readonly
+database: uat_dws
+charset: utf8mb4
+```
+
+These credentials are local test fixtures only. They must never be reused outside local development or CI.
+
+## Skill Store
+
+The Skill Store supports two backends:
+
+| Driver | Configuration | Intended use |
+| --- | --- | --- |
+| `filesystem` | `SKILL_STORE_DRIVER=filesystem` | Local/demo Skill persistence |
+| `database` | `SKILL_STORE_DRIVER=database` and `DATABASE_URL=...` | PostgreSQL Skill persistence |
+
+Both backends now isolate company Skills. Filesystem mode stores organization Skills under:
+
+```text
+data/generated-skills/organizations/<organization-id>/<skill-slug>/
+```
+
+PostgreSQL uses a composite `(scope_key, slug)` uniqueness constraint. Existing unscoped Skills remain in the `global` scope.
+
+Each save creates an immutable revision. The latest revision is the current content.
 
 ## Run locally
 
@@ -115,62 +191,56 @@ Production and test deployments should run `npm run db:migrate:deploy` before st
 cd apps/business-skill-studio
 npm install
 cp .env.example .env.local
-# Fill live-model and auth variables in .env.local
+docker compose -f docker-compose.db.yml up -d
+npm run db:migrate
 npm run dev
 ```
 
-Open `http://localhost:3000` and sign in at `/login`.
-
-The app retains its deterministic fallback when live-model credentials are missing, so product and design review can continue without an external provider.
+Open `http://localhost:3000`, sign in, then open `/settings`.
 
 ## Validation
 
-Run storage-independent tests:
+Storage-independent and security tests:
 
 ```bash
 npm run test:unit
 ```
 
-Run PostgreSQL integration tests after starting the local database and applying migrations:
+PostgreSQL and local customer-database integration tests:
 
 ```bash
-npm run db:migrate:deploy
-TEST_DATABASE_URL="$DATABASE_URL" npm run test:integration
+TEST_DATABASE_URL="$DATABASE_URL" \
+TEST_CUSTOMER_DB_HOST=127.0.0.1 \
+TEST_CUSTOMER_DB_PORT=3307 \
+TEST_CUSTOMER_DB_ROOT_PASSWORD=local-root-password \
+npm run test:integration
 ```
 
-Validate the application:
+Application validation:
 
 ```bash
 npm run typecheck
 npm run build
 ```
 
-The `Database Integration` GitHub Actions workflow starts PostgreSQL and verifies migrations, filesystem fallback behavior, database revisions, concurrent saves, TypeScript compilation, and the production build on every relevant pull request.
+The `Database Integration` workflow starts PostgreSQL 17 and MySQL 8.4, applies committed migrations, initializes the FMCG schema, tests encrypted data-source persistence, verifies the read-only connection process, checks organization isolation, typechecks, and builds the application.
 
-## Implementation notes
-
-- Prisma is isolated behind a repository interface rather than imported by API routes or UI components.
-- PostgreSQL revision creation uses serializable transactions and retries retryable conflicts.
-- `evals.json` is parsed and normalized before persistence.
-- Filesystem mode remains the default, preserving the existing no-database development path.
-- Auth remains the existing environment-backed single-admin implementation.
-
-## MVP scope
+## Current scope
 
 Included:
 
-- Email/password authentication for an environment-backed admin user
-- Chat UI and the existing live model provider
-- Skill draft generation API
-- Versioned PostgreSQL Skill Store
-- Versioned local filesystem fallback
-- Prisma migrations and real PostgreSQL integration tests
-- Project-level `.agents` and `.codex` references
+- administrator authentication;
+- multiple organizations and experts;
+- organization-scoped Skills;
+- encrypted MySQL/OceanBase data-source settings;
+- controlled database connection and schema tests;
+- PostgreSQL and filesystem Skill persistence;
+- local FMCG test schema and automated integration tests.
 
 Not yet included:
 
-- Multi-user tenancy
-- Database-backed Auth.js users and sessions
-- Skill packaging as `.skill`
-- Automated eval runner and benchmark viewer integration
-- Streaming UI for partial model output
+- per-expert login and invitations;
+- organization administrator roles and row-level authorization;
+- production secret-manager adapters for password material;
+- arbitrary business-data querying or natural-language SQL;
+- Skill packaging, eval execution, and streaming model output.
