@@ -35,8 +35,8 @@ The workflow:
 2. Starts the real Business Skill Studio locally and verifies that it is reachable.
 3. Installs Chromium and required Playwright system dependencies.
 4. Runs `npm run test:e2e` against the running application.
-5. Uploads Playwright evidence as a GitHub Actions artifact.
-6. Updates the PR body with a `Playwright evidence` section that links to the workflow run and downloadable artifact.
+5. Commits selected screenshots and, when available, GIF previews to the PR branch and embeds them directly in the PR body as the primary visual evidence.
+6. Uploads the complete Playwright evidence as a GitHub Actions artifact for backup, then links the workflow run and artifact from the PR body.
 
 The artifact includes:
 
@@ -80,9 +80,9 @@ PLAYWRIGHT_TARGET_URL=http://127.0.0.1:3000/login npm run test:e2e:headed
 Use a task prompt like this:
 
 ```text
-Implement the requested change. Before opening the PR, install dependencies if needed, start the real application, set PLAYWRIGHT_TARGET_URL to that application, run npm run test:e2e, and inspect the Playwright report. Do not commit generated files from artifacts/, test-results/, or playwright-report/. After the PR is opened, GitHub Actions will upload screenshots/videos and update the PR body.
+Implement the requested change. Before opening the PR, install dependencies if needed, start the real application, set PLAYWRIGHT_TARGET_URL to that application, run npm run test:e2e, and inspect the Playwright report. Do not commit generated files from artifacts/, test-results/, or playwright-report/. After the PR is opened, GitHub Actions will embed committed screenshots and available GIF previews directly in the PR body as the primary evidence, and retain the complete artifact as backup.
 ```
 
 ## Important limitation
 
-GitHub PR bodies are Markdown. The workflow writes links to the uploaded artifact into the PR body. For inline images/videos directly visible in the body, the media needs a stable URL, such as GitHub Pages, object storage, or a file committed to the PR branch. The current setup publishes selected evidence media to the PR branch and also retains the complete artifact backup.
+GitHub PR bodies are Markdown. Inline evidence needs a stable URL, so the workflow commits selected screenshots and GIF previews to the PR branch and embeds those files directly in the PR body as the primary evidence. The complete Playwright artifact remains available only as a backup for reports, traces, logs, and original recordings.
