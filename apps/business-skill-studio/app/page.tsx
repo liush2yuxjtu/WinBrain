@@ -1,7 +1,13 @@
 "use client"
 
-import { FormEvent, useState } from 'react'
-import type { ChatResponse, StoredSkillSummary, StudioChatMessage } from '@/lib/types'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
+import type {
+  ChatResponse,
+  CompanySetupPayload,
+  ExpertSummary,
+  StoredSkillSummary,
+  StudioChatMessage
+} from '@/lib/types'
 
 function newMessage(role: 'user' | 'assistant', content: string): StudioChatMessage {
   return { id: crypto.randomUUID(), role, content, createdAt: new Date().toISOString() }
@@ -19,6 +25,14 @@ async function readError(response: Response): Promise<Error> {
   return new Error(errorBody?.error || `Server returned status ${response.status}`)
 }
 
+function expertContext(expert: ExpertSummary): string {
+  return [
+    expert.department ? `部门：${expert.department}` : '',
+    expert.expertise ? `专业领域：${expert.expertise}` : '',
+    expert.businessContext || ''
+  ].filter(Boolean).join('\n')
+}
+
 export default function Home() {
   const [expertRole, setExpertRole] = useState('销售运营专家')
   const [businessGoal, setBusinessGoal] = useState('把客户续约风险评审流程沉淀成可复用的 skill')
@@ -31,6 +45,55 @@ export default function Home() {
   const [warnings, setWarnings] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [savedSkill, setSavedSkill] = useState<StoredSkillSummary | null>(null)
+  const [setup, setSetup] = useState<CompanySetupPayload>({ organizations: [], experts: [], dataSources: [] })
+  const [setupError, setSetupError] = useState('')
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState('')
+  const [selectedExpertId, setSelectedExpertId] = useState('')
+
+  const availableExperts = useMemo(
+    () => setup.experts.filter((expert) => expert.organizationId === selectedOrganizationId && expert.isActive),
+    [setup.experts, selectedOrganizationId]
+  )
+  const selectedOrganization = setup.organizations.find((organization) => organization.id === selectedOrganizationId)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/setup')
+      .then(async (response) => {
+        if (!response.ok) throw await readError(response)
+        return response.json() as Promise<CompanySetupPayload>
+      })
+      .then((payload) => {
+        if (cancelled) return
+        setSetup(payload)
+        const organizationId = payload.organizations[0]?.id || ''
+        const expert = payload.experts.find((candidate) => candidate.organizationId === organizationId && candidate.isActive)
+        setSelectedOrganizationId(organizationId)
+        if (expert) {
+          setSelectedExpertId(expert.id)
+          setExpertRole(expert.role)
+          setBusinessContext(expertContext(expert))
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) setSetupError(error instanceof Error ? error.message : String(error))
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  function selectExpert(expertId: string, experts = availableExperts) {
+    setSelectedExpertId(expertId)
+    const expert = experts.find((candidate) => candidate.id === expertId)
+    if (!expert) return
+    setExpertRole(expert.role)
+    setBusinessContext(expertContext(expert))
+  }
+
+  function selectOrganization(organizationId: string) {
+    setSelectedOrganizationId(organizationId)
+    const experts = setup.experts.filter((expert) => expert.organizationId === organizationId && expert.isActive)
+    selectExpert(experts[0]?.id || '', experts)
+  }
 
   async function sendMessage(event: FormEvent) {
     event.preventDefault()
@@ -46,7 +109,12 @@ export default function Home() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: nextMessages, expertRole, businessContext, activeSkillDraft: draft })
+        body: JSON.stringify({
+          messages: nextMessages,
+          expertRole,
+          businessContext: [selectedOrganization?.description, businessContext].filter(Boolean).join('\n\n'),
+          activeSkillDraft: draft
+        })
       })
       if (!response.ok) throw await readError(response)
 
@@ -95,7 +163,13 @@ export default function Home() {
       const response = await fetch('/api/skills', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skillName: businessGoal, skillMarkdown, evalsJson })
+        body: JSON.stringify({
+          skillName: businessGoal,
+          skillMarkdown,
+          evalsJson,
+          organizationId: selectedOrganizationId || undefined,
+          expertId: selectedExpertId || undefined
+        })
       })
       if (!response.ok) throw await readError(response)
 
@@ -117,10 +191,10 @@ export default function Home() {
           <div className="title-row">
             <div>
               <h1>WinBrain Business Skill Studio</h1>
-              <p>把业务专家的隐性经验，转化为可复用、可评估的 Claude Skill。</p>
+              <p>把不同公司的业务专家经验，转化为独立、可复用、可评估的 Skill。</p>
             </div>
             <div className="status-cluster">
-              <span className="status-pill"><i />工作台已就绪</span>
+              <span className="status-pill"><i />{selectedOrganization?.name || '工作台已就绪'}</span>
               <span className="technology-pill">Skill Creator</span>
             </div>
           </div>
@@ -131,8 +205,8 @@ export default function Home() {
         <section className="intro-banner" aria-label="工作流说明">
           <div>
             <span className="eyebrow">EXPERT-TO-SKILL WORKFLOW</span>
-            <h2>从一次业务访谈，到一个团队可复用的 Skill</h2>
-            <p>AI 会持续追问判断标准、例外和输出格式；你只需校准业务内容，不需要手写 Markdown 或 YAML。</p>
+            <h2>从一次业务访谈，到一个公司可复用的 Skill</h2>
+            <p>先选择公司和专家，再让 AI 追问判断标准、例外和输出格式；Skill 会保存在对应公司作用域。</p>
           </div>
           <div className="workflow-summary" aria-label="三步工作流">
             <span><b>01</b> 访谈</span><i />
@@ -140,6 +214,9 @@ export default function Home() {
             <span><b>03</b> 保存</span>
           </div>
         </section>
+
+        {setupError ? <div className="warning setup-warning">公司配置未加载：{setupError}。<a href="/settings">前往设置</a></div> : null}
+        {!setupError && !setup.organizations.length ? <div className="warning setup-warning">尚未配置公司和专家。<a href="/settings">打开设置向导</a></div> : null}
 
         <section className="workflow-grid">
           <article className="studio-card interview-card" id="expert-interview">
@@ -153,6 +230,20 @@ export default function Home() {
             </div>
 
             <div className="context-form">
+              <div className="field compact-field">
+                <label htmlFor="organization">公司</label>
+                <select id="organization" value={selectedOrganizationId} onChange={(event) => selectOrganization(event.target.value)}>
+                  <option value="">未选择公司</option>
+                  {setup.organizations.map((organization) => <option value={organization.id} key={organization.id}>{organization.name}</option>)}
+                </select>
+              </div>
+              <div className="field compact-field">
+                <label htmlFor="expert">专家</label>
+                <select id="expert" value={selectedExpertId} onChange={(event) => selectExpert(event.target.value)} disabled={!selectedOrganizationId}>
+                  <option value="">手动输入专家信息</option>
+                  {availableExperts.map((expert) => <option value={expert.id} key={expert.id}>{expert.name} · {expert.role}</option>)}
+                </select>
+              </div>
               <div className="field compact-field">
                 <label htmlFor="expert-role">专家角色</label>
                 <input id="expert-role" value={expertRole} onChange={(event) => setExpertRole(event.target.value)} />
@@ -211,7 +302,7 @@ export default function Home() {
               <div>
                 <span className="step-label">STEP 02–03</span>
                 <h2>生成并保存 Skill</h2>
-                <p>校准 SKILL.md 与 evals/evals.json，再保存到 Skill Store。</p>
+                <p>校准 SKILL.md 与 evals/evals.json，再保存到公司 Skill Store。</p>
               </div>
               <span className={`draft-status${draft ? ' ready' : ''}`}>{draft ? '草稿已生成' : '等待生成'}</span>
             </div>
@@ -220,18 +311,11 @@ export default function Home() {
               <div className="editor-tabs"><span className="active">SKILL.md</span><span>evals/evals.json</span></div>
               <span>{draft.length.toLocaleString()} 字符</span>
             </div>
-            <textarea
-              aria-label="Skill 草稿编辑器"
-              className="draft-editor"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="生成的 SKILL.md 与 evals 会显示在这里"
-              spellCheck={false}
-            />
+            <textarea aria-label="Skill 草稿编辑器" className="draft-editor" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="生成的 SKILL.md 与 evals 会显示在这里" spellCheck={false} />
             <div className="draft-footer">
               <div className="save-feedback" aria-live="polite">
                 {savedSkill
-                  ? <span className="success-message">✓ 已保存：{savedSkill.name} · v{savedSkill.version}</span>
+                  ? <span className="success-message">✓ 已保存：{savedSkill.name} · v{savedSkill.version}{selectedOrganization ? ` · ${selectedOrganization.name}` : ''}</span>
                   : <span>草稿仅在当前会话中保留</span>}
               </div>
               <div className="draft-actions">
