@@ -1,4 +1,4 @@
-import { AuthError } from 'next-auth'
+import { AuthError } from '@auth/core/errors'
 import { redirect } from 'next/navigation'
 import { auth, signIn } from '@/auth'
 import { hasConfiguredPasswordUser } from '@/lib/auth-users'
@@ -66,7 +66,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <label htmlFor="email">邮箱</label>
             <input id="email" name="email" type="email" autoComplete="email" required placeholder="admin@example.com" />
           </div>
-
           <div className="field">
             <label htmlFor="password">密码</label>
             <input id="password" name="password" type="password" autoComplete="current-password" required />
