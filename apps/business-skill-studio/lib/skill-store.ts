@@ -34,21 +34,24 @@ function repository(): SkillRepository {
   return selected
 }
 
+function optionalIdentifier(value: string | undefined, field: string): string | undefined {
+  if (!value?.trim()) return undefined
+  const cleaned = value.trim()
+  if (cleaned.length > 128 || !/^[a-zA-Z0-9_-]+$/.test(cleaned)) {
+    throw new SkillStoreValidationError(`${field} is invalid`)
+  }
+  return cleaned
+}
+
 export function normalizeSkillSaveRequest(input: SkillSaveRequest): SkillSaveRequest {
   const skillName = input.skillName?.trim()
   const skillMarkdown = input.skillMarkdown
 
-  if (!skillName) {
-    throw new SkillStoreValidationError('skillName is required')
-  }
-
-  if (!skillMarkdown?.trim()) {
-    throw new SkillStoreValidationError('skillMarkdown is required')
-  }
+  if (!skillName) throw new SkillStoreValidationError('skillName is required')
+  if (!skillMarkdown?.trim()) throw new SkillStoreValidationError('skillMarkdown is required')
 
   const rawEvalsJson = input.evalsJson?.trim()
   let evalsJson: string | undefined
-
   if (rawEvalsJson) {
     try {
       evalsJson = `${JSON.stringify(JSON.parse(rawEvalsJson), null, 2)}\n`
@@ -60,7 +63,9 @@ export function normalizeSkillSaveRequest(input: SkillSaveRequest): SkillSaveReq
   return {
     skillName,
     skillMarkdown,
-    evalsJson
+    evalsJson,
+    organizationId: optionalIdentifier(input.organizationId, 'organizationId'),
+    expertId: optionalIdentifier(input.expertId, 'expertId')
   }
 }
 
@@ -68,12 +73,12 @@ export async function saveSkill(input: SkillSaveRequest): Promise<StoredSkillSum
   return repository().save(normalizeSkillSaveRequest(input))
 }
 
-export async function listSkills(): Promise<StoredSkillSummary[]> {
-  return repository().list()
+export async function listSkills(organizationId?: string): Promise<StoredSkillSummary[]> {
+  return repository().list(optionalIdentifier(organizationId, 'organizationId'))
 }
 
-export async function readSkill(skillName: string): Promise<string | null> {
+export async function readSkill(skillName: string, organizationId?: string): Promise<string | null> {
   const normalizedName = skillName.trim()
   if (!normalizedName) return null
-  return repository().read(normalizedName)
+  return repository().read(normalizedName, optionalIdentifier(organizationId, 'organizationId'))
 }

@@ -10,15 +10,16 @@ type StudioShellProps = {
 }
 
 const navigation = [
-  { href: '#studio-home', label: 'Skill 工作台', icon: '✦' },
-  { href: '#expert-interview', label: '专家访谈', icon: '⌁' },
-  { href: '#skill-draft', label: 'Skill 草稿', icon: '◇' }
+  { href: '/#studio-home', label: 'Skill 工作台', icon: '✦', active: (location: string) => location === '/' || location === '/#studio-home' },
+  { href: '/#expert-interview', label: '专家访谈', icon: '⌁', active: (location: string) => location === '/#expert-interview' },
+  { href: '/#skill-draft', label: 'Skill 草稿', icon: '◇', active: (location: string) => location === '/#skill-draft' },
+  { href: '/settings', label: '公司与数据源', icon: '⚙', active: (location: string) => location.startsWith('/settings') }
 ]
 
 export function StudioShell({ children, userName, userEmail, signOutAction }: StudioShellProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [activeHash, setActiveHash] = useState('#studio-home')
+  const [activeLocation, setActiveLocation] = useState('/')
 
   useEffect(() => {
     try {
@@ -27,17 +28,20 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
       console.warn('Unable to read the sidebar preference from localStorage.', error)
     }
 
-    const syncActiveHash = () => setActiveHash(window.location.hash || '#studio-home')
-    syncActiveHash()
-    window.addEventListener('hashchange', syncActiveHash)
+    const syncLocation = () => setActiveLocation(`${window.location.pathname}${window.location.hash}`)
+    syncLocation()
+    window.addEventListener('hashchange', syncLocation)
+    window.addEventListener('popstate', syncLocation)
 
-    return () => window.removeEventListener('hashchange', syncActiveHash)
+    return () => {
+      window.removeEventListener('hashchange', syncLocation)
+      window.removeEventListener('popstate', syncLocation)
+    }
   }, [])
 
   function toggleSidebar() {
     const next = !collapsed
     setCollapsed(next)
-
     try {
       window.localStorage.setItem('winbrain-sidebar-collapsed', String(next))
     } catch (error) {
@@ -56,13 +60,7 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
             <strong>WinBrain</strong>
             <span>Business Skill Studio</span>
           </div>
-          <button
-            className="sidebar-collapse"
-            type="button"
-            aria-label={collapsed ? '展开侧边栏' : '折叠侧边栏'}
-            aria-expanded={!collapsed}
-            onClick={toggleSidebar}
-          >
+          <button className="sidebar-collapse" type="button" aria-label={collapsed ? '展开侧边栏' : '折叠侧边栏'} aria-expanded={!collapsed} onClick={toggleSidebar}>
             {collapsed ? '›' : '‹'}
           </button>
         </div>
@@ -71,13 +69,10 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
           <p className="nav-label">工作流</p>
           {navigation.map((item) => (
             <a
-              className={`sidebar-nav-item${activeHash === item.href ? ' active' : ''}`}
+              className={`sidebar-nav-item${item.active(activeLocation) ? ' active' : ''}`}
               href={item.href}
               key={item.href}
-              onClick={() => {
-                setActiveHash(item.href)
-                setMobileOpen(false)
-              }}
+              onClick={() => setMobileOpen(false)}
             >
               <span className="nav-icon" aria-hidden="true">{item.icon}</span>
               <span className="nav-text">{item.label}</span>
