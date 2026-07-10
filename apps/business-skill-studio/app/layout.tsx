@@ -1,13 +1,15 @@
 import './globals.css'
 import './settings.css'
+import './workbench.css'
+import './assistant-panel.css'
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { auth, signOut } from '@/auth'
 import { StudioShell } from '@/components/studio-shell'
 
 export const metadata: Metadata = {
-  title: 'WinBrain Business Skill Studio',
-  description: 'Chat with business experts and turn their know-how into reusable skills.'
+  title: 'WinBrain · AI Operations Workspace',
+  description: 'Turn expert knowledge into reusable, governed business skills with an AI copilot.'
 }
 
 async function signOutAction() {
