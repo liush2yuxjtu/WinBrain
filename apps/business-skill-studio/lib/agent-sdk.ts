@@ -1,4 +1,9 @@
 import { query } from '@anthropic-ai/claude-agent-sdk'
+import {
+  createAgentSdkProfiler,
+  type AgentSdkAttemptProfiler,
+  type AgentSdkProfileOperation
+} from './agent-sdk-profiler'
 import type { ChatRequest, SkillDraftRequest } from './types'
 import {
   buildBusinessChatSystemPrompt,
@@ -260,45 +265,65 @@ function statusForSdkMessage(record: Record<string, unknown>): string | null {
 
 async function* streamWithCredential(
   candidate: CredentialCandidate,
-  input: QueryInput
+  input: QueryInput,
+  profile: AgentSdkAttemptProfiler
 ): AsyncGenerator<AgentSdkStreamEvent, string, void> {
   const abortController = new AbortController()
-  const handle = query({
-    prompt: input.prompt,
-    options: {
-      abortController,
-      env: sdkEnvironment(candidate.key),
-      systemPrompt: input.systemPrompt,
-      maxTurns: 1,
-      tools: [],
-      permissionMode: 'dontAsk',
-      persistSession: false,
-      includePartialMessages: true
-    }
-  }) as StreamingQueryHandle
-
-  const iterator = handle[Symbol.asyncIterator]()
-  const startedAt = Date.now()
-  const deadlineAt = startedAt + attemptTimeoutMs()
-  let pendingNext = iterator.next()
+  let handle: StreamingQueryHandle | undefined
   let fullText = ''
+  let outcome: 'success' | 'error' | 'cancelled' = 'cancelled'
+  let failure: unknown
 
   try {
+    handle = query({
+      prompt: input.prompt,
+      options: {
+        abortController,
+        env: sdkEnvironment(candidate.key),
+        systemPrompt: input.systemPrompt,
+        maxTurns: 1,
+        tools: [],
+        permissionMode: 'dontAsk',
+        persistSession: false,
+        includePartialMessages: true
+      }
+    }) as StreamingQueryHandle
+
+    const iterator = handle[Symbol.asyncIterator]()
+    profile.markQueryReady()
+    const startedAt = Date.now()
+    const deadlineAt = startedAt + attemptTimeoutMs()
+    let pendingNext = iterator.next()
+
     while (true) {
       const remainingMs = deadlineAt - Date.now()
       if (remainingMs <= 0) {
         throw new Error(`Claude Agent SDK attempt timed out after ${attemptTimeoutMs()}ms`)
       }
 
-      const outcome = await Promise.race([
-        pendingNext.then((value) => ({ kind: 'message' as const, value })),
-        new Promise<{ kind: 'heartbeat' }>((resolve) => {
-          setTimeout(() => resolve({ kind: 'heartbeat' }), Math.min(HEARTBEAT_INTERVAL_MS, remainingMs))
-        })
-      ])
+      let heartbeatTimer: ReturnType<typeof setTimeout> | undefined
+      let raceOutcome: {
+        kind: 'message'
+        value: IteratorResult<unknown>
+      } | { kind: 'heartbeat' }
 
-      if (outcome.kind === 'heartbeat') {
+      try {
+        raceOutcome = await Promise.race([
+          pendingNext.then((value) => ({ kind: 'message' as const, value })),
+          new Promise<{ kind: 'heartbeat' }>((resolve) => {
+            heartbeatTimer = setTimeout(
+              () => resolve({ kind: 'heartbeat' }),
+              Math.min(HEARTBEAT_INTERVAL_MS, remainingMs)
+            )
+          })
+        ])
+      } finally {
+        if (heartbeatTimer) clearTimeout(heartbeatTimer)
+      }
+
+      if (raceOutcome.kind === 'heartbeat') {
         const elapsedMs = Date.now() - startedAt
+        profile.recordHeartbeat()
         yield {
           type: 'status',
           credentialSlot: candidate.slot,
@@ -308,21 +333,26 @@ async function* streamWithCredential(
         continue
       }
 
-      if (outcome.value.done) break
+      if (raceOutcome.value.done) break
       pendingNext = iterator.next()
 
-      const message = outcome.value.value
+      const message = raceOutcome.value.value
       if (!message || typeof message !== 'object') continue
       const record = message as Record<string, unknown>
+      profile.observeMessage(record)
+      const type = typeof record.type === 'string' ? record.type : ''
+      const streamDelta = extractSafeStreamDelta(record)
+      const messageText = type === 'assistant' || type === 'result' ? extractText(record) : ''
+      if (streamDelta || messageText) profile.markTextAvailable()
 
       const status = statusForSdkMessage(record)
       if (status) {
         yield { type: 'status', message: status, credentialSlot: candidate.slot }
       }
 
-      const streamDelta = extractSafeStreamDelta(record)
       if (streamDelta) {
         fullText += streamDelta
+        profile.recordTextDelta(streamDelta.length)
         yield {
           type: 'text',
           delta: streamDelta,
@@ -331,12 +361,11 @@ async function* streamWithCredential(
         }
       }
 
-      const type = typeof record.type === 'string' ? record.type : ''
       if (type === 'assistant') {
-        const assistantText = extractText(record)
-        const appended = appendNonDuplicate(fullText, assistantText)
+        const appended = appendNonDuplicate(fullText, messageText)
         if (appended.delta) {
           fullText = appended.text
+          profile.recordTextDelta(appended.delta.length)
           yield {
             type: 'text',
             delta: appended.delta,
@@ -351,7 +380,7 @@ async function* streamWithCredential(
           throw resultError(record)
         }
 
-        const resultText = extractText(record)
+        const resultText = messageText
         if (!resultText && record.is_error === true) {
           throw resultError(record)
         }
@@ -359,6 +388,7 @@ async function* streamWithCredential(
         const appended = appendNonDuplicate(fullText, resultText)
         if (appended.delta) {
           fullText = appended.text
+          profile.recordTextDelta(appended.delta.length)
           yield {
             type: 'text',
             delta: appended.delta,
@@ -367,89 +397,162 @@ async function* streamWithCredential(
           }
         }
 
-        if (fullText) return fullText
+        if (fullText) {
+          outcome = 'success'
+          return fullText
+        }
       }
     }
 
-    if (fullText) return fullText
+    if (fullText) {
+      outcome = 'success'
+      return fullText
+    }
     throw new Error('Claude Agent SDK ended without text output')
+  } catch (error) {
+    outcome = 'error'
+    failure = error
+    throw error
   } finally {
+    profile.beginCleanup()
     abortController.abort()
-    handle.close()
+    let cleanupFailure: unknown
+    try {
+      handle?.close()
+    } catch (error) {
+      cleanupFailure = error
+    } finally {
+      profile.finish({
+        outcome,
+        outputChars: fullText.length,
+        error: failure,
+        cleanupError: cleanupFailure
+      })
+    }
   }
 }
 
 async function* streamWithFailover(
   input: QueryInput,
-  fallbackText: string
+  fallbackText: string,
+  operation: AgentSdkProfileOperation
 ): AsyncGenerator<AgentSdkStreamEvent, void, void> {
   const candidates = credentialCandidates()
-  if (!candidates.length) {
+  const profile = createAgentSdkProfiler({
+    operation,
+    promptChars: input.prompt.length,
+    systemPromptChars: input.systemPrompt.length
+  })
+  let completed = false
+  let latestOutputChars = 0
+
+  try {
+    if (!candidates.length) {
+      completed = true
+      latestOutputChars = fallbackText.length
+      profile.finish({
+        outcome: 'fallback',
+        fallbackReason: 'credentials_unconfigured',
+        outputChars: latestOutputChars,
+        candidateCount: 0
+      })
+      yield {
+        type: 'result',
+        text: fallbackText,
+        usedLiveModel: false,
+        usedAgentSdk: false,
+        provider: 'deterministic-fallback',
+        warnings: ['No Kimi Code credential is configured.']
+      }
+      return
+    }
+
+    const failures: string[] = []
+
+    for (const candidate of candidates) {
+      yield {
+        type: 'status',
+        credentialSlot: candidate.slot,
+        message: `正在使用 ${candidate.slot} Kimi Key 启动 K2.7 Code（单次最长 600 秒）`
+      }
+
+      try {
+        const stream = streamWithCredential(candidate, input, profile.startAttempt(candidate.slot))
+        let streamCompleted = false
+        let text = ''
+
+        try {
+          while (true) {
+            const next = await stream.next()
+            if (next.done) {
+              text = next.value
+              streamCompleted = true
+              break
+            }
+            if (next.value.type === 'text') latestOutputChars = next.value.text.length
+            yield next.value
+          }
+        } finally {
+          if (!streamCompleted) await stream.return('')
+        }
+
+        latestOutputChars = text.length
+        completed = true
+        profile.finish({
+          outcome: 'success',
+          credentialSlot: candidate.slot,
+          outputChars: latestOutputChars,
+          candidateCount: candidates.length
+        })
+        yield {
+          type: 'result',
+          text,
+          usedLiveModel: true,
+          usedAgentSdk: true,
+          provider: 'claude-agent-sdk',
+          credentialSlot: candidate.slot,
+          warnings: failures.length
+            ? [`Kimi Code switched credentials after: ${failures.join(' | ')}`]
+            : []
+        }
+        return
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error)
+        failures.push(`${candidate.slot}: ${reason}`)
+        yield {
+          type: 'status',
+          credentialSlot: candidate.slot,
+          message: candidate.slot === 'primary'
+            ? `primary Kimi Key 失败：${reason}；正在切换 fallback Key`
+            : `${candidate.slot} Kimi Key 失败：${reason}`
+        }
+      }
+    }
+
+    completed = true
+    latestOutputChars = fallbackText.length
+    profile.finish({
+      outcome: 'fallback',
+      fallbackReason: 'all_attempts_failed',
+      outputChars: latestOutputChars,
+      candidateCount: candidates.length
+    })
     yield {
       type: 'result',
       text: fallbackText,
       usedLiveModel: false,
       usedAgentSdk: false,
-      provider: 'deterministic-fallback',
-      warnings: ['No Kimi Code credential is configured.']
+      provider: 'claude-agent-sdk',
+      warnings: [`All Kimi Code credentials failed: ${failures.join(' | ')}`]
     }
-    return
-  }
-
-  const failures: string[] = []
-
-  for (const candidate of candidates) {
-    yield {
-      type: 'status',
-      credentialSlot: candidate.slot,
-      message: `正在使用 ${candidate.slot} Kimi Key 启动 K2.7 Code（单次最长 600 秒）`
+  } finally {
+    if (!completed) {
+      profile.finish({
+        outcome: 'cancelled',
+        outputChars: latestOutputChars,
+        candidateCount: candidates.length
+      })
     }
-
-    try {
-      const stream = streamWithCredential(candidate, input)
-      let text = ''
-
-      while (true) {
-        const next = await stream.next()
-        if (next.done) {
-          text = next.value
-          break
-        }
-        yield next.value
-      }
-
-      yield {
-        type: 'result',
-        text,
-        usedLiveModel: true,
-        usedAgentSdk: true,
-        provider: 'claude-agent-sdk',
-        credentialSlot: candidate.slot,
-        warnings: failures.length
-          ? [`Kimi Code switched credentials after: ${failures.join(' | ')}`]
-          : []
-      }
-      return
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error)
-      failures.push(`${candidate.slot}: ${reason}`)
-      yield {
-        type: 'status',
-        credentialSlot: candidate.slot,
-        message: candidate.slot === 'primary'
-          ? `primary Kimi Key 失败：${reason}；正在切换 fallback Key`
-          : `${candidate.slot} Kimi Key 失败：${reason}`
-      }
-    }
-  }
-
-  yield {
-    type: 'result',
-    text: fallbackText,
-    usedLiveModel: false,
-    usedAgentSdk: false,
-    provider: 'claude-agent-sdk',
-    warnings: [`All Kimi Code credentials failed: ${failures.join(' | ')}`]
   }
 }
 
@@ -470,14 +573,14 @@ export function streamAgentChat(input: ChatRequest): AsyncGenerator<AgentSdkStre
       input.businessContext,
       input.activeSkillDraft
     )
-  }, localChatFallback(input))
+  }, localChatFallback(input), 'chat')
 }
 
 export function streamSkillDraft(input: SkillDraftRequest): AsyncGenerator<AgentSdkStreamEvent, void, void> {
   return streamWithFailover({
     prompt: buildSkillDraftPrompt(input),
     systemPrompt: buildSkillCreatorSystemPrompt()
-  }, fallbackSkillDraft(input))
+  }, fallbackSkillDraft(input), 'skill-draft')
 }
 
 async function collectResult(stream: AsyncIterable<AgentSdkStreamEvent>): Promise<AgentSdkResult> {

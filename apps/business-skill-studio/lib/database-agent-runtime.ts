@@ -1,4 +1,8 @@
 import { query } from '@anthropic-ai/claude-agent-sdk'
+import {
+  createAgentSdkProfiler,
+  type AgentSdkAttemptProfiler
+} from './agent-sdk-profiler'
 import type { AgentCredentialSlot, AgentSdkResult } from './agent-sdk'
 
 type DatabasePromptRequest = {
@@ -135,44 +139,63 @@ function extractText(message: unknown): string {
 
 async function runWithCredential(
   candidate: CredentialCandidate,
-  input: DatabasePromptRequest
+  input: DatabasePromptRequest,
+  profile: AgentSdkAttemptProfiler
 ): Promise<string> {
   const abortController = new AbortController()
-  const handle = query({
-    prompt: input.prompt,
-    options: {
-      abortController,
-      env: sdkEnvironment(candidate.key),
-      systemPrompt: input.systemPrompt,
-      maxTurns: 1,
-      tools: [],
-      permissionMode: 'dontAsk',
-      persistSession: false
-    }
-  }) as QueryHandle
-
-  const iterator = handle[Symbol.asyncIterator]()
-  const deadlineAt = Date.now() + attemptTimeoutMs()
+  let handle: QueryHandle | undefined
   let fullText = ''
+  let outcome: 'success' | 'error' | 'cancelled' = 'cancelled'
+  let failure: unknown
 
   try {
+    handle = query({
+      prompt: input.prompt,
+      options: {
+        abortController,
+        env: sdkEnvironment(candidate.key),
+        systemPrompt: input.systemPrompt,
+        maxTurns: 1,
+        tools: [],
+        permissionMode: 'dontAsk',
+        persistSession: false
+      }
+    }) as QueryHandle
+
+    const iterator = handle[Symbol.asyncIterator]()
+    profile.markQueryReady()
+    const deadlineAt = Date.now() + attemptTimeoutMs()
+
     while (true) {
       const remainingMs = deadlineAt - Date.now()
       if (remainingMs <= 0) throw new Error(`Claude Agent SDK attempt timed out after ${attemptTimeoutMs()}ms`)
-      const next = await Promise.race([
-        iterator.next(),
-        new Promise<never>((_, reject) => setTimeout(
-          () => reject(new Error(`Claude Agent SDK attempt timed out after ${attemptTimeoutMs()}ms`)),
-          remainingMs
-        ))
-      ])
+      let timeoutTimer: ReturnType<typeof setTimeout> | undefined
+      let next: IteratorResult<unknown>
+
+      try {
+        next = await Promise.race([
+          iterator.next(),
+          new Promise<never>((_, reject) => {
+            timeoutTimer = setTimeout(
+              () => reject(new Error(`Claude Agent SDK attempt timed out after ${attemptTimeoutMs()}ms`)),
+              remainingMs
+            )
+          })
+        ])
+      } finally {
+        if (timeoutTimer) clearTimeout(timeoutTimer)
+      }
       if (next.done) break
       const message = next.value
       if (!message || typeof message !== 'object') continue
       const record = message as Record<string, unknown>
+      profile.observeMessage(record)
       const type = typeof record.type === 'string' ? record.type : ''
       const text = extractText(record)
-      if (text) fullText = text
+      if (text) {
+        fullText = text
+        profile.markTextAvailable()
+      }
       if (type === 'result') {
         if (record.subtype !== 'success' || record.is_error === true) {
           const errors = Array.isArray(record.errors)
@@ -180,20 +203,55 @@ async function runWithCredential(
             : []
           throw new Error(errors.join('; ') || `Claude Agent SDK returned ${String(record.subtype || 'error')}`)
         }
-        if (fullText) return fullText
+        if (fullText) {
+          outcome = 'success'
+          return fullText
+        }
       }
     }
-    if (fullText) return fullText
+    if (fullText) {
+      outcome = 'success'
+      return fullText
+    }
     throw new Error('Claude Agent SDK ended without text output')
+  } catch (error) {
+    outcome = 'error'
+    failure = error
+    throw error
   } finally {
+    profile.beginCleanup()
     abortController.abort()
-    handle.close()
+    let cleanupFailure: unknown
+    try {
+      handle?.close()
+    } catch (error) {
+      cleanupFailure = error
+    } finally {
+      profile.finish({
+        outcome,
+        outputChars: fullText.length,
+        error: failure,
+        cleanupError: cleanupFailure
+      })
+    }
   }
 }
 
 export async function runDatabasePrompt(input: DatabasePromptRequest): Promise<AgentSdkResult> {
   const candidates = credentialCandidates()
+  const profile = createAgentSdkProfiler({
+    operation: 'database-prompt',
+    promptChars: input.prompt.length,
+    systemPromptChars: input.systemPrompt.length
+  })
+
   if (!candidates.length) {
+    profile.finish({
+      outcome: 'fallback',
+      fallbackReason: 'credentials_unconfigured',
+      outputChars: input.fallbackText.length,
+      candidateCount: 0
+    })
     return {
       text: input.fallbackText,
       usedLiveModel: false,
@@ -206,8 +264,15 @@ export async function runDatabasePrompt(input: DatabasePromptRequest): Promise<A
   const failures: string[] = []
   for (const candidate of candidates) {
     try {
+      const text = await runWithCredential(candidate, input, profile.startAttempt(candidate.slot))
+      profile.finish({
+        outcome: 'success',
+        credentialSlot: candidate.slot,
+        outputChars: text.length,
+        candidateCount: candidates.length
+      })
       return {
-        text: await runWithCredential(candidate, input),
+        text,
         usedLiveModel: true,
         usedAgentSdk: true,
         provider: 'claude-agent-sdk',
@@ -219,6 +284,12 @@ export async function runDatabasePrompt(input: DatabasePromptRequest): Promise<A
     }
   }
 
+  profile.finish({
+    outcome: 'fallback',
+    fallbackReason: 'all_attempts_failed',
+    outputChars: input.fallbackText.length,
+    candidateCount: candidates.length
+  })
   return {
     text: input.fallbackText,
     usedLiveModel: false,
