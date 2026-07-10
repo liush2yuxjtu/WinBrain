@@ -175,8 +175,34 @@ async function recordBusinessSkillStudioScenario(page, snapshots) {
   const scenario = process.env.FRONTEND_RECORD_SCENARIO;
   if (scenario !== 'business-skill-studio') return;
 
+  const loginEmail = page.locator('input[name="email"]');
+  const loginVisible = await loginEmail.isVisible().catch(() => false);
+
+  if (loginVisible) {
+    const email = process.env.FRONTEND_RECORD_EMAIL;
+    const password = process.env.FRONTEND_RECORD_PASSWORD;
+
+    if (!email || !password) {
+      throw new Error('Frontend recording login credentials are not configured.');
+    }
+
+    await loginEmail.fill(email);
+    await page.locator('input[name="password"]').fill(password);
+
+    await Promise.all([
+      page.waitForURL((url) => !url.pathname.startsWith('/login'), {
+        timeout: 30_000
+      }),
+      page.getByRole('button', { name: '登录' }).click()
+    ]);
+
+    await page.waitForLoadState('networkidle').catch(() => undefined);
+  }
+
   const titleVisible = await page.getByText('WinBrain Business Skill Studio').first().isVisible().catch(() => false);
-  if (!titleVisible) return;
+  if (!titleVisible) {
+    throw new Error('Business Skill Studio home was not visible after authentication.');
+  }
 
   snapshots.push(await captureSnapshot(page, '01-business-skill-studio-home'));
 

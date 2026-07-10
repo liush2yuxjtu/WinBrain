@@ -23,17 +23,26 @@ jobs:
   record:
     runs-on: ubuntu-latest
     env:
-      # Stored as a GitHub Actions secret. Never commit the credential itself.
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      # MiniMax's Anthropic-compatible endpoint accepts the same credential as a bearer token.
-      ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_API_KEY }}
-      ANTHROPIC_BASE_URL: https://api.minimaxi.com/anthropic
-      ANTHROPIC_MODEL: MiniMax-M3
-      ANTHROPIC_DEFAULT_SONNET_MODEL: MiniMax-M3
-      ANTHROPIC_DEFAULT_OPUS_MODEL: MiniMax-M3
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: MiniMax-M3
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1'
-      API_TIMEOUT_MS: '3000000'
+      ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
+      ANTHROPIC_BASE_URL: ${{ vars.ANTHROPIC_BASE_URL }}
+      ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+      ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ vars.ANTHROPIC_DEFAULT_SONNET_MODEL }}
+      ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ vars.ANTHROPIC_DEFAULT_OPUS_MODEL }}
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ vars.ANTHROPIC_DEFAULT_HAIKU_MODEL }}
+      API_TIMEOUT_MS: ${{ vars.API_TIMEOUT_MS }}
+      API_MAX_INPUT_TOKENS: ${{ vars.API_MAX_INPUT_TOKENS }}
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: ${{ vars.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC }}
+      CLAUDE_CODE_MAX_CONTEXT_TOKENS: ${{ vars.CLAUDE_CODE_MAX_CONTEXT_TOKENS }}
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW: ${{ vars.CLAUDE_CODE_AUTO_COMPACT_WINDOW }}
+      AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+      AUTH_USER_PASSWORD_HASH: ${{ secrets.AUTH_USER_PASSWORD_HASH }}
+      AUTH_USER_EMAIL: ${{ vars.AUTH_USER_EMAIL }}
+      AUTH_USER_NAME: ${{ vars.AUTH_USER_NAME }}
+      AUTH_USER_ROLE: ${{ vars.AUTH_USER_ROLE }}
+      NEXTAUTH_URL: ${{ vars.NEXTAUTH_URL }}
+      FRONTEND_RECORD_EMAIL: ${{ vars.FRONTEND_RECORD_EMAIL }}
+      FRONTEND_RECORD_PASSWORD: ${{ secrets.FRONTEND_RECORD_PASSWORD }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
