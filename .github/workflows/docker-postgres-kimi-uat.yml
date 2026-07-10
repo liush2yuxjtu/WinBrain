@@ -63,11 +63,33 @@ jobs:
       UAT_TESTER: ${{ inputs.uat_tester }}
 
     steps:
+      - name: Validate PR and same-repository branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_ref="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.ref')"
+          actual_repo="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.repo.full_name')"
+          test "$actual_repo" = "$GITHUB_REPOSITORY" || {
+            echo "::error::Live UAT is restricted to same-repository pull requests."
+            exit 1
+          }
+          test "$actual_ref" = "$HEAD_REF" || {
+            echo "::error::head_ref does not match PR #${PR_NUMBER}; expected ${actual_ref}."
+            exit 1
+          }
+
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.head_ref }}
           fetch-depth: 0
+
+      - name: Resolve tested revision
+        id: tested_revision
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Load trusted PR evidence renderer
         id: trusted_renderer
@@ -171,6 +193,7 @@ jobs:
         env:
           FEATURE_RESULT: ${{ steps.feature.outcome }}
           DATABASE_RESULT: ${{ steps.postgres_uat.outcome }}
+          UAT_HEAD_SHA: ${{ steps.tested_revision.outputs.sha }}
         run: |
           set -euo pipefail
           mkdir -p artifacts/frontend-recording
@@ -191,7 +214,7 @@ jobs:
           - 实际结果：功能流程=${FEATURE_RESULT}；数据库 UAT=${DATABASE_RESULT}
           - 验收结论：${conclusion}
           - LLM endpoint：https://api.kimi.com/coding/
-          - 已验证提交：${GITHUB_SHA}
+          - 已验证提交：${UAT_HEAD_SHA}
           EOF
           cp frontend-server.log artifacts/frontend-recording/frontend-server.log || true
 
@@ -199,6 +222,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
           mkdir -p artifacts/frontend-recording/uat
           feature_video="$(find artifacts/frontend-recording/video -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) 2>/dev/null | sort | head -n 1 || true)"
           uat_video="$(find artifacts/frontend-recording/uat-video -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) 2>/dev/null | sort | head -n 1 || true)"
@@ -253,7 +280,7 @@ jobs:
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
           TEST_OUTCOME: ${{ steps.postgres_uat.outcome }}
-          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_SHA: ${{ steps.tested_revision.outputs.sha }}
           EVIDENCE_TITLE: Docker PostgreSQL + Auth + Kimi 真实 UAT 证据
           EVIDENCE_MARKER: docker-postgres-kimi-uat
           EVIDENCE_MEDIA_PATH: ${{ steps.publish.outputs.media_path }}
