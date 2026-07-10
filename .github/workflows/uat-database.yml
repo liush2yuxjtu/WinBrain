@@ -1,0 +1,67 @@
+name: UAT Database
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/uat-database.yml'
+      - 'apps/business-skill-studio/docker-compose.uat.yml'
+      - 'apps/business-skill-studio/.env.uat.example'
+      - 'apps/business-skill-studio/package.json'
+      - 'apps/business-skill-studio/prisma/**'
+      - 'apps/business-skill-studio/scripts/seed-uat.mjs'
+      - 'apps/business-skill-studio/scripts/uat-database.mjs'
+      - 'apps/business-skill-studio/scripts/verify-uat-database.mjs'
+      - 'apps/business-skill-studio/test-db/uat-mysql-init/**'
+      - 'apps/business-skill-studio/docs/uat-database.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/business-skill-studio
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/business-skill-studio/package-lock.json
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Create disposable UAT configuration
+        shell: bash
+        run: |
+          cat > .env.uat <<'ENV'
+          UAT_POSTGRES_DB=winbrain_uat_ci
+          UAT_POSTGRES_USER=winbrain_uat_ci
+          UAT_POSTGRES_PASSWORD=ci-only-postgres-password
+          UAT_POSTGRES_PORT=55432
+          UAT_MYSQL_ROOT_PASSWORD=ci-only-mysql-root-password
+          UAT_MYSQL_DATABASE=uat_dws
+          UAT_MYSQL_READONLY_USER=winbrain_uat_readonly
+          UAT_MYSQL_READONLY_PASSWORD=ci-only-mysql-readonly-password
+          UAT_MYSQL_PORT=53307
+          ENV
+
+      - name: Bootstrap and verify UAT databases
+        run: npm run uat:db:bootstrap
+
+      - name: Show UAT database status
+        run: npm run uat:db:status
+
+      - name: Destroy disposable UAT databases
+        if: always()
+        run: npm run uat:db:destroy
