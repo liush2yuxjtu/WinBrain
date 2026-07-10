@@ -3,12 +3,11 @@ import type { ChatRequest, SkillDraftRequest } from './types'
 import {
   buildBusinessChatSystemPrompt,
   buildSkillCreatorSystemPrompt,
-  buildSkillDraftPrompt,
-  fallbackSkillDraft
+  buildSkillDraftPrompt
 } from './skill-creator'
 
 export type AgentCredentialSlot = 'primary' | 'fallback' | 'legacy'
-export type AgentSdkProvider = 'claude-agent-sdk' | 'deterministic-fallback'
+export type AgentSdkProvider = 'claude-agent-sdk'
 
 export type AgentSdkResult = {
   text: string
@@ -51,6 +50,13 @@ type StreamingQueryHandle = AsyncIterable<unknown> & {
 const MINIMUM_ATTEMPT_TIMEOUT_MS = 600_000
 const HEARTBEAT_INTERVAL_MS = 15_000
 
+export class AgentSdkConfigurationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'AgentSdkConfigurationError'
+  }
+}
+
 function attemptTimeoutMs(): number {
   const configured = Number(process.env.AGENT_SDK_ATTEMPT_TIMEOUT_MS || process.env.API_TIMEOUT_MS)
   if (!Number.isFinite(configured) || configured <= 0) return MINIMUM_ATTEMPT_TIMEOUT_MS
@@ -75,6 +81,14 @@ function credentialCandidates(): CredentialCandidate[] {
   }
 
   return result
+}
+
+export function assertAgentSdkConfigured(): void {
+  if (credentialCandidates().length) return
+
+  throw new AgentSdkConfigurationError(
+    'Claude Agent SDK credentials are not configured. Set ANTHROPIC_API_KEY_PRIMARY, ANTHROPIC_API_KEY_FALLBACK, or ANTHROPIC_API_KEY.'
+  )
 }
 
 function buildPrompt(input: ChatRequest): string {
@@ -311,25 +325,18 @@ async function* streamWithCredential(
 }
 
 async function* streamWithFailover(
-  input: QueryInput,
-  fallbackText: string
+  input: QueryInput
 ): AsyncGenerator<AgentSdkStreamEvent, void, void> {
   const candidates = credentialCandidates()
   if (!candidates.length) {
-    yield {
-      type: 'result',
-      text: fallbackText,
-      usedLiveModel: false,
-      usedAgentSdk: false,
-      provider: 'deterministic-fallback',
-      warnings: ['No Claude Agent SDK credential is configured.']
-    }
-    return
+    throw new AgentSdkConfigurationError(
+      'Claude Agent SDK credentials are not configured. Set ANTHROPIC_API_KEY_PRIMARY, ANTHROPIC_API_KEY_FALLBACK, or ANTHROPIC_API_KEY.'
+    )
   }
 
   const failures: string[] = []
 
-  for (const candidate of candidates) {
+  for (const [index, candidate] of candidates.entries()) {
     yield {
       type: 'status',
       credentialSlot: candidate.slot,
@@ -364,33 +371,18 @@ async function* streamWithFailover(
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
       failures.push(`${candidate.slot}: ${reason}`)
+      const nextCandidate = candidates[index + 1]
       yield {
         type: 'status',
         credentialSlot: candidate.slot,
-        message: candidate.slot === 'primary'
-          ? `primary Key 失败：${reason}；正在切换 fallback Key`
+        message: nextCandidate
+          ? `${candidate.slot} Key 失败：${reason}；正在切换 ${nextCandidate.slot} Key`
           : `${candidate.slot} Key 失败：${reason}`
       }
     }
   }
 
-  yield {
-    type: 'result',
-    text: fallbackText,
-    usedLiveModel: false,
-    usedAgentSdk: false,
-    provider: 'claude-agent-sdk',
-    warnings: [`All Claude Agent SDK credentials failed: ${failures.join(' | ')}`]
-  }
-}
-
-function localChatFallback(input: ChatRequest): string {
-  const latestUserMessage = [...input.messages].reverse().find((message) => message.role === 'user')
-  return [
-    'Claude Agent SDK 调用失败。',
-    latestUserMessage?.content ? `已保留本轮输入：${latestUserMessage.content}` : '',
-    '请检查主备 MiniMax Key 的额度和 Agent SDK 服务端日志。'
-  ].filter(Boolean).join('\n\n')
+  throw new Error(`All Claude Agent SDK credentials failed: ${failures.join(' | ')}`)
 }
 
 export function streamAgentChat(input: ChatRequest): AsyncGenerator<AgentSdkStreamEvent, void, void> {
@@ -401,14 +393,14 @@ export function streamAgentChat(input: ChatRequest): AsyncGenerator<AgentSdkStre
       input.businessContext,
       input.activeSkillDraft
     )
-  }, localChatFallback(input))
+  })
 }
 
 export function streamSkillDraft(input: SkillDraftRequest): AsyncGenerator<AgentSdkStreamEvent, void, void> {
   return streamWithFailover({
     prompt: buildSkillDraftPrompt(input),
     systemPrompt: buildSkillCreatorSystemPrompt()
-  }, fallbackSkillDraft(input))
+  })
 }
 
 async function collectResult(stream: AsyncIterable<AgentSdkStreamEvent>): Promise<AgentSdkResult> {
