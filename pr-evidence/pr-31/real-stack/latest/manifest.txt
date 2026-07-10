@@ -1,0 +1,11 @@
+pr-evidence/pr-31/real-stack/latest/frontend-page.png
+pr-evidence/pr-31/real-stack/latest/frontend-server.log
+pr-evidence/pr-31/real-stack/latest/manifest.txt
+pr-evidence/pr-31/real-stack/latest/recording-preview.gif
+pr-evidence/pr-31/real-stack/latest/snapshots/00-page-loaded.png
+pr-evidence/pr-31/real-stack/latest/snapshots/01-business-skill-studio-home.png
+pr-evidence/pr-31/real-stack/latest/snapshots/02-after-chat-response.png
+pr-evidence/pr-31/real-stack/latest/snapshots/03-after-skill-draft.png
+pr-evidence/pr-31/real-stack/latest/snapshots/04-after-database-save.png
+pr-evidence/pr-31/real-stack/latest/summary.md
+pr-evidence/pr-31/real-stack/latest/video/212f41368b36b0351faa311e5ba5b87e.webm

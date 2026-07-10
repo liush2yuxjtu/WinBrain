@@ -1,6 +1,7 @@
 import 'server-only'
 
-import { runAgentPrompt, type AgentSdkResult } from './agent-sdk'
+import type { AgentSdkResult } from './agent-sdk'
+import { runDatabasePrompt } from './database-agent-runtime'
 import {
   findRelevantDatabaseTables,
   getDatabaseMetadata
@@ -97,7 +98,7 @@ export async function runDatabaseAgent(input: DatabaseChatRequest): Promise<Data
     findRelevantDatabaseTables(question, input.selectedTable)
   ])
   const groundedTables = tables.map((table) => table.tableName)
-  const result = await runAgentPrompt({
+  const result = await runDatabasePrompt({
     prompt: conversationPrompt(input),
     systemPrompt: databaseSystemPrompt(metadata.generated_at, schemaContext(tables, question)),
     fallbackText: fallbackAnswer(question, tables, metadata.generated_at)

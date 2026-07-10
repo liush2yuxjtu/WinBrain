@@ -1,2 +1,0 @@
-pr-evidence/pr-30/playwright/latest/manifest.txt
-pr-evidence/pr-30/playwright/latest/screenshots/chrome-pr-evidence.png

@@ -1,0 +1,42 @@
+name: 中文 PR 规范
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate-pr-language:
+    name: 检查中文 PR 标题与正文
+    runs-on: ubuntu-latest
+    steps:
+      - name: 校验中文内容
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const title = pr?.title ?? '';
+            const body = pr?.body ?? '';
+            const manualBody = body.replace(
+              /<!--\s*([a-z0-9-]+):start\s*-->[\s\S]*?<!--\s*\1:end\s*-->/gi,
+              '',
+            );
+            const countHan = (text) => [...text.matchAll(/\p{Script=Han}/gu)].length;
+            const errors = [];
+
+            if (countHan(title) < 2) {
+              errors.push('PR 标题必须使用简体中文，且至少包含 2 个汉字。');
+            }
+
+            if (countHan(manualBody) < 20) {
+              errors.push('PR 人工撰写的正文必须使用简体中文，且至少包含 20 个汉字；自动 evidence 区块不计入。');
+            }
+
+            if (errors.length > 0) {
+              core.setFailed(`PR 不符合中文规范：\n- ${errors.join('\n- ')}`);
+            } else {
+              core.info('PR 标题和人工正文符合中文规范。');
+            }

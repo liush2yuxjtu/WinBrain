@@ -42,6 +42,18 @@ jobs:
       - name: Install Playwright browsers and system dependencies
         run: npx playwright install --with-deps chromium
 
+      - name: Load trusted PR evidence renderer
+        id: trusted_renderer
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          renderer="$RUNNER_TEMP/update-pr-evidence.mjs"
+          git show "${BASE_SHA}:scripts/update-pr-evidence.mjs" > "$renderer"
+          echo "path=$renderer" >> "$GITHUB_OUTPUT"
+
       - name: Run Playwright tests
         id: playwright
         continue-on-error: true
@@ -84,10 +96,12 @@ jobs:
             cp -R artifacts/screenshots/. "$dest/screenshots/"
           fi
 
-          if [ -d test-results ]; then
-            mkdir -p "$dest/videos"
-            find test-results -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) -exec cp {} "$dest/videos/" \; || true
-          fi
+          mkdir -p "$dest/videos"
+          for source in test-results artifacts/playwright-output; do
+            if [ -d "$source" ]; then
+              find "$source" -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) -exec cp {} "$dest/videos/" \; || true
+            fi
+          done
 
           video_file="$(find "$dest" -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) | sort | head -n 1 || true)"
           if [ -n "$video_file" ]; then
@@ -136,36 +150,158 @@ jobs:
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
           TEST_OUTCOME: ${{ steps.playwright.outcome }}
-          GITHUB_SHA: ${{ github.sha }}
-          EVIDENCE_TITLE: Playwright PR evidence
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVIDENCE_TITLE: Playwright PR 视觉证据
           EVIDENCE_MARKER: playwright-evidence
           EVIDENCE_MEDIA_PATH: ${{ steps.publish_media.outputs.media_path }}
           EVIDENCE_MEDIA_REF: ${{ steps.publish_media.outputs.media_ref }}
-        run: node scripts/update-pr-evidence.mjs
+        run: node "${{ steps.trusted_renderer.outputs.path }}"
 
       - name: Fail if Playwright failed
         if: ${{ steps.playwright.outcome == 'failure' }}
         run: exit 1
 
-  export-repository:
-    name: Export repository snapshot
+  skill-library:
+    name: Validate Skill library
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
+    timeout-minutes: 20
+
     steps:
-      - name: Checkout full repository
+      - name: Checkout PR head
         uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.ref }}
-          fetch-depth: 0
-      - name: Fetch all branch and PR refs
-        run: git fetch --force origin '+refs/heads/*:refs/remotes/origin/*' '+refs/pull/*/head:refs/remotes/pull/*/head'
-      - name: Package working tree and Git objects
-        run: tar --exclude='./repository.tar.gz' -czf repository.tar.gz .
-      - name: Upload repository snapshot
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Business Skill Studio dependencies
+        working-directory: apps/business-skill-studio
+        run: npm ci
+
+      - name: Typecheck and build Business Skill Studio
+        run: |
+          npm --prefix apps/business-skill-studio run typecheck
+          npm --prefix apps/business-skill-studio run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Load trusted Skill library evidence renderer
+        id: trusted_skill_renderer
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          renderer="$RUNNER_TEMP/update-skill-library-pr-evidence.mjs"
+          git show "${BASE_SHA}:scripts/update-pr-evidence.mjs" > "$renderer"
+          echo "path=$renderer" >> "$GITHUB_OUTPUT"
+
+      - name: Run authenticated Skill library flow
+        env:
+          CI: 'true'
+          PLAYWRIGHT_CHANNEL: chromium
+          SKILL_LIBRARY_START_SERVER: '1'
+          SKILL_LIBRARY_URL: http://127.0.0.1:3000
+          SKILL_LIBRARY_TEST_EMAIL: skill-library-ci@example.com
+          SKILL_LIBRARY_TEST_PASSWORD: 'WinBrain-Test-2026!'
+          AUTH_SECRET: winbrain-skill-library-ci-secret-2026
+          AUTH_USER_EMAIL: skill-library-ci@example.com
+          AUTH_USER_NAME: Skill Library CI
+          AUTH_USER_ROLE: admin
+          AUTH_USER_PASSWORD_HASH: '$2a$12$YfOqnbazKIJhTpFhPXokXuWMIHesv9N6xW/ueInK1T3mebgnT8WmC'
+          NEXTAUTH_URL: http://127.0.0.1:3000
+          SKILL_STORE_DRIVER: filesystem
+          SKILL_STUDIO_STORAGE_DIR: ${{ runner.temp }}/winbrain-skill-library
+        run: npx playwright test tests/skill-library.spec.ts --project=chrome
+
+      - name: Upload Skill library test evidence
+        id: upload_skill
+        if: ${{ always() && !cancelled() }}
         uses: actions/upload-artifact@v5
         with:
-          name: repository-export-${{ github.event.pull_request.number }}-${{ github.run_id }}
-          path: repository.tar.gz
-          retention-days: 1
+          name: skill-library-evidence-pr-${{ github.event.pull_request.number }}-run-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: 将 Skill 库视觉证据发布到 PR 分支
+        id: publish_skill_media
+        if: ${{ success() && github.event.pull_request.head.repo.full_name == github.repository }}
+        shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin "${HEAD_BRANCH}"
+
+          dest="pr-evidence/pr-${PR_NUMBER}/skill-library/latest"
+          rm -rf "$dest"
+          mkdir -p "$dest/screenshots" "$dest/videos"
+
+          find artifacts/playwright-output -type f -name 'skill-library-*.png' -exec cp {} "$dest/screenshots/" \;
+          find artifacts/playwright-output -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) -exec cp {} "$dest/videos/" \;
+
+          video_file="$(find "$dest/videos" -type f | sort | head -n 1 || true)"
+          if [ -n "$video_file" ]; then
+            if ! command -v ffmpeg >/dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y ffmpeg
+            fi
+            ffmpeg -y -i "$video_file" -t 15 \
+              -vf "fps=6,scale=720:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5" \
+              "$dest/recording-preview.gif"
+          fi
+
+          find "$dest" -type f | sort > "$dest/manifest.txt"
+          git add -f "$dest"
+
+          if git diff --cached --quiet; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "chore: 发布 PR ${PR_NUMBER} 专家 Skill 库视觉证据 [skip ci]"
+            pushed=false
+            for attempt in 1 2 3; do
+              if git push origin HEAD:"${HEAD_BRANCH}"; then
+                pushed=true
+                break
+              fi
+              git fetch origin "${HEAD_BRANCH}"
+              git rebase "origin/${HEAD_BRANCH}"
+            done
+            if [ "$pushed" != "true" ]; then
+              echo "三次尝试后仍无法发布专家 Skill 库视觉证据" >&2
+              exit 1
+            fi
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "media_path=$dest" >> "$GITHUB_OUTPUT"
+          echo "media_ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: 在 PR 正文内联专家 Skill 库视觉证据
+        if: ${{ success() && github.event_name == 'pull_request' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACT_URL: ${{ steps.upload_skill.outputs.artifact-url }}
+          TEST_OUTCOME: success
+          GITHUB_SHA: ${{ github.sha }}
+          EVIDENCE_TITLE: 专家 Skill 库视觉证据
+          EVIDENCE_MARKER: skill-library-evidence
+          EVIDENCE_MEDIA_PATH: ${{ steps.publish_skill_media.outputs.media_path }}
+          EVIDENCE_MEDIA_REF: ${{ steps.publish_skill_media.outputs.media_ref }}
+        run: node "${{ steps.trusted_skill_renderer.outputs.path }}"

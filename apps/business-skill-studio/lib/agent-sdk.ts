@@ -1,4 +1,4 @@
-import { query, type Query } from '@anthropic-ai/claude-agent-sdk'
+import { query } from '@anthropic-ai/claude-agent-sdk'
 import type { ChatRequest, SkillDraftRequest } from './types'
 import {
   buildBusinessChatSystemPrompt,
@@ -44,12 +44,42 @@ type QueryInput = {
   systemPrompt: string
 }
 
-export type AgentPromptRequest = QueryInput & {
-  fallbackText: string
+type StreamingQueryHandle = AsyncIterable<unknown> & {
+  close(): void
 }
 
 const MINIMUM_ATTEMPT_TIMEOUT_MS = 600_000
 const HEARTBEAT_INTERVAL_MS = 15_000
+const KIMI_CODE_BASE_URL = 'https://api.kimi.com/coding/'
+const KIMI_CODE_CONTEXT_WINDOW = '262144'
+const KIMI_CODE_THINKING_TOKENS = 32_768
+
+const MODEL_OVERRIDE_ENV_KEYS = [
+  'ANTHROPIC_MODEL',
+  'ANTHROPIC_SMALL_FAST_MODEL',
+  'CLAUDE_CODE_SUBAGENT_MODEL',
+  'ANTHROPIC_CUSTOM_MODEL_OPTION',
+  'ANTHROPIC_DEFAULT_FABLE_MODEL',
+  'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME',
+  'ANTHROPIC_DEFAULT_OPUS_MODEL',
+  'ANTHROPIC_DEFAULT_OPUS_MODEL_NAME',
+  'ANTHROPIC_DEFAULT_SONNET_MODEL',
+  'ANTHROPIC_DEFAULT_SONNET_MODEL_NAME',
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME'
+] as const
+
+const CREDENTIAL_ENV_KEYS = [
+  'KIMI_API_KEY_PRIMARY',
+  'KIMI_API_KEY_FALLBACK',
+  'KIMI_API_KEY',
+  'ANTHROPIC_API_KEY_PRIMARY',
+  'ANTHROPIC_AUTH_TOKEN_PRIMARY',
+  'ANTHROPIC_API_KEY_FALLBACK',
+  'ANTHROPIC_AUTH_TOKEN_FALLBACK',
+  'ANTHROPIC_API_KEY',
+  'ANTHROPIC_AUTH_TOKEN'
+] as const
 
 function attemptTimeoutMs(): number {
   const configured = Number(process.env.AGENT_SDK_ATTEMPT_TIMEOUT_MS || process.env.API_TIMEOUT_MS)
@@ -57,11 +87,27 @@ function attemptTimeoutMs(): number {
   return Math.max(configured, MINIMUM_ATTEMPT_TIMEOUT_MS)
 }
 
+function firstConfigured(...values: Array<string | undefined>): string | undefined {
+  return values.find((value) => value?.trim())
+}
+
 function credentialCandidates(): CredentialCandidate[] {
   const candidates: Array<[AgentCredentialSlot, string | undefined]> = [
-    ['primary', process.env.ANTHROPIC_API_KEY_PRIMARY || process.env.ANTHROPIC_AUTH_TOKEN_PRIMARY],
-    ['fallback', process.env.ANTHROPIC_API_KEY_FALLBACK || process.env.ANTHROPIC_AUTH_TOKEN_FALLBACK],
-    ['legacy', process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN]
+    ['primary', firstConfigured(
+      process.env.KIMI_API_KEY_PRIMARY,
+      process.env.ANTHROPIC_API_KEY_PRIMARY,
+      process.env.ANTHROPIC_AUTH_TOKEN_PRIMARY
+    )],
+    ['fallback', firstConfigured(
+      process.env.KIMI_API_KEY_FALLBACK,
+      process.env.ANTHROPIC_API_KEY_FALLBACK,
+      process.env.ANTHROPIC_AUTH_TOKEN_FALLBACK
+    )],
+    ['legacy', firstConfigured(
+      process.env.KIMI_API_KEY,
+      process.env.ANTHROPIC_API_KEY,
+      process.env.ANTHROPIC_AUTH_TOKEN
+    )]
   ]
 
   const seen = new Set<string>()
@@ -168,11 +214,35 @@ function resultError(message: Record<string, unknown>): Error {
   return new Error(errors.length ? errors.join('; ') : `Claude Agent SDK returned ${subtype}`)
 }
 
+function kimiBaseUrl(): string {
+  return process.env.KIMI_BASE_URL?.trim() || KIMI_CODE_BASE_URL
+}
+
+function kimiThinkingTokens(): string {
+  const configured = Number(process.env.KIMI_THINKING_TOKENS || process.env.MAX_THINKING_TOKENS)
+  if (!Number.isFinite(configured) || configured <= 0) return String(KIMI_CODE_THINKING_TOKENS)
+  return String(Math.min(Math.floor(configured), KIMI_CODE_THINKING_TOKENS))
+}
+
 function sdkEnvironment(key: string): NodeJS.ProcessEnv {
+  const env = { ...process.env }
+
+  for (const envKey of [...MODEL_OVERRIDE_ENV_KEYS, ...CREDENTIAL_ENV_KEYS]) {
+    delete env[envKey]
+  }
+
+  delete env.CLAUDE_CODE_DISABLE_THINKING
+  delete env.KIMI_BASE_URL
+  delete env.KIMI_THINKING_TOKENS
+
   return {
-    ...process.env,
+    ...env,
+    ANTHROPIC_BASE_URL: kimiBaseUrl(),
     ANTHROPIC_API_KEY: key,
     ANTHROPIC_AUTH_TOKEN: key,
+    MAX_THINKING_TOKENS: kimiThinkingTokens(),
+    CLAUDE_CODE_AUTO_COMPACT_WINDOW:
+      process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW?.trim() || KIMI_CODE_CONTEXT_WINDOW,
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:
       process.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC || '1'
   }
@@ -182,9 +252,9 @@ function statusForSdkMessage(record: Record<string, unknown>): string | null {
   const type = typeof record.type === 'string' ? record.type : ''
   const subtype = typeof record.subtype === 'string' ? record.subtype : ''
 
-  if (type === 'system' && subtype === 'init') return 'Claude Agent SDK 已初始化，等待模型输出'
-  if (type === 'assistant') return '已收到模型文本，正在整理最终响应'
-  if (type === 'result') return '已收到 Claude Agent SDK 最终结果'
+  if (type === 'system' && subtype === 'init') return 'Kimi Code 已通过 Claude Agent SDK 初始化，等待模型输出'
+  if (type === 'assistant') return '已收到 Kimi Code 文本，正在整理最终响应'
+  if (type === 'result') return '已收到 Kimi Code 最终结果'
   return null
 }
 
@@ -193,12 +263,11 @@ async function* streamWithCredential(
   input: QueryInput
 ): AsyncGenerator<AgentSdkStreamEvent, string, void> {
   const abortController = new AbortController()
-  const handle: Query = query({
+  const handle = query({
     prompt: input.prompt,
     options: {
       abortController,
       env: sdkEnvironment(candidate.key),
-      model: process.env.ANTHROPIC_MODEL,
       systemPrompt: input.systemPrompt,
       maxTurns: 1,
       tools: [],
@@ -206,7 +275,7 @@ async function* streamWithCredential(
       persistSession: false,
       includePartialMessages: true
     }
-  })
+  }) as StreamingQueryHandle
 
   const iterator = handle[Symbol.asyncIterator]()
   const startedAt = Date.now()
@@ -234,7 +303,7 @@ async function* streamWithCredential(
           type: 'status',
           credentialSlot: candidate.slot,
           elapsedMs,
-          message: `正在等待 ${candidate.slot} Key 的模型响应（${Math.floor(elapsedMs / 1000)} 秒）`
+          message: `正在等待 ${candidate.slot} Kimi Key 的模型响应（${Math.floor(elapsedMs / 1000)} 秒）`
         }
         continue
       }
@@ -244,7 +313,7 @@ async function* streamWithCredential(
 
       const message = outcome.value.value
       if (!message || typeof message !== 'object') continue
-      const record = message as unknown as Record<string, unknown>
+      const record = message as Record<string, unknown>
 
       const status = statusForSdkMessage(record)
       if (status) {
@@ -278,11 +347,15 @@ async function* streamWithCredential(
       }
 
       if (type === 'result') {
-        if (record.subtype !== 'success' || record.is_error === true) {
+        if (record.subtype !== 'success') {
           throw resultError(record)
         }
 
         const resultText = extractText(record)
+        if (!resultText && record.is_error === true) {
+          throw resultError(record)
+        }
+
         const appended = appendNonDuplicate(fullText, resultText)
         if (appended.delta) {
           fullText = appended.text
@@ -318,7 +391,7 @@ async function* streamWithFailover(
       usedLiveModel: false,
       usedAgentSdk: false,
       provider: 'deterministic-fallback',
-      warnings: ['No Claude Agent SDK credential is configured.']
+      warnings: ['No Kimi Code credential is configured.']
     }
     return
   }
@@ -329,7 +402,7 @@ async function* streamWithFailover(
     yield {
       type: 'status',
       credentialSlot: candidate.slot,
-      message: `正在使用 ${candidate.slot} Key 启动 Claude Agent SDK（单次最长 600 秒）`
+      message: `正在使用 ${candidate.slot} Kimi Key 启动 K2.7 Code（单次最长 600 秒）`
     }
 
     try {
@@ -353,7 +426,7 @@ async function* streamWithFailover(
         provider: 'claude-agent-sdk',
         credentialSlot: candidate.slot,
         warnings: failures.length
-          ? [`Claude Agent SDK switched credentials after: ${failures.join(' | ')}`]
+          ? [`Kimi Code switched credentials after: ${failures.join(' | ')}`]
           : []
       }
       return
@@ -364,8 +437,8 @@ async function* streamWithFailover(
         type: 'status',
         credentialSlot: candidate.slot,
         message: candidate.slot === 'primary'
-          ? `primary Key 失败：${reason}；正在切换 fallback Key`
-          : `${candidate.slot} Key 失败：${reason}`
+          ? `primary Kimi Key 失败：${reason}；正在切换 fallback Key`
+          : `${candidate.slot} Kimi Key 失败：${reason}`
       }
     }
   }
@@ -376,16 +449,16 @@ async function* streamWithFailover(
     usedLiveModel: false,
     usedAgentSdk: false,
     provider: 'claude-agent-sdk',
-    warnings: [`All Claude Agent SDK credentials failed: ${failures.join(' | ')}`]
+    warnings: [`All Kimi Code credentials failed: ${failures.join(' | ')}`]
   }
 }
 
 function localChatFallback(input: ChatRequest): string {
   const latestUserMessage = [...input.messages].reverse().find((message) => message.role === 'user')
   return [
-    'Claude Agent SDK 调用失败。',
+    'Kimi Code 调用失败。',
     latestUserMessage?.content ? `已保留本轮输入：${latestUserMessage.content}` : '',
-    '请检查主备 MiniMax Key 的额度和 Agent SDK 服务端日志。'
+    '请检查主备 Kimi Key 的有效性、会员权益、额度和 Agent SDK 服务端日志。'
   ].filter(Boolean).join('\n\n')
 }
 
@@ -407,13 +480,6 @@ export function streamSkillDraft(input: SkillDraftRequest): AsyncGenerator<Agent
   }, fallbackSkillDraft(input))
 }
 
-export function streamAgentPrompt(input: AgentPromptRequest): AsyncGenerator<AgentSdkStreamEvent, void, void> {
-  return streamWithFailover({
-    prompt: input.prompt,
-    systemPrompt: input.systemPrompt
-  }, input.fallbackText)
-}
-
 async function collectResult(stream: AsyncIterable<AgentSdkStreamEvent>): Promise<AgentSdkResult> {
   let result: AgentSdkResult | undefined
   for await (const event of stream) {
@@ -433,8 +499,4 @@ export function runAgentChat(input: ChatRequest): Promise<AgentSdkResult> {
 
 export function draftSkillWithAgent(input: SkillDraftRequest): Promise<AgentSdkResult> {
   return collectResult(streamSkillDraft(input))
-}
-
-export function runAgentPrompt(input: AgentPromptRequest): Promise<AgentSdkResult> {
-  return collectResult(streamAgentPrompt(input))
 }

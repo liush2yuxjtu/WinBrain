@@ -1,8 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const requestedChannel = process.env.PLAYWRIGHT_CHANNEL || 'chrome';
-const channel = requestedChannel === 'bundled' ? undefined : requestedChannel;
-const databaseExplorerUrl = process.env.DATABASE_EXPLORER_URL || 'http://127.0.0.1:3100';
+const requestedChannel = process.env.PLAYWRIGHT_CHANNEL || 'chromium';
+const channel = requestedChannel === 'chromium' ? undefined : requestedChannel;
 
 export default defineConfig({
   testDir: './tests',
@@ -19,10 +18,9 @@ export default defineConfig({
     ['list'],
     ['html', { outputFolder: 'artifacts/playwright-html-report', open: 'never' }]
   ],
-  webServer: process.env.START_DATABASE_EXPLORER === '1' ? {
-    command: 'npm start -- -H 127.0.0.1',
-    cwd: 'apps/business-skill-studio',
-    url: databaseExplorerUrl,
+  webServer: process.env.SKILL_LIBRARY_START_SERVER === '1' ? {
+    command: 'npm --prefix apps/business-skill-studio run dev -- --hostname 127.0.0.1 --port 3000',
+    url: process.env.SKILL_LIBRARY_URL || 'http://127.0.0.1:3000/login',
     reuseExistingServer: false,
     timeout: 120_000
   } : undefined,

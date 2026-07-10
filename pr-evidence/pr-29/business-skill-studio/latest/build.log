@@ -1,0 +1,130 @@
+
+> business-skill-studio@0.1.0 prebuild
+> prisma generate
+
+◇ injected env (0) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+Loaded Prisma config from prisma.config.ts.
+
+Prisma schema loaded from prisma/schema.prisma.
+
+✔ Generated Prisma Client (7.8.0) to ./generated/prisma in 85ms
+
+
+> business-skill-studio@0.1.0 build
+> next build
+
+⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+   ▲ Next.js 15.5.20
+
+   Creating an optimized production build ...
+ ⚠ Compiled with warnings in 1940ms
+
+./node_modules/bcryptjs/dist/bcrypt.js
+A Node.js API is used (process.nextTick at line: 351) which is not supported in the Edge Runtime.
+Learn more: https://nextjs.org/docs/api-reference/edge-runtime
+
+Import trace for requested module:
+./node_modules/bcryptjs/dist/bcrypt.js
+./lib/auth-users.ts
+./auth.ts
+
+./node_modules/bcryptjs/dist/bcrypt.js
+A Node.js API is used (setImmediate at line: 352) which is not supported in the Edge Runtime.
+Learn more: https://nextjs.org/docs/api-reference/edge-runtime
+
+Import trace for requested module:
+./node_modules/bcryptjs/dist/bcrypt.js
+./lib/auth-users.ts
+./auth.ts
+
+./node_modules/bcryptjs/dist/bcrypt.js
+A Node.js API is used (setImmediate at line: 352) which is not supported in the Edge Runtime.
+Learn more: https://nextjs.org/docs/api-reference/edge-runtime
+
+Import trace for requested module:
+./node_modules/bcryptjs/dist/bcrypt.js
+./lib/auth-users.ts
+./auth.ts
+
+./node_modules/bcryptjs/dist/bcrypt.js
+A Node.js API is used (process.nextTick at line: 352) which is not supported in the Edge Runtime.
+Learn more: https://nextjs.org/docs/api-reference/edge-runtime
+
+Import trace for requested module:
+./node_modules/bcryptjs/dist/bcrypt.js
+./lib/auth-users.ts
+./auth.ts
+
+./node_modules/jose/dist/webapi/lib/deflate.js
+A Node.js API is used (CompressionStream at line: 10) which is not supported in the Edge Runtime.
+Learn more: https://nextjs.org/docs/api-reference/edge-runtime
+
+Import trace for requested module:
+./node_modules/jose/dist/webapi/lib/deflate.js
+./node_modules/jose/dist/webapi/jwe/flattened/decrypt.js
+./node_modules/jose/dist/webapi/index.js
+./node_modules/@auth/core/jwt.js
+./node_modules/@auth/core/lib/init.js
+./node_modules/@auth/core/lib/index.js
+./node_modules/@auth/core/index.js
+./node_modules/next-auth/index.js
+./auth.ts
+
+./node_modules/jose/dist/webapi/lib/deflate.js
+A Node.js API is used (DecompressionStream at line: 26) which is not supported in the Edge Runtime.
+Learn more: https://nextjs.org/docs/api-reference/edge-runtime
+
+Import trace for requested module:
+./node_modules/jose/dist/webapi/lib/deflate.js
+./node_modules/jose/dist/webapi/jwe/flattened/decrypt.js
+./node_modules/jose/dist/webapi/index.js
+./node_modules/@auth/core/jwt.js
+./node_modules/@auth/core/lib/init.js
+./node_modules/@auth/core/lib/index.js
+./node_modules/@auth/core/index.js
+./node_modules/next-auth/index.js
+./auth.ts
+
+ ✓ Compiled successfully in 10.4s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/13) ...
+   Generating static pages (3/13) 
+   Generating static pages (6/13) 
+   Generating static pages (9/13) 
+ ✓ Generating static pages (13/13)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ƒ /                                    4.65 kB         107 kB
+├ ƒ /_not-found                            992 B         103 kB
+├ ƒ /api/auth/[...nextauth]                146 B         103 kB
+├ ƒ /api/chat                              146 B         103 kB
+├ ƒ /api/data-sources                      146 B         103 kB
+├ ƒ /api/data-sources/test                 146 B         103 kB
+├ ƒ /api/experts                           146 B         103 kB
+├ ƒ /api/organizations                     146 B         103 kB
+├ ƒ /api/setup                             146 B         103 kB
+├ ƒ /api/skills                            146 B         103 kB
+├ ƒ /api/skills/draft                      146 B         103 kB
+├ ○ /icon.svg                                0 B            0 B
+├ ƒ /login                                 146 B         103 kB
+└ ƒ /settings                            4.18 kB         107 kB
++ First Load JS shared by all             102 kB
+  ├ chunks/255-3981a3d1f3561bd8.js       46.2 kB
+  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB
+  └ other shared chunks (total)           1.9 kB
+
+
+ƒ Middleware                             97.4 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

@@ -3,4 +3,7 @@ node_modules
 .env
 .env.local
 data/generated-skills
-tsconfig.tsbuildinfo
+*.tsbuildinfo
+generated/prisma
+typecheck.log
+build.log

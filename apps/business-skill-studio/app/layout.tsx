@@ -1,12 +1,14 @@
 import './globals.css'
+import './settings.css'
+import './database.css'
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { auth, signOut } from '@/auth'
 import { StudioShell } from '@/components/studio-shell'
 
 export const metadata: Metadata = {
-  title: 'WinBrain AI Workspace',
-  description: 'Create reusable Claude skills and explore WinBrain database metadata with dedicated agents.'
+  title: 'WinBrain Business Skill Studio',
+  description: 'Chat with business experts and turn their know-how into reusable skills.'
 }
 
 async function signOutAction() {
