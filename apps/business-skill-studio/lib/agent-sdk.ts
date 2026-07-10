@@ -82,14 +82,24 @@ function localChatFallback(input: ChatRequest) {
   }
 }
 
+function baseAgentOptions() {
+  return {
+    model: process.env.ANTHROPIC_MODEL,
+    tools: [] as string[],
+    permissionMode: 'dontAsk' as const,
+    persistSession: false
+  }
+}
+
 function agentChatEffect(input: ChatRequest) {
   return Effect.gen(function* () {
     const sdk = yield* tryPromiseEffect('Import Claude Agent SDK', () => import('@anthropic-ai/claude-agent-sdk'))
     const result = yield* tryPromiseEffect('Call Claude Agent SDK chat query', async () => sdk.query({
       prompt: buildPrompt(input),
       options: {
+        ...baseAgentOptions(),
         systemPrompt: buildBusinessChatSystemPrompt(input.expertRole, input.businessContext, input.activeSkillDraft),
-        maxTurns: 4
+        maxTurns: 1
       }
     }))
     const text = yield* tryPromiseEffect('Collect Claude Agent SDK chat output', () => collectAgentSdkOutput(result))
@@ -108,8 +118,9 @@ function draftSkillEffect(input: SkillDraftRequest) {
     const result = yield* tryPromiseEffect('Call Claude Agent SDK skill draft query', async () => sdk.query({
       prompt: buildSkillDraftPrompt(input),
       options: {
+        ...baseAgentOptions(),
         systemPrompt: buildSkillCreatorSystemPrompt(),
-        maxTurns: 5
+        maxTurns: 1
       }
     }))
     const text = yield* tryPromiseEffect('Collect Claude Agent SDK skill draft output', () => collectAgentSdkOutput(result))
