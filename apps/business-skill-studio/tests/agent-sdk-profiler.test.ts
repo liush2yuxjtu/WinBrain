@@ -136,7 +136,12 @@ test('summary mode suppresses milestone entries and finish is idempotent', () =>
 
   const attempt = profiler.startAttempt('fallback')
   now = 10
-  attempt.finish({ outcome: 'error', outputChars: 0, error: new TypeError('secret detail') })
+  attempt.finish({
+    outcome: 'error',
+    outputChars: 0,
+    error: new TypeError('secret detail'),
+    cleanupError: new RangeError('cleanup secret detail')
+  })
   attempt.finish({ outcome: 'success', outputChars: 999 })
   now = 12
   profiler.finish({
@@ -151,8 +156,11 @@ test('summary mode suppresses milestone entries and finish is idempotent', () =>
   assert.equal(entries[0]?.outcome, 'error')
   assert.equal(entries[0]?.errorName, 'TypeError')
   assert.equal(entries[0]?.errorKind, 'sdk')
+  assert.equal(entries[0]?.cleanupErrorName, 'RangeError')
+  assert.equal(entries[0]?.cleanupErrorKind, 'sdk')
   assert.equal(Object.prototype.hasOwnProperty.call(entries[0], 'errorMessage'), false)
   assert.equal(JSON.stringify(entries).includes('secret detail'), false)
+  assert.equal(JSON.stringify(entries).includes('cleanup secret detail'), false)
   assert.equal(entries[1]?.fallbackReason, 'all_attempts_failed')
 })
 
