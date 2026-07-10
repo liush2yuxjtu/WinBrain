@@ -7,7 +7,7 @@
 - Credential failover: primary -> fallback
 - API response timeout: 1250000ms
 - Final screenshot: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/frontend-page.png
-- Video: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/video/0e465f51579b61a7325740226869c1fe.webm
+- Video: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/video/e7d2c3c50a5c919b8140ae7734c1563e.webm
 
 ## Staged snapshots
 
@@ -18,4 +18,4 @@
 
 ## Console output
 
-No console messages captured.
+- [error] Failed to load resource: the server responded with a status of 503 (Service Unavailable)

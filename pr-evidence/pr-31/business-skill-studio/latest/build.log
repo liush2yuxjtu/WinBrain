@@ -1,4 +1,16 @@
 
+> business-skill-studio@0.1.0 prebuild
+> prisma generate
+
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+Loaded Prisma config from prisma.config.ts.
+
+Prisma schema loaded from prisma/schema.prisma.
+
+✔ Generated Prisma Client (7.8.0) to ./generated/prisma in 78ms
+
+
 > business-skill-studio@0.1.0 build
 > next build
 
@@ -11,7 +23,7 @@ https://nextjs.org/telemetry
    ▲ Next.js 15.5.20
 
    Creating an optimized production build ...
- ⚠ Compiled with warnings in 1515ms
+ ⚠ Compiled with warnings in 1950ms
 
 ./node_modules/bcryptjs/dist/bcrypt.js
 A Node.js API is used (process.nextTick at line: 351) which is not supported in the Edge Runtime.
@@ -55,7 +67,7 @@ Learn more: https://nextjs.org/docs/api-reference/edge-runtime
 
 Import trace for requested module:
 ./node_modules/jose/dist/webapi/lib/deflate.js
-./node_modules/jose/dist/webapi/jwe/flattened/encrypt.js
+./node_modules/jose/dist/webapi/jwe/flattened/decrypt.js
 ./node_modules/jose/dist/webapi/index.js
 ./node_modules/@auth/core/jwt.js
 ./node_modules/@auth/core/lib/init.js
@@ -70,7 +82,7 @@ Learn more: https://nextjs.org/docs/api-reference/edge-runtime
 
 Import trace for requested module:
 ./node_modules/jose/dist/webapi/lib/deflate.js
-./node_modules/jose/dist/webapi/jwe/flattened/encrypt.js
+./node_modules/jose/dist/webapi/jwe/flattened/decrypt.js
 ./node_modules/jose/dist/webapi/index.js
 ./node_modules/@auth/core/jwt.js
 ./node_modules/@auth/core/lib/init.js
@@ -79,28 +91,34 @@ Import trace for requested module:
 ./node_modules/next-auth/index.js
 ./auth.ts
 
- ✓ Compiled successfully in 7.2s
+ ✓ Compiled successfully in 10.3s
    Linting and checking validity of types ...
    Collecting page data ...
-   Generating static pages (0/7) ...
-   Generating static pages (1/7) 
-   Generating static pages (3/7) 
-   Generating static pages (5/7) 
- ✓ Generating static pages (7/7)
+   Generating static pages (0/13) ...
+   Generating static pages (3/13) 
+   Generating static pages (6/13) 
+   Generating static pages (9/13) 
+ ✓ Generating static pages (13/13)
    Finalizing page optimization ...
    Collecting build traces ...
 
 Route (app)                                 Size  First Load JS
-┌ ƒ /                                    3.97 kB         106 kB
+┌ ƒ /                                     4.8 kB         107 kB
 ├ ƒ /_not-found                            992 B         103 kB
-├ ƒ /api/auth/[...nextauth]                138 B         103 kB
-├ ƒ /api/chat                              138 B         103 kB
-├ ƒ /api/skills                            138 B         103 kB
-├ ƒ /api/skills/[name]                     138 B         103 kB
-├ ƒ /api/skills/draft                      138 B         103 kB
+├ ƒ /api/auth/[...nextauth]                148 B         103 kB
+├ ƒ /api/chat                              148 B         103 kB
+├ ƒ /api/data-sources                      148 B         103 kB
+├ ƒ /api/data-sources/test                 148 B         103 kB
+├ ƒ /api/experts                           148 B         103 kB
+├ ƒ /api/organizations                     148 B         103 kB
+├ ƒ /api/setup                             148 B         103 kB
+├ ƒ /api/skills                            148 B         103 kB
+├ ƒ /api/skills/[name]                     148 B         103 kB
+├ ƒ /api/skills/draft                      148 B         103 kB
 ├ ○ /icon.svg                                0 B            0 B
-├ ƒ /login                                 138 B         103 kB
-└ ƒ /skills                              6.43 kB         109 kB
+├ ƒ /login                                 148 B         103 kB
+├ ƒ /settings                            4.18 kB         107 kB
+└ ƒ /skills                              7.57 kB         110 kB
 + First Load JS shared by all             102 kB
   ├ chunks/255-3981a3d1f3561bd8.js       46.2 kB
   ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB
