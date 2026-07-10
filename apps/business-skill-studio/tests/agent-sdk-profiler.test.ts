@@ -156,23 +156,38 @@ test('summary mode suppresses milestone entries and finish is idempotent', () =>
   assert.equal(entries[1]?.fallbackReason, 'all_attempts_failed')
 })
 
-test('off mode produces no log output', () => {
+test('off mode produces no output and avoids clock or trace-id work', () => {
   const entries: AgentSdkProfileLogEntry[] = []
+  let clockCalls = 0
+  let traceIdCalls = 0
   const profiler = createAgentSdkProfiler({
     operation: 'skill-draft',
     promptChars: 1,
     systemPromptChars: 1
   }, {
     mode: 'off',
-    now: () => 0,
-    createTraceId: () => 'trace-off',
+    now: () => {
+      clockCalls += 1
+      return 0
+    },
+    createTraceId: () => {
+      traceIdCalls += 1
+      return 'trace-off'
+    },
     sink: (entry) => entries.push(entry)
   })
 
   const attempt = profiler.startAttempt('legacy')
   attempt.markQueryReady()
+  attempt.observeMessage({ type: 'result', subtype: 'success' })
+  attempt.recordTextDelta(10)
+  attempt.recordHeartbeat()
+  attempt.beginCleanup()
   attempt.finish({ outcome: 'cancelled', outputChars: 0 })
   profiler.finish({ outcome: 'cancelled', outputChars: 0, candidateCount: 1 })
 
+  assert.equal(profiler.traceId, 'disabled')
+  assert.equal(clockCalls, 0)
+  assert.equal(traceIdCalls, 0)
   assert.deepEqual(entries, [])
 })
