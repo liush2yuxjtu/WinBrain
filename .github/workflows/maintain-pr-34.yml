@@ -1,0 +1,228 @@
+name: Maintain PR 34
+
+on:
+  pull_request_target:
+    types: [reopened]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: maintain-pr-34
+  cancel-in-progress: false
+
+jobs:
+  fix-and-validate:
+    if: >-
+      github.repository == 'liush2yuxjtu/WinBrain' &&
+      github.event.pull_request.number == 34 &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout PR branch without persisted credentials
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Apply verified review fixes
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_verified(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text()
+              if new in text:
+                  return
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one old match in {path}, found {count}: {old[:120]!r}")
+              target.write_text(text.replace(old, new, 1))
+
+          page = "apps/business-skill-studio/app/page.tsx"
+          replace_verified(
+              page,
+              '''          <button className="command-button" type="button" aria-label="打开命令面板">
+            <span>⌕</span><span>搜索或运行命令</span><kbd>⌘ K</kbd>
+          </button>''',
+              '''          <button className="command-button" type="button" aria-label="打开命令面板" disabled>
+            <span>⌕</span><span>搜索或运行命令</span><kbd>⌘ K</kbd>
+          </button>'''
+          )
+          replace_verified(
+              page,
+              '''              <button className="button primary hero-action" disabled={busy || messages.length < 2} type="button" onClick={generateDraft}>
+                <span>✦</span> 生成 Skill 草稿
+              </button>''',
+              '''              <button
+                className="button primary hero-action"
+                disabled={busy || messages.length < 2}
+                type="button"
+                onClick={() => {
+                  if (draft.trim() && !window.confirm('重新生成将覆盖您当前在编辑器中的修改，确定要重新生成吗？')) return
+                  void generateDraft()
+                }}
+              >
+                <span>✦</span> 生成 Skill 草稿
+              </button>'''
+          )
+          replace_verified(
+              page,
+              '''                  <button className="button secondary" disabled={busy || !draft} type="button" onClick={() => setDraft('')}>清空</button>''',
+              '''                  <button
+                    className="button secondary"
+                    disabled={busy || !draft}
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('确定要清空当前生成的草稿吗？此操作不可撤销。')) setDraft('')
+                    }}
+                  >
+                    清空
+                  </button>'''
+          )
+          replace_verified(
+              page,
+              '''            <button type="button" className="icon-button" aria-label="AI 助手菜单">•••</button>''',
+              '''            <button type="button" className="icon-button" aria-label="AI 助手菜单" disabled>•••</button>'''
+          )
+          replace_verified(
+              page,
+              '''            <div className="context-chips">
+              <button type="button">@ {selectedOrganization?.name || '当前公司'}</button>
+              <button type="button"># {expertRole}</button>
+              {draft ? <button type="button">◇ SKILL.md</button> : null}
+            </div>''',
+              '''            <div className="context-chips">
+              <span className="context-chip">@ {selectedOrganization?.name || '当前公司'}</span>
+              {expertRole.trim() ? <span className="context-chip"># {expertRole}</span> : null}
+              {draft ? <span className="context-chip">◇ SKILL.md</span> : null}
+            </div>'''
+          )
+          replace_verified(
+              page,
+              '''              <div className="composer-tools"><button type="button" aria-label="添加上下文">＋</button><span>Agent</span></div>''',
+              '''              <div className="composer-tools"><button type="button" aria-label="添加上下文" disabled>＋</button><span>Agent</span></div>'''
+          )
+
+          replace_verified(
+              "apps/business-skill-studio/app/assistant-panel.css",
+              ".context-chips button{",
+              ".context-chips .context-chip{"
+          )
+          replace_verified(
+              "apps/business-skill-studio/app/workbench.css",
+              'font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace',
+              'font-family:SFMono-Regular,Consolas,"Liberation Mono",monospace'
+          )
+
+          shell = "apps/business-skill-studio/components/studio-shell.tsx"
+          replace_verified(
+              shell,
+              "import { useEffect, useState, type ReactNode } from 'react'",
+              "import Link from 'next/link'\nimport { useEffect, useState, type ReactNode } from 'react'"
+          )
+          replace_verified(
+              shell,
+              '''  { href: '/settings#data-sources', label: '数据源', icon: '⌁', active: (location: string) => location === '/settings#data-sources' },
+  { href: '/settings', label: '设置', icon: '⚙', active: (location: string) => location === '/settings' }''',
+              '''  { href: '/settings#data-sources', label: '数据源', icon: '⌁', active: (location: string) => location.startsWith('/settings') && location.includes('#data-sources') },
+  { href: '/settings', label: '设置', icon: '⚙', active: (location: string) => location.startsWith('/settings') && !location.includes('#data-sources') }'''
+          )
+          replace_verified(
+              shell,
+              '''    const syncLocation = () => setActiveLocation(`${window.location.pathname}${window.location.hash}`)''',
+              '''    const syncLocation = () => setActiveLocation(`${window.location.pathname}${window.location.search}${window.location.hash}`)'''
+          )
+          replace_verified(
+              shell,
+              '''        <a className="sidebar-create" href="/#expert-interview" onClick={() => setMobileOpen(false)}>
+          <span aria-hidden="true">＋</span><b>新建 Skill</b>
+        </a>''',
+              '''        <Link className="sidebar-create" href="/#expert-interview" onClick={() => setMobileOpen(false)}>
+          <span aria-hidden="true">＋</span><b>新建 Skill</b>
+        </Link>'''
+          )
+          old_nav = '''            <a
+              className={`sidebar-nav-item${item.active(activeLocation) ? ' active' : ''}`}
+              href={item.href}
+              key={item.href}
+              onClick={() => setMobileOpen(false)}
+            >
+              <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+              <span className="nav-text">{item.label}</span>
+            </a>'''
+          new_nav = '''            <Link
+              className={`sidebar-nav-item${item.active(activeLocation) ? ' active' : ''}`}
+              href={item.href}
+              key={item.href}
+              onClick={() => setMobileOpen(false)}
+            >
+              <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+              <span className="nav-text">{item.label}</span>
+            </Link>'''
+          target = Path(shell)
+          text = target.read_text()
+          if text.count(new_nav) != 2:
+              if text.count(old_nav) != 2:
+                  raise SystemExit(f"Expected two old or two new navigation blocks; old={text.count(old_nav)}, new={text.count(new_nav)}")
+              target.write_text(text.replace(old_nav, new_nav))
+
+          replace_verified(
+              "apps/business-skill-studio/components/settings-client.tsx",
+              '''        <form className="settings-card settings-card-wide" onSubmit={submitDataSource}>''',
+              '''        <form className="settings-card settings-card-wide" id="data-sources" onSubmit={submitDataSource}>'''
+          )
+
+          workflow = ".github/workflows/repository-export.yml"
+          expression_old_ref = "$" + "{{ github.event.pull_request.head.ref }}"
+          expression_new_ref = "$" + "{{ github.event.pull_request.head.sha }}"
+          expression_number = "$" + "{{ github.event.pull_request.number }}"
+          replace_verified(
+              workflow,
+              f'''          ref: {expression_old_ref}\n          fetch-depth: 0''',
+              f'''          ref: {expression_new_ref}\n          fetch-depth: 0\n          persist-credentials: false'''
+          )
+          replace_verified(
+              workflow,
+              "        run: git fetch --force origin '+refs/heads/*:refs/remotes/origin/*' '+refs/pull/*/head:refs/remotes/pull/*/head'",
+              f"        run: git fetch --force origin '+refs/heads/*:refs/remotes/origin/*' '+refs/pull/{expression_number}/head:refs/remotes/pull/{expression_number}/head'"
+          )
+
+          Path('.github/workflows/pr-34-review-fixes.yml').unlink(missing_ok=True)
+          Path('.github/workflows/repair-pr-34-fixer.yml').unlink(missing_ok=True)
+          PY
+
+      - name: Install dependencies
+        working-directory: apps/business-skill-studio
+        run: npm install --no-package-lock
+
+      - name: Typecheck
+        working-directory: apps/business-skill-studio
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: apps/business-skill-studio
+        run: npm run build
+
+      - name: Commit and push validated fixes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No source changes required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: address PR review feedback"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
+          git push origin "HEAD:${HEAD_REF}"
