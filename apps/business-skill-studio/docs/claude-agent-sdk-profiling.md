@@ -55,13 +55,15 @@ Credential attempts also include `attempt` and `credentialSlot`. A request that 
 
 In `verbose` mode, `attempt.milestone` events expose the first occurrence of query readiness, SDK initialization, first message, first text, first assistant message, and final result.
 
+For streaming calls, an attempt remains active while yielded events are consumed. Slow downstream consumption can therefore increase the attempt's adapter-observed timing. The SDK-reported duration fields, when present, provide a useful comparison that excludes some application-side behavior.
+
 ## Trace metrics
 
 `trace.summary` describes the complete logical request across all credential attempts:
 
 - `durationMs`: end-to-end adapter duration;
 - `attemptDurationMs`: sum of completed credential-attempt durations;
-- `overheadMs`: time outside attempts, including failover orchestration and downstream stream consumption;
+- `overheadMs`: time outside attempts, such as request setup, pre-attempt status delivery, failover orchestration, and fallback assembly;
 - `candidateCount` and `attemptCount`;
 - `failoverCount`;
 - `credentialSlot` selected on success;
@@ -86,8 +88,8 @@ Only character counts, timing values, SDK message classifications, credential sl
 
 For latency investigation, start with `trace.summary`, then filter by its `traceId`:
 
-1. Compare `durationMs` with `attemptDurationMs` to identify adapter or consumer overhead.
+1. Compare `durationMs` with `attemptDurationMs` to identify orchestration and fallback overhead outside credential attempts.
 2. Compare `querySetupMs`, `timeToInitMs`, and `timeToFirstTextMs` to separate startup latency from model-generation latency.
-3. Compare `timeToResultMs` with `sdkApiDurationMs` when the SDK reports both values.
+3. Compare adapter-observed values with `sdkApiDurationMs` when the SDK reports it; large differences can indicate SDK startup, stream handling, or downstream backpressure.
 4. Inspect multiple attempts and `failoverCount` to quantify credential failover cost.
 5. Use `heartbeatCount` to identify requests that spent extended periods waiting for the next SDK message.
