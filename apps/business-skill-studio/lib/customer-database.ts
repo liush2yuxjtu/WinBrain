@@ -79,6 +79,15 @@ function groupSchema(tableRows: TableRow[], columnRows: ColumnRow[]): CustomerDa
   }))
 }
 
+function verifiedSslOptions(hostname: string): NonNullable<ConnectionOptions['ssl']> {
+  // mysql2 forwards TLS connection options at runtime, but its SslOptions type omits `servername`.
+  // Keep SNI/certificate hostname validation while connecting to the IP already approved by DNS policy.
+  return {
+    rejectUnauthorized: true,
+    servername: hostname
+  } as unknown as NonNullable<ConnectionOptions['ssl']>
+}
+
 export async function testCustomerDatabaseConnection(input: CustomerDataSourceConnectionInput): Promise<CustomerDatabaseTestResult> {
   const steps: CustomerDatabaseTestStep[] = []
   const warnings: string[] = []
@@ -116,7 +125,7 @@ export async function testCustomerDatabaseConnection(input: CustomerDataSourceCo
       enableKeepAlive: false
     }
     if (normalized.sslMode === 'REQUIRED') {
-      options.ssl = { rejectUnauthorized: true, servername: normalized.host }
+      options.ssl = verifiedSslOptions(normalized.host)
     }
 
     const startedAt = Date.now()
