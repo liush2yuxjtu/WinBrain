@@ -18,16 +18,34 @@ const navigation = [
 export function StudioShell({ children, userName, userEmail, signOutAction }: StudioShellProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [activeHash, setActiveHash] = useState('#studio-home')
 
   useEffect(() => {
-    setCollapsed(window.localStorage.getItem('winbrain-sidebar-collapsed') === 'true')
+    try {
+      setCollapsed(window.localStorage.getItem('winbrain-sidebar-collapsed') === 'true')
+    } catch (error) {
+      console.warn('Unable to read the sidebar preference from localStorage.', error)
+    }
+
+    const syncActiveHash = () => setActiveHash(window.location.hash || '#studio-home')
+    syncActiveHash()
+    window.addEventListener('hashchange', syncActiveHash)
+
+    return () => window.removeEventListener('hashchange', syncActiveHash)
   }, [])
 
   function toggleSidebar() {
     const next = !collapsed
     setCollapsed(next)
-    window.localStorage.setItem('winbrain-sidebar-collapsed', String(next))
+
+    try {
+      window.localStorage.setItem('winbrain-sidebar-collapsed', String(next))
+    } catch (error) {
+      console.warn('Unable to persist the sidebar preference to localStorage.', error)
+    }
   }
+
+  const avatarInitial = Array.from(userName.trim())[0]?.toUpperCase() || '?'
 
   return (
     <div className="app-shell">
@@ -51,12 +69,15 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
 
         <nav className="sidebar-nav">
           <p className="nav-label">工作流</p>
-          {navigation.map((item, index) => (
+          {navigation.map((item) => (
             <a
-              className={`sidebar-nav-item${index === 0 ? ' active' : ''}`}
+              className={`sidebar-nav-item${activeHash === item.href ? ' active' : ''}`}
               href={item.href}
               key={item.href}
-              onClick={() => setMobileOpen(false)}
+              onClick={() => {
+                setActiveHash(item.href)
+                setMobileOpen(false)
+              }}
             >
               <span className="nav-icon" aria-hidden="true">{item.icon}</span>
               <span className="nav-text">{item.label}</span>
@@ -66,7 +87,7 @@ export function StudioShell({ children, userName, userEmail, signOutAction }: St
         </nav>
 
         <div className="sidebar-footer">
-          <div className="user-avatar" aria-hidden="true">{userName.slice(0, 1).toUpperCase()}</div>
+          <div className="user-avatar" aria-hidden="true">{avatarInitial}</div>
           <div className="user-copy">
             <strong>{userName}</strong>
             {userEmail ? <span>{userEmail}</span> : null}
