@@ -1,9 +1,17 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { draftSkillWithAgent } from '@/lib/agent-sdk'
+import { streamSkillDraft, type AgentSdkStreamEvent } from '@/lib/agent-sdk'
+import { progressiveJsonResponse } from '@/lib/stream-response'
 import type { SkillDraftRequest } from '@/lib/types'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+async function* draftEvents(input: SkillDraftRequest): AsyncGenerator<Record<string, unknown>> {
+  for await (const event of streamSkillDraft(input)) {
+    yield event satisfies AgentSdkStreamEvent
+  }
+}
 
 export async function POST(request: Request) {
   const session = await auth()
@@ -23,12 +31,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'skillName, expertRole, businessGoal, and transcript are required' }, { status: 400 })
   }
 
-  const result = await draftSkillWithAgent({
+  return progressiveJsonResponse(draftEvents({
     skillName: body.skillName,
     expertRole: body.expertRole,
     businessGoal: body.businessGoal,
     transcript: body.transcript
-  })
-
-  return NextResponse.json(result)
+  }))
 }
