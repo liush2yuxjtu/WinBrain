@@ -20,12 +20,15 @@
 
 修改 UI、路由或任何浏览器可见行为时，必须使用 Playwright 验证，并在 PR 正文中提供可直接查看的视觉证据。
 
+所有验证必须针对真实实现。依赖、凭证、上游服务或应用启动失败时，必须明确失败；不得用静态页面、模拟结果、占位内容或诊断页替代成功结果。
+
 ## 环境准备
 
 使用仓库脚本：
 
 ```bash
 npm install
+npm install --prefix apps/business-skill-studio --legacy-peer-deps
 npx playwright install --with-deps chromium
 ```
 
@@ -33,18 +36,20 @@ npx playwright install --with-deps chromium
 
 ## 验证命令
 
-创建或更新 PR 前运行：
+先启动真实应用并确认可访问，然后运行：
 
 ```bash
-npm run test:e2e
+PLAYWRIGHT_TARGET_URL=http://127.0.0.1:3000/login npm run test:e2e
 ```
 
 本地调试可使用：
 
 ```bash
-npm run test:e2e:headed
+PLAYWRIGHT_TARGET_URL=http://127.0.0.1:3000/login npm run test:e2e:headed
 npm run test:e2e:report
 ```
+
+未设置 `PLAYWRIGHT_TARGET_URL`、目标不是 HTTP/HTTPS、或目标无法访问时，Playwright 必须失败。
 
 ## 视觉证据要求
 
@@ -60,7 +65,9 @@ Playwright 在 CI 中会保存视频，smoke test 会把截图写入 `artifacts/
 
 ## 目标地址
 
-如果真实应用有预览地址，在 GitHub 仓库变量或 Codex Cloud 环境中设置 `PLAYWRIGHT_TARGET_URL`。未设置时，Playwright smoke test 会使用 `demo/index.html` 作为回退页面。
+- 本地或 CI 必须启动真实应用，并将可访问的 HTTP/HTTPS 地址写入 `PLAYWRIGHT_TARGET_URL`。
+- GitHub Actions 的 evidence workflow 会自行启动 Business Skill Studio 并验证 `/login` 可访问。
+- 外部预览环境可通过 GitHub 仓库变量或 Codex Cloud 环境覆盖目标地址，但不得回退到静态页面。
 
 ## PR 提交流程
 
