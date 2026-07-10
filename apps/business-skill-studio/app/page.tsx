@@ -1,13 +1,14 @@
 "use client"
 
 import { FormEvent, useState } from 'react'
-import type { ChatResponse, StoredSkillSummary, StudioChatMessage } from '@/lib/types'
+import type { StoredSkillSummary, StudioChatMessage } from '@/lib/types'
 
 type ProgressiveEvent = {
-  type?: 'status' | 'text' | 'result'
+  type?: 'status' | 'text' | 'result' | 'error'
   message?: string | StudioChatMessage
   delta?: string
   text?: string
+  error?: string
   warnings?: string[]
   usedAgentSdk?: boolean
   provider?: string
@@ -38,6 +39,7 @@ async function consumeProgressiveResponse(
 
   if (!response.body) {
     const result = await response.json() as ProgressiveEvent
+    if (result.error) throw new Error(result.error)
     const event = { ...result, type: 'result' as const }
     onEvent(event)
     return event
@@ -54,6 +56,10 @@ async function consumeProgressiveResponse(
     if (value.startsWith(',')) value = value.slice(1)
 
     const event = JSON.parse(value) as ProgressiveEvent
+    if (event.type === 'error') {
+      throw new Error(event.error || 'Agent SDK stream failed')
+    }
+
     onEvent(event)
     if (event.type === 'result') finalEvent = event
   }
@@ -137,14 +143,16 @@ export default function Home() {
       })
 
       if (result.usedAgentSdk !== true) {
-        setWarnings(result.warnings || ['Claude Agent SDK 未成功返回实时模型结果'])
+        throw new Error(result.warnings?.join(' | ') || 'Claude Agent SDK 未成功返回实时模型结果')
       }
     } catch (error) {
-      setMessages((current) => current.map((message) =>
-        message.id === assistantId
-          ? { ...message, content: `请求失败：${error instanceof Error ? error.message : String(error)}` }
-          : message
+      const message = error instanceof Error ? error.message : String(error)
+      setMessages((current) => current.map((item) =>
+        item.id === assistantId
+          ? { ...item, content: `请求失败：${message}` }
+          : item
       ))
+      setWarnings([`请求失败：${message}`])
     } finally {
       setBusy(false)
       setStreamStatus('')
@@ -179,10 +187,12 @@ export default function Home() {
       })
 
       if (result.usedAgentSdk !== true) {
-        setWarnings(result.warnings || ['Claude Agent SDK 未成功生成实时草稿'])
+        throw new Error(result.warnings?.join(' | ') || 'Claude Agent SDK 未成功生成实时草稿')
       }
     } catch (error) {
-      setDraft(`生成失败：${error instanceof Error ? error.message : String(error)}`)
+      const message = error instanceof Error ? error.message : String(error)
+      setDraft('')
+      setWarnings([`生成失败：${message}`])
     } finally {
       setBusy(false)
       setStreamStatus('')
@@ -345,7 +355,7 @@ export default function Home() {
                 <button className="button primary" disabled={busy || !draft.trim()} type="button" onClick={saveDraft}>保存到 Skill Store</button>
               </div>
             </div>
-            {warnings.length ? <div className="warning" role="status">{warnings.join(' · ')}</div> : null}
+            {warnings.length ? <div className="warning" role="alert">{warnings.join(' · ')}</div> : null}
           </article>
         </section>
       </div>
