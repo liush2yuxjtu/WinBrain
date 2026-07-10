@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { runAgentChat } from '@/lib/agent-sdk'
+import { streamAgentChat, type AgentSdkStreamEvent } from '@/lib/agent-sdk'
+import { progressiveJsonResponse } from '@/lib/stream-response'
 import type { ChatRequest, StudioChatMessage } from '@/lib/types'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 function assistantMessage(content: string): StudioChatMessage {
   return {
@@ -11,6 +13,20 @@ function assistantMessage(content: string): StudioChatMessage {
     role: 'assistant',
     content,
     createdAt: new Date().toISOString()
+  }
+}
+
+async function* chatEvents(input: ChatRequest): AsyncGenerator<Record<string, unknown>> {
+  for await (const event of streamAgentChat(input)) {
+    if (event.type === 'result') {
+      yield {
+        ...event,
+        message: assistantMessage(event.text)
+      }
+      continue
+    }
+
+    yield event satisfies AgentSdkStreamEvent
   }
 }
 
@@ -32,19 +48,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'messages must be an array' }, { status: 400 })
   }
 
-  const result = await runAgentChat({
+  return progressiveJsonResponse(chatEvents({
     messages: body.messages,
     expertRole: body.expertRole,
     businessContext: body.businessContext,
     activeSkillDraft: body.activeSkillDraft
-  })
-
-  return NextResponse.json({
-    message: assistantMessage(result.text),
-    usedLiveModel: result.usedLiveModel,
-    usedAgentSdk: result.usedAgentSdk,
-    provider: result.provider,
-    credentialSlot: result.credentialSlot,
-    warnings: result.warnings
-  })
+  }))
 }
