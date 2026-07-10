@@ -416,14 +416,18 @@ async function* streamWithCredential(
   } finally {
     profile.beginCleanup()
     abortController.abort()
+    let cleanupFailure: unknown
     try {
       handle?.close()
     } catch (error) {
-      outcome = 'error'
-      failure = error
-      throw error
+      cleanupFailure = error
     } finally {
-      profile.finish({ outcome, outputChars: fullText.length, error: failure })
+      profile.finish({
+        outcome,
+        outputChars: fullText.length,
+        error: failure,
+        cleanupError: cleanupFailure
+      })
     }
   }
 }
