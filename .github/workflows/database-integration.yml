@@ -1,0 +1,91 @@
+name: Database Integration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/business-skill-studio/**'
+      - '.github/workflows/database-integration.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/business-skill-studio/**'
+      - '.github/workflows/database-integration.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  skill-store:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: winbrain_test
+          POSTGRES_USER: winbrain
+          POSTGRES_PASSWORD: winbrain
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U winbrain -d winbrain_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://winbrain:winbrain@127.0.0.1:5432/winbrain_test?schema=public
+      TEST_DATABASE_URL: postgresql://winbrain:winbrain@127.0.0.1:5432/winbrain_test?schema=public
+    defaults:
+      run:
+        working-directory: apps/business-skill-studio
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install --no-package-lock --legacy-peer-deps
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Apply database migrations
+        run: npm run db:migrate:deploy
+
+      - name: Run filesystem and validation tests
+        run: npm run test:unit
+
+      - name: Run PostgreSQL integration tests
+        run: npm run test:integration
+
+      - name: Typecheck application
+        run: |
+          set +e
+          npm run typecheck > typecheck.log 2>&1
+          status=$?
+          cat typecheck.log
+          exit $status
+
+      - name: Build application
+        run: |
+          set +e
+          npm run build > build.log 2>&1
+          status=$?
+          cat build.log
+          exit $status
+
+      - name: Upload validation diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-diagnostics
+          path: |
+            apps/business-skill-studio/typecheck.log
+            apps/business-skill-studio/build.log
+          if-no-files-found: warn
+          retention-days: 7

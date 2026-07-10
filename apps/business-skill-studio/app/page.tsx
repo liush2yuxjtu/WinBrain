@@ -1,7 +1,7 @@
 "use client"
 
 import { FormEvent, useState } from 'react'
-import type { ChatResponse, StudioChatMessage } from '@/lib/types'
+import type { ChatResponse, StoredSkillSummary, StudioChatMessage } from '@/lib/types'
 
 type ProgressiveEvent = {
   type?: 'status' | 'text' | 'result'
@@ -86,7 +86,7 @@ export default function Home() {
   const [warnings, setWarnings] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [streamStatus, setStreamStatus] = useState('')
-  const [savedPath, setSavedPath] = useState('')
+  const [savedSkill, setSavedSkill] = useState<StoredSkillSummary | null>(null)
 
   async function sendMessage(event: FormEvent) {
     event.preventDefault()
@@ -155,7 +155,7 @@ export default function Home() {
     setBusy(true)
     setStreamStatus('正在启动 Claude Agent SDK 生成 Skill 草稿')
     setWarnings([])
-    setSavedPath('')
+    setSavedSkill(null)
     setDraft('')
 
     try {
@@ -192,7 +192,7 @@ export default function Home() {
   async function saveDraft() {
     if (!draft.trim() || busy) return
     setBusy(true)
-    setSavedPath('')
+    setSavedSkill(null)
 
     const skillMarkdown = extractCodeBlock(draft, '## SKILL.md') || draft
     const evalsJson = extractCodeBlock(draft, '## evals/evals.json')
@@ -205,9 +205,9 @@ export default function Home() {
       })
       if (!response.ok) throw await readError(response)
 
-      const data = await response.json() as { skill?: { path: string } }
-      if (!data.skill?.path) throw new Error('Save response did not include a skill path')
-      setSavedPath(data.skill.path)
+      const data = await response.json() as { skill?: StoredSkillSummary }
+      if (!data.skill) throw new Error('Save response did not include skill metadata')
+      setSavedSkill(data.skill)
     } catch (error) {
       setWarnings([`保存失败：${error instanceof Error ? error.message : String(error)}`])
     } finally {
@@ -336,7 +336,9 @@ export default function Home() {
             />
             <div className="draft-footer">
               <div className="save-feedback" aria-live="polite">
-                {savedPath ? <span className="success-message">✓ 已保存：{savedPath}</span> : <span>{busy && streamStatus ? streamStatus : '草稿仅在当前会话中保留'}</span>}
+                {savedSkill
+                  ? <span className="success-message">✓ 已保存：{savedSkill.name} · v{savedSkill.version}</span>
+                  : <span>{busy && streamStatus ? streamStatus : '草稿仅在当前会话中保留'}</span>}
               </div>
               <div className="draft-actions">
                 <button className="button secondary" disabled={busy || !draft} type="button" onClick={() => setDraft('')}>清空草稿</button>
