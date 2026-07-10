@@ -1,9 +1,19 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { listSkills, saveSkill } from '@/lib/skill-store'
+import {
+  listSkills,
+  saveSkill,
+  SkillStoreValidationError
+} from '@/lib/skill-store'
 import type { SkillSaveRequest } from '@/lib/types'
 
 export const runtime = 'nodejs'
+
+function unavailableResponse() {
+  return NextResponse.json({
+    error: 'Skill store is unavailable. Check the server logs and storage configuration.'
+  }, { status: 503 })
+}
 
 export async function GET() {
   const session = await auth()
@@ -11,8 +21,13 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const skills = await listSkills()
-  return NextResponse.json({ skills })
+  try {
+    const skills = await listSkills()
+    return NextResponse.json({ skills })
+  } catch (error) {
+    console.error('Failed to list skills', error)
+    return unavailableResponse()
+  }
 }
 
 export async function POST(request: Request) {
@@ -29,15 +44,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  if (!body || !body.skillName || !body.skillMarkdown) {
+  if (!body || typeof body.skillName !== 'string' || typeof body.skillMarkdown !== 'string') {
     return NextResponse.json({ error: 'skillName and skillMarkdown are required' }, { status: 400 })
   }
 
-  const skill = await saveSkill({
-    skillName: body.skillName,
-    skillMarkdown: body.skillMarkdown,
-    evalsJson: body.evalsJson
-  })
+  try {
+    const skill = await saveSkill({
+      skillName: body.skillName,
+      skillMarkdown: body.skillMarkdown,
+      evalsJson: typeof body.evalsJson === 'string' ? body.evalsJson : undefined
+    })
 
-  return NextResponse.json({ skill }, { status: 201 })
+    return NextResponse.json({ skill }, { status: 201 })
+  } catch (error) {
+    if (error instanceof SkillStoreValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
+
+    console.error('Failed to save skill', error)
+    return unavailableResponse()
+  }
 }
