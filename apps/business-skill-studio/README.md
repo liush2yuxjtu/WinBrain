@@ -1,16 +1,16 @@
 # Business Skill Studio
 
-A project-level app scaffold for helping business experts chat with AI and turn recurring know-how into reusable Claude skills.
+A project-level app scaffold for helping business experts chat with AI and turn recurring know-how into reusable skills.
 
 ## What this app does
 
 1. Lets a business expert chat naturally about a recurring workflow.
-2. Uses a server-side Agent SDK adapter to ask focused follow-up questions.
-3. Applies the Anthropic `skill-creator` workflow to draft:
+2. Uses the server-side live model provider to ask focused follow-up questions.
+3. Applies the `skill-creator` workflow to draft:
    - `SKILL.md`
    - `evals/evals.json`
    - assumptions and open questions
-4. Saves generated skills to a local skill store for review and later packaging.
+4. Saves generated skills to a versioned Skill Store for review and later packaging.
 
 ## Authentication
 
@@ -42,21 +42,72 @@ Protected resources:
 
 Auth routes under `/api/auth/*` stay public for sign-in callbacks.
 
-## TypeScript Effect usage
+## Skill Store
 
-Server-side operational boundaries use the `effect` package for typed error handling and explicit async workflows:
+The Skill Store supports two interchangeable backends:
 
-- `lib/effect-runtime.ts` defines `AppError`, `tryPromiseEffect`, `trySyncEffect`, and `runAppEffect`.
-- `lib/agent-sdk.ts` wraps Agent SDK imports, query calls, and output collection in `Effect.gen` programs.
-- `lib/skill-store.ts` wraps filesystem reads/writes and skill metadata listing in Effect programs.
+| Driver | Configuration | Intended use |
+| --- | --- | --- |
+| `filesystem` | `SKILL_STORE_DRIVER=filesystem` | Default local/demo mode with no database dependency |
+| `database` | `SKILL_STORE_DRIVER=database` and `DATABASE_URL=...` | PostgreSQL-backed persistent storage |
 
-The UI and API route surfaces stay simple; Effect is concentrated at I/O boundaries where failures need consistent handling.
+Both backends return storage-neutral metadata:
 
-## Upstream references
+- stable Skill ID
+- display name and slug
+- current revision number
+- last update timestamp
 
-- Skill authoring pattern: `anthropics/skills/skills/skill-creator`
-- Chat / agent app pattern: `anthropics/claude-plugins-official/plugins/agent-sdk-dev`
-- Existing project plugin/skill store: repository-level `.agents/` with `.codex/` mirror
+Each save creates a new immutable revision. The latest revision remains the current Skill content.
+
+### Filesystem backend
+
+Generated skills are written under:
+
+```text
+data/generated-skills/
+```
+
+Override the directory with:
+
+```bash
+SKILL_STUDIO_STORAGE_DIR=/absolute/or/relative/path
+```
+
+The current files remain available at `SKILL.md` and `evals/evals.json`. Historical content is stored under `revisions/<version>/`.
+
+### PostgreSQL backend
+
+Start the local database:
+
+```bash
+docker compose -f docker-compose.db.yml up -d
+```
+
+Configure `.env.local`:
+
+```bash
+SKILL_STORE_DRIVER=database
+DATABASE_URL=postgresql://winbrain:winbrain@127.0.0.1:5432/winbrain?schema=public
+```
+
+Install dependencies and apply the development migration:
+
+```bash
+npm install
+npm run db:migrate
+```
+
+Useful database commands:
+
+```bash
+npm run db:generate
+npm run db:migrate
+npm run db:migrate:deploy
+npm run db:studio
+```
+
+Production and test deployments should run `npm run db:migrate:deploy` before starting the application.
 
 ## Run locally
 
@@ -64,54 +115,62 @@ The UI and API route surfaces stay simple; Effect is concentrated at I/O boundar
 cd apps/business-skill-studio
 npm install
 cp .env.example .env.local
-# Fill ANTHROPIC_API_KEY and auth variables in .env.local
+# Fill live-model and auth variables in .env.local
 npm run dev
 ```
 
 Open `http://localhost:3000` and sign in at `/login`.
 
+The app retains its deterministic fallback when live-model credentials are missing, so product and design review can continue without an external provider.
+
 ## Validation
 
+Run storage-independent tests:
+
 ```bash
-cd apps/business-skill-studio
+npm run test:unit
+```
+
+Run PostgreSQL integration tests after starting the local database and applying migrations:
+
+```bash
+npm run db:migrate:deploy
+TEST_DATABASE_URL="$DATABASE_URL" npm run test:integration
+```
+
+Validate the application:
+
+```bash
 npm run typecheck
 npm run build
 ```
 
-The app includes a deterministic fallback path when `ANTHROPIC_API_KEY` is missing. That lets product/design review the UI and skill flow before Agent SDK credentials are configured.
+The `Database Integration` GitHub Actions workflow starts PostgreSQL and verifies migrations, filesystem fallback behavior, database revisions, concurrent saves, TypeScript compilation, and the production build on every relevant pull request.
 
-## Data storage
+## Implementation notes
 
-Generated skills are written under:
-
-```text
-apps/business-skill-studio/data/generated-skills/
-```
-
-Override with:
-
-```bash
-SKILL_STUDIO_STORAGE_DIR=/absolute/or/relative/path
-```
-
-The default local storage directory is ignored by git.
+- Prisma is isolated behind a repository interface rather than imported by API routes or UI components.
+- PostgreSQL revision creation uses serializable transactions and retries retryable conflicts.
+- `evals.json` is parsed and normalized before persistence.
+- Filesystem mode remains the default, preserving the existing no-database development path.
+- Auth remains the existing environment-backed single-admin implementation.
 
 ## MVP scope
 
 Included:
 
 - Email/password authentication for an environment-backed admin user
-- Chat UI for business expert discovery
-- Agent SDK adapter with fallback behavior
+- Chat UI and the existing live model provider
 - Skill draft generation API
-- Local skill save/list API
-- TypeScript Effect wrappers for Agent SDK and filesystem I/O
-- Project-level `.agents` and `.codex` references for `skill-creator` and `agent-sdk-dev`
+- Versioned PostgreSQL Skill Store
+- Versioned local filesystem fallback
+- Prisma migrations and real PostgreSQL integration tests
+- Project-level `.agents` and `.codex` references
 
 Not yet included:
 
 - Multi-user tenancy
-- Database-backed persistent storage
+- Database-backed Auth.js users and sessions
 - Skill packaging as `.skill`
 - Automated eval runner and benchmark viewer integration
-- Streaming UI for partial agent output
+- Streaming UI for partial model output
