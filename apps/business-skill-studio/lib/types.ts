@@ -16,7 +16,9 @@ export interface ChatRequest {
 
 export interface ChatResponse {
   message: StudioChatMessage
+  usedLiveModel: boolean
   usedAgentSdk: boolean
+  provider: string
   warnings: string[]
 }
 
