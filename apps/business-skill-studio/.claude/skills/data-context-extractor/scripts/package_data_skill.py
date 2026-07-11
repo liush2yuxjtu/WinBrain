@@ -18,23 +18,19 @@ from pathlib import Path
 def validate_skill(skill_path: Path) -> tuple[bool, str]:
     """Basic validation of skill structure."""
 
-    # Check SKILL.md exists
     skill_md = skill_path / "SKILL.md"
     if not skill_md.exists():
         return False, "Missing SKILL.md"
 
-    # Check SKILL.md has frontmatter
     content = skill_md.read_text()
     if not content.startswith("---"):
         return False, "SKILL.md missing YAML frontmatter"
 
-    # Check for required frontmatter fields
     if "name:" not in content[:500]:
         return False, "SKILL.md missing 'name' in frontmatter"
     if "description:" not in content[:1000]:
         return False, "SKILL.md missing 'description' in frontmatter"
 
-    # Check for placeholder text that wasn't filled in
     if "[PLACEHOLDER]" in content or "[COMPANY]" in content:
         return False, "SKILL.md contains unfilled placeholder text"
 
@@ -42,69 +38,66 @@ def validate_skill(skill_path: Path) -> tuple[bool, str]:
 
 
 def package_skill(skill_path: str, output_dir: str = None) -> Path | None:
-    """
-    Package a skill folder into a .skill file.
+    """Package a skill folder into a .skill file."""
+    skill_path_obj = Path(skill_path).resolve()
 
-    Args:
-        skill_path: Path to the skill folder
-        output_dir: Optional output directory
-
-    Returns:
-        Path to the created .skill file, or None if error
-    """
-    skill_path = Path(skill_path).resolve()
-
-    # Validate folder exists
-    if not skill_path.exists():
-        print(f"Error: Skill folder not found: {skill_path}")
+    if not skill_path_obj.exists():
+        print(f"Error: Skill folder not found: {skill_path_obj}")
         return None
 
-    if not skill_path.is_dir():
-        print(f"Error: Path is not a directory: {skill_path}")
+    if not skill_path_obj.is_dir():
+        print(f"Error: Path is not a directory: {skill_path_obj}")
         return None
 
-    # Run validation
     print("Validating skill...")
-    valid, message = validate_skill(skill_path)
+    valid, message = validate_skill(skill_path_obj)
     if not valid:
         print(f"Validation failed: {message}")
         return None
     print(f"{message}\n")
 
-    # Determine output location
-    skill_name = skill_path.name
-    if output_dir:
-        output_path = Path(output_dir).resolve()
+    skill_name = skill_path_obj.name
+    output_path = (
+        Path(output_dir).resolve()
+        if output_dir
+        else (skill_path_obj.parent / "dist").resolve()
+    )
+
+    try:
+        output_path.relative_to(skill_path_obj)
+    except ValueError:
+        pass
     else:
-        output_path = Path.cwd()
+        print(f"Error: Output directory must be outside the input skill: {output_path}")
+        return None
 
     output_path.mkdir(parents=True, exist_ok=True)
     skill_filename = output_path / f"{skill_name}.zip"
 
-    # Create the zip file
     try:
-        with zipfile.ZipFile(skill_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for file_path in skill_path.rglob('*'):
-                if file_path.is_file():
-                    # Skip hidden files inside the skill and common junk. Use a
-                    # relative path so parent directories such as `.claude` do
-                    # not cause every skill file to be excluded.
-                    relative_file = file_path.relative_to(skill_path)
-                    if any(part.startswith('.') for part in relative_file.parts):
-                        continue
-                    if file_path.name in ['__pycache__', '.DS_Store', 'Thumbs.db']:
-                        continue
+        with zipfile.ZipFile(skill_filename, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for file_path in skill_path_obj.rglob("*"):
+                if not file_path.is_file():
+                    continue
 
-                    # Calculate relative path within the zip
-                    arcname = file_path.relative_to(skill_path.parent)
-                    zipf.write(file_path, arcname)
-                    print(f"  Added: {arcname}")
+                relative_file = file_path.relative_to(skill_path_obj)
+                if any(part.startswith(".") for part in relative_file.parts):
+                    continue
+                if "__pycache__" in relative_file.parts or file_path.suffix == ".pyc":
+                    continue
+                if file_path.name in [".DS_Store", "Thumbs.db"]:
+                    continue
+
+                arcname = file_path.relative_to(skill_path_obj.parent)
+                zipf.write(file_path, arcname)
+                print(f"  Added: {arcname}")
 
         print(f"\nSuccessfully packaged skill to: {skill_filename}")
         return skill_filename
 
-    except Exception as e:
-        print(f"Error creating zip file: {e}")
+    except Exception as exc:
+        skill_filename.unlink(missing_ok=True)
+        print(f"Error creating zip file: {exc}")
         return None
 
 
