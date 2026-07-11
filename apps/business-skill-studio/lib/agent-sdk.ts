@@ -76,7 +76,7 @@ export function setAgentSdkQueryForTesting(query: AgentSdkQuery | undefined): vo
 async function resolveAgentSdkQuery(): Promise<AgentSdkQuery> {
   if (queryOverride) return queryOverride
 
-if (!queryPromise) {
+  if (!queryPromise) {
   queryPromise = import('@anthropic-ai/claude-agent-sdk')
     .then((sdk) => {
       const record = sdk as unknown as {
