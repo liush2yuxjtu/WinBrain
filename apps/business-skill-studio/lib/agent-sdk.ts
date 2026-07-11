@@ -76,17 +76,24 @@ export function setAgentSdkQueryForTesting(query: AgentSdkQuery | undefined): vo
 async function resolveAgentSdkQuery(): Promise<AgentSdkQuery> {
   if (queryOverride) return queryOverride
 
-  queryPromise ??= import('@anthropic-ai/claude-agent-sdk').then((sdk) => {
-    const record = sdk as unknown as {
-      query?: unknown
-      default?: { query?: unknown }
-    }
-    const query = record.query ?? record.default?.query
-    if (typeof query !== 'function') {
-      throw new Error('Claude Agent SDK does not expose a query function')
-    }
-    return query as AgentSdkQuery
-  })
+  if (!queryPromise) {
+    queryPromise = import('@anthropic-ai/claude-agent-sdk')
+      .then((sdk) => {
+        const record = sdk as unknown as {
+          query?: unknown
+          default?: { query?: unknown }
+        }
+        const query = record.query ?? record.default?.query
+        if (typeof query !== 'function') {
+          throw new Error('Claude Agent SDK does not expose a query function')
+        }
+        return query as AgentSdkQuery
+      })
+      .catch((error) => {
+        queryPromise = undefined
+        throw error
+      })
+  }
 
   return queryPromise
 }
