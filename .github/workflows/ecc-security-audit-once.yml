@@ -1,0 +1,380 @@
+name: ECC Security Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/ecc-security-audit-once.yml
+      - .codex/ecc/upstream/**
+
+permissions:
+  contents: write
+  statuses: write
+
+concurrency:
+  group: ecc-security-audit-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: ECC hooks and secrets audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Generate hooks audit and redacted secrets report
+        id: scan
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          ROOT = Path.cwd()
+          AUDIT_DIR = ROOT / ".codex/ecc/audit"
+          HOOKS_ROOT = ROOT / ".codex/ecc/upstream/hooks"
+          HOOKS_JSON = HOOKS_ROOT / "hooks.json"
+          AUDIT_DIR.mkdir(parents=True, exist_ok=True)
+
+          repository = os.environ["REPOSITORY"]
+          source_sha = os.environ["SOURCE_SHA"]
+          run_id = os.environ["RUN_ID"]
+          run_url = os.environ["RUN_URL"]
+          ecc_commit_file = ROOT / ".codex/ecc/ECC_COMMIT"
+          ecc_commit = ecc_commit_file.read_text(encoding="utf-8").strip() if ecc_commit_file.exists() else "missing"
+
+          binary_suffixes = {
+              ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".zip", ".gz", ".tgz",
+              ".tar", ".7z", ".rar", ".woff", ".woff2", ".ttf", ".otf", ".mp3", ".mp4", ".mov",
+              ".avi", ".webm", ".sqlite", ".db", ".lockb", ".pyc", ".class", ".jar", ".exe", ".dll",
+              ".so", ".dylib", ".bin", ".wasm",
+          }
+          placeholder_words = (
+              "example", "placeholder", "changeme", "change-me", "dummy", "sample", "test-token",
+              "your_key", "your-key", "your_token", "your-token", "xxxx", "redacted", "replace_me",
+          )
+
+          high_patterns = [
+              ("private-key", re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----")),
+              ("github-token", re.compile(r"(?<![A-Za-z0-9])(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{60,})(?![A-Za-z0-9])")),
+              ("aws-access-key", re.compile(r"(?<![A-Z0-9])(?:AKIA|ASIA)[A-Z0-9]{16}(?![A-Z0-9])")),
+              ("google-api-key", re.compile(r"(?<![A-Za-z0-9_-])AIza[0-9A-Za-z_-]{35}(?![A-Za-z0-9_-])")),
+              ("slack-token", re.compile(r"(?<![A-Za-z0-9-])xox[baprs]-[A-Za-z0-9-]{10,}(?![A-Za-z0-9-])")),
+              ("stripe-live-key", re.compile(r"(?<![A-Za-z0-9_])(?:sk|rk)_live_[A-Za-z0-9]{16,}(?![A-Za-z0-9])")),
+              ("openai-key", re.compile(r"(?<![A-Za-z0-9_-])sk-(?:proj-)?[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])")),
+          ]
+          candidate_pattern = re.compile(
+              r"(?i)\b(api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|password|secret|token)\b"
+              r"\s*[:=]\s*[\"']?([A-Za-z0-9_./+=:-]{12,})"
+          )
+
+          def fingerprint(value: str) -> str:
+              return hashlib.sha256(value.encode("utf-8", errors="ignore")).hexdigest()[:12]
+
+          def line_number(text: str, offset: int) -> int:
+              return text.count("\n", 0, offset) + 1
+
+          raw_paths = subprocess.check_output(["git", "ls-files", "-z"])
+          tracked_paths = [Path(p.decode("utf-8")) for p in raw_paths.split(b"\0") if p]
+          scanned_files = 0
+          skipped_large = 0
+          skipped_binary = 0
+          high_findings: list[dict[str, object]] = []
+          candidate_findings: list[dict[str, object]] = []
+
+          for rel in tracked_paths:
+              if rel.as_posix().startswith(".codex/ecc/audit/"):
+                  continue
+              path = ROOT / rel
+              try:
+                  if not path.is_file():
+                      continue
+                  size = path.stat().st_size
+                  if size > 2_000_000:
+                      skipped_large += 1
+                      continue
+                  if path.suffix.lower() in binary_suffixes:
+                      skipped_binary += 1
+                      continue
+                  data = path.read_bytes()
+              except OSError:
+                  continue
+              if b"\0" in data[:8192]:
+                  skipped_binary += 1
+                  continue
+              text = data.decode("utf-8", errors="ignore")
+              scanned_files += 1
+
+              for kind, pattern in high_patterns:
+                  for match in pattern.finditer(text):
+                      value = match.group(0)
+                      lowered = value.lower()
+                      placeholder = any(word in lowered for word in placeholder_words)
+                      severity = "candidate" if placeholder else "high"
+                      item = {
+                          "file": rel.as_posix(),
+                          "line": line_number(text, match.start()),
+                          "type": kind,
+                          "severity": severity,
+                          "fingerprint": fingerprint(value),
+                      }
+                      if placeholder:
+                          candidate_findings.append(item)
+                      else:
+                          high_findings.append(item)
+
+              for match in candidate_pattern.finditer(text):
+                  value = match.group(2)
+                  lowered = value.lower()
+                  if any(word in lowered for word in placeholder_words):
+                      continue
+                  candidate_findings.append({
+                      "file": rel.as_posix(),
+                      "line": line_number(text, match.start()),
+                      "type": f"credential-assignment:{match.group(1).lower()}",
+                      "severity": "candidate",
+                      "fingerprint": fingerprint(value),
+                  })
+
+          hook_files: list[dict[str, object]] = []
+          if HOOKS_ROOT.exists():
+              for path in sorted(p for p in HOOKS_ROOT.rglob("*") if p.is_file()):
+                  rel = path.relative_to(ROOT).as_posix()
+                  content = path.read_bytes()
+                  hook_files.append({
+                      "file": rel,
+                      "bytes": len(content),
+                      "sha256": hashlib.sha256(content).hexdigest(),
+                      "executable": bool(path.stat().st_mode & 0o111),
+                  })
+
+          hook_entries: list[dict[str, object]] = []
+          referenced_scripts: set[str] = set()
+          parse_error = None
+          if HOOKS_JSON.exists():
+              try:
+                  payload = json.loads(HOOKS_JSON.read_text(encoding="utf-8"))
+                  for event, groups in payload.get("hooks", {}).items():
+                      for index, group in enumerate(groups):
+                          hook_id = group.get("id") or f"{event}:{index}"
+                          matcher = group.get("matcher", "")
+                          description = group.get("description", "")
+                          for action_index, action in enumerate(group.get("hooks", [])):
+                              command = str(action.get("command", ""))
+                              refs = sorted(set(re.findall(
+                                  r"(?<![A-Za-z0-9_./-])(scripts/[A-Za-z0-9_./-]+(?:\.(?:js|mjs|cjs|sh|py|ps1))?)",
+                                  command,
+                              )))
+                              referenced_scripts.update(refs)
+                              flags = []
+                              if "process.env" in command or "CLAUDE_" in command or "ECC_" in command:
+                                  flags.append("读取环境变量")
+                              if "homedir" in command or ".claude" in command:
+                                  flags.append("读取用户目录/Claude 配置")
+                              if action.get("async"):
+                                  flags.append("后台异步执行")
+                              if re.search(r"https?://|\bcurl\b|\bwget\b|\bfetch\s*\(", command):
+                                  flags.append("网络访问")
+                              if re.search(r"\bgit\s+(?:push|commit|reset|clean)\b", command):
+                                  flags.append("修改 Git 状态")
+                              if re.search(r"rm\s+-rf|\bunlink\b|\brmdir\b", command):
+                                  flags.append("删除文件")
+                              if "node -e" in command or "require(" in command:
+                                  flags.append("动态加载/执行 Node.js")
+                              hook_entries.append({
+                                  "event": event,
+                                  "id": hook_id,
+                                  "matcher": matcher,
+                                  "description": description,
+                                  "action": action_index,
+                                  "async": bool(action.get("async", False)),
+                                  "timeout": action.get("timeout"),
+                                  "references": refs,
+                                  "risk_flags": flags,
+                              })
+              except Exception as exc:
+                  parse_error = f"{type(exc).__name__}: {exc}"
+          else:
+              parse_error = "hooks.json missing"
+
+          missing_scripts = []
+          for ref in sorted(referenced_scripts):
+              if not (ROOT / ".codex/ecc/upstream" / ref).exists():
+                  missing_scripts.append(ref)
+
+          verdict = "failure" if high_findings or missing_scripts or parse_error else "success"
+
+          def esc(value: object) -> str:
+              return str(value).replace("|", "\\|").replace("\n", " ")
+
+          hooks_lines = [
+              "# ECC Hooks 逐文件安全审查", "", f"- 仓库：`{repository}`", f"- 被审查提交：`{source_sha}`",
+              f"- ECC 上游提交：`{ecc_commit}`", f"- GitHub Actions 运行：[{run_id}]({run_url})",
+              f"- 审查结论：**{verdict.upper()}**", "", "## 核心结论", "",
+          ]
+          if parse_error:
+              hooks_lines.append(f"- `hooks.json` 解析失败：`{esc(parse_error)}`")
+          else:
+              hooks_lines.append(f"- 共发现 `{len(hook_files)}` 个 hooks 目录文件和 `{len(hook_entries)}` 个 hook action。")
+              hooks_lines.append(f"- `hooks.json` 引用了 `{len(referenced_scripts)}` 个运行时脚本。")
+              if missing_scripts:
+                  hooks_lines.append(f"- **高优先级问题：其中 `{len(missing_scripts)}` 个脚本未包含在 `.codex/ecc/upstream/` 中；当前 hooks 快照不能独立执行，也无法完成脚本实现层面的逐文件安全审查。**")
+              else:
+                  hooks_lines.append("- 所有被引用运行时脚本均存在，可以继续进行实现层审查。")
+          hooks_lines.extend(["", "## Hooks 目录逐文件清单", "", "| 文件 | 字节数 | 可执行位 | SHA-256 |", "|---|---:|:---:|---|"])
+          for item in hook_files:
+              hooks_lines.append(f"| `{esc(item['file'])}` | {item['bytes']} | {'是' if item['executable'] else '否'} | `{item['sha256']}` |")
+          if not hook_files:
+              hooks_lines.append("| _未找到 hooks 文件_ | 0 | 否 | — |")
+          hooks_lines.extend(["", "## hooks.json 全部 action 审查", "", "| 事件 | Hook ID | Matcher | 异步 | 超时 | 引用脚本数 | 风险特征 |", "|---|---|---|:---:|---:|---:|---|"])
+          for item in hook_entries:
+              hooks_lines.append("| {event} | `{id}` | `{matcher}` | {async_} | {timeout} | {refs} | {flags} |".format(
+                  event=esc(item["event"]), id=esc(item["id"]), matcher=esc(item["matcher"]),
+                  async_="是" if item["async"] else "否", timeout=item["timeout"] if item["timeout"] is not None else "—",
+                  refs=len(item["references"]), flags=esc("、".join(item["risk_flags"]) if item["risk_flags"] else "未从包装命令识别")))
+          hooks_lines.extend(["", "## 缺失的运行时依赖", ""])
+          hooks_lines.extend((f"- `{path}`" for path in missing_scripts) if missing_scripts else ["- 无。"])
+          hooks_lines.extend(["", "## 风险解释与处理要求", "",
+              "1. `hooks.json` 中的 action 会动态执行 Node.js，并读取环境变量、用户主目录及 Claude 配置路径。",
+              "2. 部分 action 为异步后台任务；启用前应确认其输出目录、保留策略和进程退出行为。",
+              "3. 当前 vendored 范围没有包含 `scripts/`。因此本报告只能审查 hook 图与包装命令，不能证明实际脚本无网络访问、无数据外传或无破坏性文件操作。",
+              "4. 在补齐并审查运行时脚本以前，不应直接启用 `.codex/ecc/upstream/hooks/hooks.json`。", ""])
+          (AUDIT_DIR / "HOOKS_AUDIT.md").write_text("\n".join(hooks_lines), encoding="utf-8")
+
+          secrets_lines = ["# Secrets 扫描日志（CI，已脱敏）", "", f"- 仓库：`{repository}`", f"- 被扫描提交：`{source_sha}`",
+              f"- GitHub Actions 运行：[{run_id}]({run_url})", f"- Git 跟踪文件数：`{len(tracked_paths)}`",
+              f"- 已扫描文本文件数：`{scanned_files}`", f"- 跳过的大文件数（>2 MB）：`{skipped_large}`",
+              f"- 跳过的二进制文件数：`{skipped_binary}`", f"- 高置信度 secrets：`{len(high_findings)}`",
+              f"- 待人工复核候选：`{len(candidate_findings)}`", "",
+              "> 报告不会保存匹配到的值，只保存类型、文件、行号和不可逆 SHA-256 指纹前 12 位。", "",
+              "## 高置信度结果", "", "| 文件 | 行 | 类型 | 指纹 |", "|---|---:|---|---|"]
+          if high_findings:
+              for item in high_findings[:500]:
+                  secrets_lines.append(f"| `{esc(item['file'])}` | {item['line']} | `{esc(item['type'])}` | `{item['fingerprint']}` |")
+          else:
+              secrets_lines.append("| _未发现_ | — | — | — |")
+          secrets_lines.extend(["", "## 待人工复核候选", "", "| 文件 | 行 | 类型 | 指纹 |", "|---|---:|---|---|"])
+          if candidate_findings:
+              for item in candidate_findings[:500]:
+                  secrets_lines.append(f"| `{esc(item['file'])}` | {item['line']} | `{esc(item['type'])}` | `{item['fingerprint']}` |")
+              if len(candidate_findings) > 500:
+                  secrets_lines.append(f"\n_仅展示前 500 条；总计 {len(candidate_findings)} 条。_")
+          else:
+              secrets_lines.append("| _未发现_ | — | — | — |")
+          secrets_lines.extend(["", "## 扫描边界", "",
+              "- 此扫描覆盖 GitHub 仓库中当前提交的 Git 跟踪文件。",
+              "- 它不会读取开发机上的未跟踪文件、环境变量、操作系统密钥链、Shell 历史或仓库外文件。",
+              "- 因此它可以替代“远端仓库 secrets 扫描日志”，但不能证明本地机器不存在未提交的 secrets。", ""])
+          (AUDIT_DIR / "SECRETS_SCAN.md").write_text("\n".join(secrets_lines), encoding="utf-8")
+
+          summary = {"repository": repository, "source_sha": source_sha, "ecc_commit": ecc_commit, "run_id": run_id,
+              "verdict": verdict, "hooks": {"file_count": len(hook_files), "action_count": len(hook_entries),
+              "referenced_script_count": len(referenced_scripts), "missing_script_count": len(missing_scripts),
+              "missing_scripts": missing_scripts, "parse_error": parse_error},
+              "secrets": {"tracked_file_count": len(tracked_paths), "scanned_text_file_count": scanned_files,
+              "skipped_large_file_count": skipped_large, "skipped_binary_file_count": skipped_binary,
+              "high_confidence_count": len(high_findings), "candidate_count": len(candidate_findings)}}
+          (AUDIT_DIR / "audit-summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+          output = os.environ.get("GITHUB_OUTPUT")
+          if output:
+              with open(output, "a", encoding="utf-8") as handle:
+                  handle.write(f"verdict={verdict}\n")
+                  handle.write(f"high_secrets={len(high_findings)}\n")
+                  handle.write(f"secret_candidates={len(candidate_findings)}\n")
+                  handle.write(f"missing_runtime={len(missing_scripts)}\n")
+          PY
+
+      - name: Commit and push audit reports
+        id: publish
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -u
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .codex/ecc/audit/HOOKS_AUDIT.md .codex/ecc/audit/SECRETS_SCAN.md .codex/ecc/audit/audit-summary.json
+          push_ok=true
+          target_sha="$SOURCE_SHA"
+          if git diff --cached --quiet; then
+            echo "Audit reports are unchanged."
+          else
+            git commit -m "chore(codex): record ECC security audit"
+            if git push origin "HEAD:${{ github.ref_name }}"; then
+              target_sha="$(git rev-parse HEAD)"
+            else
+              echo "Failed to push audit reports." >&2
+              push_ok=false
+              target_sha="$SOURCE_SHA"
+            fi
+          fi
+          echo "push_ok=$push_ok" >> "$GITHUB_OUTPUT"
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Publish explicit ECC audit commit status
+        if: always()
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          API_URL: ${{ github.api_url }}
+          REPOSITORY: ${{ github.repository }}
+          TARGET_SHA: ${{ steps.publish.outputs.target_sha || github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SCAN_VERDICT: ${{ steps.scan.outputs.verdict || 'failure' }}
+          PUSH_OK: ${{ steps.publish.outputs.push_ok || 'false' }}
+          HIGH_SECRETS: ${{ steps.scan.outputs.high_secrets || 'unknown' }}
+          MISSING_RUNTIME: ${{ steps.scan.outputs.missing_runtime || 'unknown' }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          state = "success" if os.environ["SCAN_VERDICT"] == "success" and os.environ["PUSH_OK"] == "true" else "failure"
+          description = (f"secrets={os.environ['HIGH_SECRETS']}, missing-hook-runtime={os.environ['MISSING_RUNTIME']}")[:140]
+          payload = json.dumps({"state": state, "target_url": os.environ["RUN_URL"], "description": description, "context": "ECC Security Audit"}).encode("utf-8")
+          url = f"{os.environ['API_URL']}/repos/{os.environ['REPOSITORY']}/statuses/{os.environ['TARGET_SHA']}"
+          request = urllib.request.Request(url, data=payload, method="POST", headers={
+              "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}", "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json"})
+          with urllib.request.urlopen(request, timeout=30) as response:
+              print(response.read().decode("utf-8"))
+          PY
+
+      - name: Enforce audit verdict
+        if: always()
+        shell: bash
+        env:
+          SCAN_VERDICT: ${{ steps.scan.outputs.verdict || 'failure' }}
+          PUSH_OK: ${{ steps.publish.outputs.push_ok || 'false' }}
+        run: |
+          set -euo pipefail
+          if [[ "$PUSH_OK" != "true" ]]; then
+            echo "Audit reports were not pushed." >&2
+            exit 1
+          fi
+          if [[ "$SCAN_VERDICT" != "success" ]]; then
+            echo "ECC security audit reported findings. Review .codex/ecc/audit/." >&2
+            exit 1
+          fi
