@@ -1,0 +1,52 @@
+{
+  "repository": "liush2yuxjtu/WinBrain",
+  "source_sha": "9f0b12fcf375041776d83077bf5c214bd3f97701",
+  "ecc_commit": "40927950c49f6e742d341e20ff7b9b7e1e7bfff5",
+  "run_id": "29136431762",
+  "verdict": "failure",
+  "hooks": {
+    "file_count": 4,
+    "action_count": 29,
+    "referenced_script_count": 28,
+    "missing_script_count": 28,
+    "missing_scripts": [
+      "scripts/hooks/check-console-log.js",
+      "scripts/hooks/config-protection.js",
+      "scripts/hooks/cost-tracker.js",
+      "scripts/hooks/design-quality-check.js",
+      "scripts/hooks/desktop-notify.js",
+      "scripts/hooks/doc-file-warning.js",
+      "scripts/hooks/ecc-context-monitor.js",
+      "scripts/hooks/ecc-metrics-bridge.js",
+      "scripts/hooks/evaluate-session.js",
+      "scripts/hooks/gateguard-fact-force.js",
+      "scripts/hooks/governance-capture.js",
+      "scripts/hooks/mcp-health-check.js",
+      "scripts/hooks/observe-runner.js",
+      "scripts/hooks/plan-canvas-sessions.js",
+      "scripts/hooks/plugin-hook-bootstrap.js",
+      "scripts/hooks/post-bash-dispatcher.js",
+      "scripts/hooks/post-edit-accumulator.js",
+      "scripts/hooks/post-edit-console-warn.js",
+      "scripts/hooks/pre-bash-dispatcher.js",
+      "scripts/hooks/pre-compact.js",
+      "scripts/hooks/quality-gate.js",
+      "scripts/hooks/run-with-flags.js",
+      "scripts/hooks/session-activity-tracker.js",
+      "scripts/hooks/session-end-marker.js",
+      "scripts/hooks/session-end.js",
+      "scripts/hooks/session-start-bootstrap.js",
+      "scripts/hooks/stop-format-typecheck.js",
+      "scripts/hooks/suggest-compact.js"
+    ],
+    "parse_error": null
+  },
+  "secrets": {
+    "tracked_file_count": 3724,
+    "scanned_text_file_count": 3528,
+    "skipped_large_file_count": 17,
+    "skipped_binary_file_count": 179,
+    "high_confidence_count": 0,
+    "candidate_count": 178
+  }
+}
