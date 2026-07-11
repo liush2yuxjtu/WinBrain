@@ -1,4 +1,3 @@
-import { query } from '@anthropic-ai/claude-agent-sdk'
 import {
   createAgentSdkProfiler,
   type AgentSdkAttemptProfiler,
@@ -51,6 +50,45 @@ type QueryInput = {
 
 type StreamingQueryHandle = AsyncIterable<unknown> & {
   close(): void
+}
+
+type AgentSdkQuery = (input: {
+  prompt: string
+  options: {
+    abortController: AbortController
+    env: NodeJS.ProcessEnv
+    systemPrompt: string
+    maxTurns: number
+    tools: unknown[]
+    permissionMode: 'dontAsk'
+    persistSession: boolean
+    includePartialMessages: boolean
+  }
+}) => unknown
+
+let queryOverride: AgentSdkQuery | undefined
+let queryPromise: Promise<AgentSdkQuery> | undefined
+
+export function setAgentSdkQueryForTesting(query: AgentSdkQuery | undefined): void {
+  queryOverride = query
+}
+
+async function resolveAgentSdkQuery(): Promise<AgentSdkQuery> {
+  if (queryOverride) return queryOverride
+
+  queryPromise ??= import('@anthropic-ai/claude-agent-sdk').then((sdk) => {
+    const record = sdk as unknown as {
+      query?: unknown
+      default?: { query?: unknown }
+    }
+    const query = record.query ?? record.default?.query
+    if (typeof query !== 'function') {
+      throw new Error('Claude Agent SDK does not expose a query function')
+    }
+    return query as AgentSdkQuery
+  })
+
+  return queryPromise
 }
 
 const MINIMUM_ATTEMPT_TIMEOUT_MS = 600_000
@@ -275,7 +313,8 @@ async function* streamWithCredential(
   let failure: unknown
 
   try {
-    handle = query({
+    const sdkQuery = await resolveAgentSdkQuery()
+    handle = sdkQuery({
       prompt: input.prompt,
       options: {
         abortController,
