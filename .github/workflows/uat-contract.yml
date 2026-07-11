@@ -50,7 +50,22 @@ jobs:
           cache: npm
           cache-dependency-path: apps/business-skill-studio/package-lock.json
       - run: npm ci
-      - run: npm run test:unit
+      - name: Run unit tests
+        shell: bash
+        run: |
+          set +e
+          npm run test:unit > unit-tests.log 2>&1
+          status=$?
+          cat unit-tests.log
+          exit $status
+      - name: Upload unit-test diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: uat-contract-unit-test-diagnostics
+          path: apps/business-skill-studio/unit-tests.log
+          if-no-files-found: error
+          retention-days: 7
       - run: npm run test:integration
       - run: npm run typecheck
       - run: npm run build
