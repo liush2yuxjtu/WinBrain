@@ -55,7 +55,7 @@ These ten cases define release-level acceptance for named users completing real 
 **Person:** Fatima Zahra, commercial analyst.
 **Task:** Ask which fields support monthly revenue analysis.
 **Preconditions:** Database metadata is available; analysis agent is enabled.
-**Steps:** Select the sales schema; ask the question; inspect cited tables and fields.
+**Steps:** Select the sales data source; ask the question; inspect cited tables and fields.
 **Acceptance criteria:** Answer uses existing metadata only; named tables/columns exist; unsupported assumptions are marked; no customer row data or credentials are exposed.
 
 ## UAT-09 — Noah Williams verifies tenant isolation
