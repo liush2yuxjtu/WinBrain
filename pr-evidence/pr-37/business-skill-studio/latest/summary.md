@@ -6,15 +6,15 @@
 - Required provider: claude-agent-sdk
 - Credential failover: primary -> fallback
 - API response timeout: 1250000ms
-- Final screenshot: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/frontend-page.png
-- Video: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/video/06358861d0e41ba7188b068358400981.webm
+- Final screenshot: pr-evidence/pr-37/business-skill-studio/latest/frontend-page.png
+- Video: pr-evidence/pr-37/business-skill-studio/latest/video/06358861d0e41ba7188b068358400981.webm
 
 ## Staged snapshots
 
-- /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/snapshots/00-page-loaded.png
-- /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/snapshots/01-business-skill-studio-home.png
-- /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/snapshots/02-after-chat-response.png
-- /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/snapshots/03-after-skill-draft.png
+- pr-evidence/pr-37/business-skill-studio/latest/snapshots/00-page-loaded.png
+- pr-evidence/pr-37/business-skill-studio/latest/snapshots/01-business-skill-studio-home.png
+- pr-evidence/pr-37/business-skill-studio/latest/snapshots/02-after-chat-response.png
+- pr-evidence/pr-37/business-skill-studio/latest/snapshots/03-after-skill-draft.png
 
 ## Console output
 
