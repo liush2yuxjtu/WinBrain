@@ -57,22 +57,24 @@ jobs:
 
           helper = Path('tools/babysit-pr40-review-fixes.py')
           helper_text = helper.read_text(encoding='utf-8')
-          old = '''    if old not in text:
-              if new in text:
-                  print(f"already fixed: {path}")
-                  return'''
-          new = '''    if old not in text:
-              if new in text or (
-                  "build-dashboard/SKILL.md" in path
-                  and "const pct = total > 0" in text
-              ):
-                  print(f"already fixed: {path}")
-                  return'''
-          if old not in helper_text:
-              if new not in helper_text:
-                  raise SystemExit('helper fallback marker not found')
-          else:
-              helper.write_text(helper_text.replace(old, new, 1), encoding='utf-8')
+          if '"build-dashboard/SKILL.md" in path' not in helper_text:
+              pattern = re.compile(
+                  r'(?m)^    if old not in text:\n'
+                  r'        if new in text:\n'
+                  r'            print\(f"already fixed: \{path\}"\)\n'
+                  r'            return$'
+              )
+              replacement = '''    if old not in text:
+                  if new in text or (
+                      "build-dashboard/SKILL.md" in path
+                      and "const pct = total > 0" in text
+                  ):
+                      print(f"already fixed: {path}")
+                      return'''
+              helper_text, count = pattern.subn(replacement, helper_text, count=1)
+              if count != 1:
+                  raise SystemExit('helper fallback block not found')
+              helper.write_text(helper_text, encoding='utf-8')
           PY
           python tools/babysit-pr40-review-fixes.py
 
