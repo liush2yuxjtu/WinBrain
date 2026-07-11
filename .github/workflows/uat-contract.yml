@@ -10,116 +10,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  repair-agent-sdk-test-loader:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-      - name: Replace brittle ESM module mock with dependency injection
-        shell: bash
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          root = Path('apps/business-skill-studio')
-          agent = root / 'lib/agent-sdk.ts'
-          text = agent.read_text(encoding='utf-8')
-          text = text.replace("import { query } from '@anthropic-ai/claude-agent-sdk'\n", '', 1)
-          handle = "type StreamingQueryHandle = AsyncIterable<unknown> & {\n  close(): void\n}\n\n"
-          loader = """type StreamingQueryHandle = AsyncIterable<unknown> & {
-            close(): void
-          }
-
-          type AgentSdkQuery = (input: {
-            prompt: string
-            options: {
-              abortController: AbortController
-              env: NodeJS.ProcessEnv
-              systemPrompt: string
-              maxTurns: number
-              tools: unknown[]
-              permissionMode: 'dontAsk'
-              persistSession: boolean
-              includePartialMessages: boolean
-            }
-          }) => unknown
-
-          let queryOverride: AgentSdkQuery | undefined
-          let queryPromise: Promise<AgentSdkQuery> | undefined
-
-          export function setAgentSdkQueryForTesting(query: AgentSdkQuery | undefined): void {
-            queryOverride = query
-          }
-
-          async function resolveAgentSdkQuery(): Promise<AgentSdkQuery> {
-            if (queryOverride) return queryOverride
-
-            queryPromise ??= import('@anthropic-ai/claude-agent-sdk').then((sdk) => {
-              const record = sdk as unknown as {
-                query?: unknown
-                default?: { query?: unknown }
-              }
-              const query = record.query ?? record.default?.query
-              if (typeof query !== 'function') {
-                throw new Error('Claude Agent SDK does not expose a query function')
-              }
-              return query as AgentSdkQuery
-            })
-
-            return queryPromise
-          }
-
-          """
-          if handle in text and 'type AgentSdkQuery' not in text:
-              text = text.replace(handle, loader, 1)
-          text = text.replace('  try {\n    handle = query({\n', '  try {\n    const sdkQuery = await resolveAgentSdkQuery()\n    handle = sdkQuery({\n', 1)
-          agent.write_text(text, encoding='utf-8')
-
-          test = root / 'tests/agent-sdk.test.ts'
-          text = test.read_text(encoding='utf-8')
-          text = text.replace("import test, { mock } from 'node:test'", "import test from 'node:test'", 1)
-          start_marker = "mock.module('@anthropic-ai/claude-agent-sdk', {"
-          import_marker = "const { streamAgentChat, streamSkillDraft, runAgentChat } = await import('../lib/agent-sdk')"
-          if start_marker in text and import_marker in text:
-              start = text.index(start_marker)
-              end = text.index(import_marker)
-              replacement = """const {
-            streamAgentChat,
-            streamSkillDraft,
-            runAgentChat,
-            setAgentSdkQueryForTesting
-          } = await import('../lib/agent-sdk')
-
-          setAgentSdkQueryForTesting((call: CapturedQueryCall) => {
-            capturedCalls.push(call)
-            return queryImpl(call)
-          })
-
-          test.after(() => setAgentSdkQueryForTesting(undefined))"""
-              text = text[:start] + replacement + text[end + len(import_marker):]
-          test.write_text(text, encoding='utf-8')
-
-          package = root / 'package.json'
-          data = json.loads(package.read_text(encoding='utf-8'))
-          data['scripts']['test:unit'] = data['scripts']['test:unit'].replace(' --experimental-test-module-mocks', '')
-          package.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-          PY
-          if git diff --quiet; then
-            echo 'Agent SDK test loader is already repaired.'
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add apps/business-skill-studio/lib/agent-sdk.ts apps/business-skill-studio/tests/agent-sdk.test.ts apps/business-skill-studio/package.json
-          git commit -m 'fix: make Agent SDK tests independent of ESM module mocks'
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
-
   validate-uat-catalogue:
     runs-on: ubuntu-latest
     steps:
@@ -170,11 +63,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: uat-contract-unit-test-diagnostics
-          path: |
-            apps/business-skill-studio/unit-tests.log
-            apps/business-skill-studio/lib/agent-sdk.ts
-            apps/business-skill-studio/tests/agent-sdk.test.ts
-            apps/business-skill-studio/package.json
+          path: apps/business-skill-studio/unit-tests.log
           if-no-files-found: error
           retention-days: 7
       - run: npm run test:integration
