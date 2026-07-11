@@ -68,7 +68,7 @@ Follow these best practices:
 - Never use `SELECT *` in production queries -- specify only needed columns
 - Filter early (push WHERE clauses as close to the base tables as possible)
 - Use partition filters when available (especially date partitions)
-- Prefer `EXISTS` over `IN` for subqueries with large result sets
+- Choose `IN` or `EXISTS` based on semantics, null handling, and the SQL dialect's query plan; benchmark when performance is material
 - Use appropriate JOIN types (don't use LEFT JOIN when INNER JOIN is correct)
 - Avoid correlated subqueries when a JOIN or window function works
 - Be mindful of exploding joins (many-to-many)
