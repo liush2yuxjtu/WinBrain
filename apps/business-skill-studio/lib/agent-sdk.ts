@@ -1,3 +1,4 @@
+import path from 'node:path'
 import {
   createAgentSdkProfiler,
   type AgentSdkAttemptProfiler,
@@ -58,6 +59,9 @@ type AgentSdkQuery = (input: {
     abortController: AbortController
     env: NodeJS.ProcessEnv
     systemPrompt: string
+    cwd: string
+    pathToClaudeCodeExecutable: string
+    settingSources: Array<'project'>
     maxTurns: number
     tools: unknown[]
     permissionMode: 'dontAsk'
@@ -298,6 +302,23 @@ function sdkEnvironment(key: string): NodeJS.ProcessEnv {
   }
 }
 
+function businessSkillStudioRoot(): string {
+  return process.cwd().endsWith(path.join('apps', 'business-skill-studio'))
+    ? process.cwd()
+    : path.resolve(process.cwd(), 'apps/business-skill-studio')
+}
+
+function claudeCodeExecutable(): string {
+  const configured = process.env.CLAUDE_CODE_EXECUTABLE?.trim()
+  if (configured) return configured
+  return path.join(
+    businessSkillStudioRoot(),
+    'node_modules',
+    '.bin',
+    process.platform === 'win32' ? 'claude.cmd' : 'claude'
+  )
+}
+
 function statusForSdkMessage(record: Record<string, unknown>): string | null {
   const type = typeof record.type === 'string' ? record.type : ''
   const subtype = typeof record.subtype === 'string' ? record.subtype : ''
@@ -327,6 +348,9 @@ async function* streamWithCredential(
         abortController,
         env: sdkEnvironment(candidate.key),
         systemPrompt: input.systemPrompt,
+        cwd: businessSkillStudioRoot(),
+        pathToClaudeCodeExecutable: claudeCodeExecutable(),
+        settingSources: ['project'],
         maxTurns: 1,
         tools: [],
         permissionMode: 'dontAsk',
