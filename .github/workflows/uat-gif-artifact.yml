@@ -1,0 +1,79 @@
+name: UAT GIF Artifact
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  record-uat-gif:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      AUTH_SECRET: winbrain-uat-gif-secret-000000000000
+      AUTH_USER_EMAIL: recording@example.com
+      AUTH_USER_NAME: UAT Recording User
+      AUTH_USER_ROLE: admin
+      AUTH_URL: http://127.0.0.1:3000
+      NEXTAUTH_URL: http://127.0.0.1:3000
+      FRONTEND_RECORD_EMAIL: recording@example.com
+      FRONTEND_RECORD_PASSWORD: winbrain-recording-password
+      FRONTEND_START_COMMAND: cd apps/business-skill-studio && npm run start -- --hostname 127.0.0.1 --port 3000
+      FRONTEND_RECORD_SCENARIO: business-skill-studio
+      PLAYWRIGHT_CHANNEL: chromium
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/business-skill-studio/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm --prefix apps/business-skill-studio ci
+
+      - name: Configure deterministic authentication
+        working-directory: apps/business-skill-studio
+        run: |
+          password_hash="$(node -e 'const bcrypt = require("bcryptjs"); process.stdout.write(bcrypt.hashSync(process.env.FRONTEND_RECORD_PASSWORD, 10));')"
+          echo "AUTH_USER_PASSWORD_HASH=$password_hash" >> "$GITHUB_ENV"
+
+      - name: Build application
+        working-directory: apps/business-skill-studio
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Record UAT flow
+        run: |
+          rm -rf artifacts/frontend-recording
+          mkdir -p artifacts/frontend-recording
+          npm run record:frontend
+
+      - name: Convert recording to GIF
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          video="$(find artifacts/frontend-recording -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) | sort | head -n 1)"
+          test -n "$video"
+          ffmpeg -y -i "$video" -t 30 \
+            -vf "fps=8,scale=960:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4" \
+            artifacts/frontend-recording/winbrain-uat.gif
+
+      - name: Upload UAT video and GIF
+        uses: actions/upload-artifact@v4
+        with:
+          name: winbrain-uat-video-and-gif
+          path: artifacts/frontend-recording/
+          if-no-files-found: error
+          retention-days: 30
