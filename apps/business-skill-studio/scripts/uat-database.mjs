@@ -60,19 +60,29 @@ function spawn(executable, args, options = {}) {
 }
 
 function failureReason(result) {
+  if (!result) return 'no process result'
   return result.status !== null ? `status ${result.status}` : `signal ${result.signal || 'unknown'}`
+}
+
+function waitForCleanup(milliseconds) {
+  const lock = new Int32Array(new SharedArrayBuffer(4))
+  Atomics.wait(lock, 0, 0, milliseconds)
 }
 
 function run(executable, args, options = {}) {
   const result = spawn(executable, args, options)
-  if (result.error) throw result.error
-  if (result.status !== 0) {
+  if (result?.error) throw result.error
+  if (!result || result.status !== 0) {
     throw new Error(`${executable} ${args.join(' ')} failed with ${failureReason(result)}`)
   }
 }
 
 function runBestEffort(executable, args, options = {}) {
   const result = spawn(executable, args, options)
+  if (!result) {
+    console.error(`[uat-db] diagnostic command returned no process result: ${executable} ${args.join(' ')}`)
+    return false
+  }
   if (result.error) {
     console.error(`[uat-db] diagnostic command failed to start: ${result.error.message}`)
     return false
@@ -147,6 +157,8 @@ function bootstrap() {
       if (attempt < totalAttempts) {
         console.warn('[uat-db] removing disposable containers and volumes before one clean retry')
         destroyBestEffort()
+        console.warn('[uat-db] waiting briefly for Docker to release container and volume resources')
+        waitForCleanup(2_000)
       }
     }
   }
