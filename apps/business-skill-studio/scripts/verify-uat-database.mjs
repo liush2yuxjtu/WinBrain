@@ -58,13 +58,18 @@ try {
   const tableCount = Number(tableRows[0].table_count)
   const productCount = Number(productRows[0].product_count)
   const salesCount = Number(salesRows[0].sales_count)
-  const grants = grantRows.map((row) => Object.values(row).join(' ')).join('\n').toUpperCase()
+  const privileges = grantRows.map((row) => {
+    const grant = Object.values(row).join(' ').toUpperCase()
+    return grant.split(' ON ')[0]
+  }).join(' ')
 
   if (tableCount < 5) throw new Error(`Expected at least 5 UAT customer tables, found ${tableCount}`)
   if (productCount < 3) throw new Error(`Expected at least 3 UAT products, found ${productCount}`)
   if (salesCount < 3) throw new Error(`Expected at least 3 UAT sales rows, found ${salesCount}`)
-  if (!grants.includes('SELECT') || !grants.includes('SHOW VIEW')) throw new Error('UAT customer account is missing read-only grants')
-  if (grants.includes('INSERT') || grants.includes('UPDATE') || grants.includes('DELETE') || grants.includes('ALL PRIVILEGES')) {
+  if (!/\bSELECT\b/.test(privileges) || !/\bSHOW\s+VIEW\b/.test(privileges)) {
+    throw new Error('UAT customer account is missing read-only grants')
+  }
+  if (/\b(INSERT|UPDATE|DELETE|ALL\s+PRIVILEGES)\b/.test(privileges)) {
     throw new Error('UAT customer account has write privileges')
   }
 
