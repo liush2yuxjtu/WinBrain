@@ -1,0 +1,56 @@
+name: UAT Contract
+
+on:
+  pull_request:
+    paths:
+      - 'docs/uat/**'
+      - 'apps/business-skill-studio/**'
+      - 'tests/**'
+      - '.github/workflows/uat-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-uat-catalogue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require exactly ten concrete UAT cases
+        shell: bash
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path('docs/uat/acceptance-cases.md').read_text(encoding='utf-8')
+          cases = re.split(r'(?=^## UAT-\d{2}\b)', text, flags=re.M)[1:]
+          assert len(cases) == 10, f'expected exactly 10 UAT cases, found {len(cases)}'
+          expected = [f'UAT-{i:02d}' for i in range(1, 11)]
+          found = [re.match(r'## (UAT-\d{2})', case).group(1) for case in cases]
+          assert found == expected, f'UAT IDs must be sequential: {found}'
+          for case_id, case in zip(found, cases):
+              for field in ['**Person:**', '**Task:**', '**Preconditions:**', '**Steps:**', '**Acceptance criteria:**']:
+                  assert field in case, f'{case_id} missing {field}'
+              assert len(re.search(r'\*\*Person:\*\*\s*(.+)', case).group(1).split()) >= 3
+              assert len(re.search(r'\*\*Task:\*\*\s*(.+)', case).group(1).split()) >= 5
+          print('Validated 10 concrete person/task UAT cases.')
+          PY
+
+  application-gates:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/business-skill-studio
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/business-skill-studio/package-lock.json
+      - run: npm ci
+      - run: npm run test:unit
+      - run: npm run test:integration
+      - run: npm run typecheck
+      - run: npm run build
