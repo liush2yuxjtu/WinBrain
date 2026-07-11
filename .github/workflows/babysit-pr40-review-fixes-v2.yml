@@ -1,0 +1,118 @@
+name: Babysit PR 40 review fixes v2
+
+on:
+  push:
+    branches:
+      - agent/default-claude-data-skills
+    paths:
+      - .github/workflows/babysit-pr40-review-fixes-v2.yml
+      - tools/babysit-pr40-review-fixes.py
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: babysit-pr40-review-fixes-v2
+  cancel-in-progress: false
+
+jobs:
+  apply-validate-and-clean:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/default-claude-data-skills
+          fetch-depth: 0
+
+      - name: Apply reviewed fixes
+        run: python tools/babysit-pr40-review-fixes.py
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/business-skill-studio/package-lock.json
+
+      - name: Validate application gates
+        working-directory: apps/business-skill-studio
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run test:unit
+          npm run typecheck
+          npm run build
+
+      - name: Validate packaging safety and review markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          script='apps/business-skill-studio/.claude/skills/data-context-extractor/scripts/package_data_skill.py'
+          tmp="$(mktemp -d)"
+          PYTHONPYCACHEPREFIX="$tmp/compile-cache" python -m py_compile "$script"
+
+          mkdir -p "$tmp/smoke-skill/__pycache__"
+          cat > "$tmp/smoke-skill/SKILL.md" <<'MD'
+          ---
+          name: smoke-skill
+          description: Safe packaging smoke test.
+          ---
+          # Smoke Skill
+          MD
+          printf 'compiled-junk' > "$tmp/smoke-skill/__pycache__/module.pyc"
+          (
+            cd "$tmp/smoke-skill"
+            python "$GITHUB_WORKSPACE/$script" "$tmp/smoke-skill"
+          )
+          test -s "$tmp/dist/smoke-skill.zip"
+          if unzip -l "$tmp/dist/smoke-skill.zip" | grep -E '__pycache__|\.pyc'; then
+            echo 'Archive contains excluded Python bytecode.' >&2
+            exit 1
+          fi
+          if python "$script" "$tmp/smoke-skill" "$tmp/smoke-skill/output"; then
+            echo 'Packaging unexpectedly accepted an output directory inside the skill.' >&2
+            exit 1
+          fi
+          test ! -e "$tmp/smoke-skill/output/smoke-skill.zip"
+
+          grep -F 'cancel-in-progress: false' .github/workflows/install-claude-data-skills-once.yml
+          grep -F 'const pct = total > 0' apps/business-skill-studio/.claude/skills/build-dashboard/SKILL.md
+          grep -F 'explicit user opt-in' apps/business-skill-studio/.claude/skills/explore-data/SKILL.md
+          grep -F 'pd.isna(standard_deviation)' apps/business-skill-studio/.claude/skills/statistical-analysis/SKILL.md
+          grep -F 'group-size weights' apps/business-skill-studio/.claude/skills/validate-data/SKILL.md
+          grep -F 'NULL handling' apps/business-skill-studio/.claude/skills/write-query/SKILL.md
+          git diff --check
+
+      - name: Restore normal workflow, remove helpers, and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git show origin/main:.github/workflows/uat-contract.yml > .github/workflows/uat-contract.yml
+          rm -f .github/workflows/babysit-pr40-review-fixes-v2.yml
+          rm -f tools/babysit-pr40-review-fixes.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'address remaining Claude data skill review findings'
+          git push
+
+      - name: Report failure to PR 40
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          payload="$(python - <<'PY'
+          import json, os
+          run_url = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+          print(json.dumps({'body': f'Babysit PR 40 review-fix v2 failed: {run_url}'}))
+          PY
+          )"
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/issues/40/comments" \
+            -d "$payload"
