@@ -60,7 +60,7 @@ jobs:
       - name: Record browser UAT smoke flow
         run: |
           mkdir -p uat-media/videos uat-media/screenshots
-          cat > /tmp/record-winbrain.mjs <<'NODE'
+          cat > .record-winbrain.mjs <<'NODE'
           import { chromium } from 'playwright';
           import fs from 'node:fs';
           const browser = await chromium.launch({ headless: true });
@@ -89,7 +89,8 @@ jobs:
           await browser.close();
           fs.writeFileSync('uat-media/summary.txt', `Recorded ${new Date().toISOString()}\nURL: http://127.0.0.1:3000\n`);
           NODE
-          node /tmp/record-winbrain.mjs
+          node ./.record-winbrain.mjs
+          rm -f .record-winbrain.mjs
 
       - name: Convert video to GIF
         run: |
