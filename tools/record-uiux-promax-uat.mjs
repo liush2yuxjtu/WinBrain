@@ -105,13 +105,12 @@ async function recordDesktop(browser) {
     await page.screenshot({ path: resolve(directory, '01-command-workspace.png'), fullPage: false })
 
     await verify('UIUX-UAT-02', 'Keyboard focus indicator uses the accessible solid brand color', async () => {
-      await page.evaluate(() => {
-        if (document.activeElement instanceof HTMLElement) {
-          document.activeElement.blur()
-        }
-      })
+      const focusTarget = page.locator('.sidebar-create')
+      await focusTarget.focus()
       await page.keyboard.press('Tab')
+      await page.keyboard.press('Shift+Tab')
       const focused = page.locator(':focus')
+      assert(await focused.evaluate((element) => element.classList.contains('sidebar-create')), 'Keyboard focus did not return to the new Skill link')
       const style = await focused.evaluate((element) => {
         const computed = getComputedStyle(element)
         return {
