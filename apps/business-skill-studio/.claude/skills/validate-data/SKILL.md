@@ -223,7 +223,7 @@ SELECT COUNT(*) FROM table_a a JOIN table_b b ON a.id = b.a_id;  -- 3,500 (uh oh
 - Wrong: Average of averages = ($50 + $200) / 2 = $125
 - Right: Weighted average = (100*$50 + 10*$200) / 110 = $63.64
 
-**How to prevent**: Always aggregate from raw data. Never average pre-aggregated averages.
+**How to prevent**: Aggregate from raw data when available. Otherwise, combine pre-aggregated averages using the appropriate group-size weights; never take an unweighted average of averages.
 
 ### Timezone Mismatches
 

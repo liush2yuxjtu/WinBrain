@@ -69,8 +69,8 @@ Run the following profiling checks:
 **All columns:**
 - Null count and null rate
 - Distinct count and cardinality ratio (distinct / total)
-- Most common values (top 5-10 with frequencies)
-- Least common values (bottom 5 to spot anomalies)
+- Use the existing column classification before sampling values. For sensitive columns (emails, names, identifiers, free-form text, secrets), skip or redact raw values; hash or bucket identifiers where useful.
+- Show most/least common raw values only for non-sensitive columns. Raw samples from sensitive columns require explicit user opt-in and confirmation that the connector has applied masking.
 
 **Numeric columns (metrics):**
 ```
@@ -262,9 +262,9 @@ When documenting a dataset for team use:
 
 ### Key Columns
 
-| Column | Type | Description | Example Values | Notes |
-|--------|------|-------------|----------------|-------|
-| user_id | STRING | Unique user identifier | "usr_abc123" | FK to users.id |
+| Column | Type | Description | Example Values (redacted for sensitive columns) | Notes |
+|--------|------|-------------|-----------------------------------------------|-------|
+| user_id | STRING | Unique user identifier | `hash:8f14e45f` (redacted) | FK to users.id; raw identifiers require explicit opt-in |
 | event_type | STRING | Type of event | "click", "view", "purchase" | 15 distinct values |
 | revenue | DECIMAL | Transaction revenue in USD | 29.99, 149.00 | Null for non-purchase events |
 | created_at | TIMESTAMP | When the event occurred | 2024-01-15 14:23:01 | Partitioned on this column |
