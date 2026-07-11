@@ -2,13 +2,13 @@
 > business-skill-studio@0.1.0 prebuild
 > prisma generate
 
-◇ injected env (0) from .env.local // tip: ⌘ override existing { override: true }
+◇ injected env (0) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
 ◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
 Loaded Prisma config from prisma.config.ts.
 
 Prisma schema loaded from prisma/schema.prisma.
 
-✔ Generated Prisma Client (7.8.0) to ./generated/prisma in 93ms
+✔ Generated Prisma Client (7.8.0) to ./generated/prisma in 83ms
 
 
 > business-skill-studio@0.1.0 build
@@ -23,7 +23,7 @@ https://nextjs.org/telemetry
    ▲ Next.js 15.5.20
 
    Creating an optimized production build ...
- ⚠ Compiled with warnings in 1968ms
+ ⚠ Compiled with warnings in 1889ms
 
 ./node_modules/bcryptjs/dist/bcrypt.js
 A Node.js API is used (process.nextTick at line: 351) which is not supported in the Edge Runtime.
@@ -91,7 +91,7 @@ Import trace for requested module:
 ./node_modules/next-auth/index.js
 ./auth.ts
 
- ✓ Compiled successfully in 11.5s
+ ✓ Compiled successfully in 11.3s
    Linting and checking validity of types ...
    Collecting page data ...
    Generating static pages (0/16) ...
