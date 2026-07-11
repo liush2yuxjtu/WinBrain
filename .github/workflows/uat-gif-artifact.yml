@@ -10,9 +10,18 @@ permissions:
 
 jobs:
   record-uat-gif:
+    environment: uat
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
+      KIMI_API_KEY_PRIMARY: ${{ secrets.KIMI_API_KEY_PRIMARY }}
+      KIMI_API_KEY_FALLBACK: ${{ secrets.KIMI_API_KEY_FALLBACK }}
+      KIMI_BASE_URL: https://api.kimi.com/coding/
+      KIMI_THINKING_TOKENS: '32768'
+      AGENT_SDK_ATTEMPT_TIMEOUT_MS: '600000'
+      FRONTEND_API_RESPONSE_TIMEOUT_MS: '1250000'
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: ${{ vars.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC }}
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW: ${{ vars.CLAUDE_CODE_AUTO_COMPACT_WINDOW }}
       AUTH_SECRET: winbrain-uat-gif-secret-000000000000
       AUTH_USER_EMAIL: recording@example.com
       AUTH_USER_NAME: UAT Recording User
@@ -27,6 +36,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
 
       - uses: actions/setup-node@v4
         with:
@@ -35,6 +46,15 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             apps/business-skill-studio/package-lock.json
+
+      - name: Verify live Kimi credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$KIMI_API_KEY_PRIMARY" ]; then
+            echo "::error::Protected UAT secret KIMI_API_KEY_PRIMARY is not configured."
+            exit 1
+          fi
 
       - name: Install dependencies
         run: |
