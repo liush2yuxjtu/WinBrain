@@ -1,0 +1,125 @@
+name: Babysit PR 41 format
+
+on:
+  push:
+    branches:
+      - agent/detailed-uat-workflow
+    paths:
+      - .github/workflows/babysit-pr41-format.yml
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  format-and-validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Normalize Agent SDK retry formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          file = Path('apps/business-skill-studio/lib/agent-sdk.ts')
+          text = file.read_text(encoding='utf-8')
+          old = """if (!queryPromise) {
+  queryPromise = import('@anthropic-ai/claude-agent-sdk')
+    .then((sdk) => {
+      const record = sdk as unknown as {
+        query?: unknown
+        default?: { query?: unknown }
+      }
+      const query = record.query ?? record.default?.query
+      if (typeof query !== 'function') {
+        throw new Error('Claude Agent SDK does not expose a query function')
+      }
+      return query as AgentSdkQuery
+    })
+    .catch((error) => {
+      queryPromise = undefined
+      throw error
+    })
+}
+
+return queryPromise"""
+          new = """  if (!queryPromise) {
+    queryPromise = import('@anthropic-ai/claude-agent-sdk')
+      .then((sdk) => {
+        const record = sdk as unknown as {
+          query?: unknown
+          default?: { query?: unknown }
+        }
+        const query = record.query ?? record.default?.query
+        if (typeof query !== 'function') {
+          throw new Error('Claude Agent SDK does not expose a query function')
+        }
+        return query as AgentSdkQuery
+      })
+      .catch((error) => {
+        queryPromise = undefined
+        throw error
+      })
+  }
+
+  return queryPromise"""
+          if old not in text:
+              if new in text:
+                  print('Formatting already normalized.')
+              else:
+                  raise SystemExit('Retry block marker not found')
+          else:
+              file.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          git diff --check
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/business-skill-studio/package-lock.json
+
+      - name: Validate application gates
+        working-directory: apps/business-skill-studio
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run test:unit
+          npm run typecheck
+          npm run build
+
+      - name: Commit formatting and remove one-time workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/babysit-pr41-format.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "format Agent SDK retry handling"
+          git push
+
+      - name: Report failure to PR 41
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          payload="$(python - <<'PY'
+          import json, os
+          run_url = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+          print(json.dumps({'body': f'Babysit PR 41 formatting failed: {run_url}'}))
+          PY
+          )"
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/issues/41/comments" \
+            -d "$payload"
