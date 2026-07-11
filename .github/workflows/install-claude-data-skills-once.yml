@@ -1,0 +1,61 @@
+name: Install Claude data skills once
+
+on:
+  push:
+    branches:
+      - agent/default-claude-data-skills
+    paths:
+      - .github/workflows/install-claude-data-skills-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  install-and-uat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out WinBrain
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check out Anthropic data plugin
+        uses: actions/checkout@v4
+        with:
+          repository: anthropics/knowledge-work-plugins
+          path: .tmp/knowledge-work-plugins
+          sparse-checkout: data
+          sparse-checkout-cone-mode: true
+          persist-credentials: false
+
+      - name: Install data skills as Agent SDK defaults
+        run: node tools/install-claude-data-skills.mjs .tmp/knowledge-work-plugins/data
+
+      - name: UAT — list all installed skills
+        working-directory: apps/business-skill-studio
+        env:
+          UAT_REPORT_PATH: ../../uat-claude-skills.md
+        run: node tests/uat-list-claude-skills.mjs
+
+      - name: Publish UAT report to job summary
+        run: cat uat-claude-skills.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit generated skills and SDK configuration
+        run: |
+          rm -rf .tmp
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/business-skill-studio/.claude/skills apps/business-skill-studio/lib/agent-sdk.ts uat-claude-skills.md
+          if git diff --cached --quiet; then
+            echo "Generated files are already current."
+          else
+            git commit -m "install Anthropic data skills for Claude Agent SDK"
+            git push
+          fi
+
+      - name: Upload UAT skill inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-agent-sdk-skills-uat
+          path: uat-claude-skills.md
+          if-no-files-found: error
