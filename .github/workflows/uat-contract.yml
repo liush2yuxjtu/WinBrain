@@ -74,7 +74,16 @@ jobs:
               helper_text, count = pattern.subn(replacement, helper_text, count=1)
               if count != 1:
                   raise SystemExit('helper fallback block not found')
-              helper.write_text(helper_text, encoding='utf-8')
+
+          helper_text = helper_text.replace(
+              'print(f"{message}\\n")',
+              'print(f"{message}\\\\n")',
+          )
+          helper_text = helper_text.replace(
+              'print(f"\\nSuccessfully packaged skill to: {skill_filename}")',
+              'print(f"\\\\nSuccessfully packaged skill to: {skill_filename}")',
+          )
+          helper.write_text(helper_text, encoding='utf-8')
           PY
           python tools/babysit-pr40-review-fixes.py
 
