@@ -38,7 +38,8 @@ body {
 
 ::selection { background: #bfe4de; color: #082f2b; }
 
-button, a, input, textarea, select { transition: border-color .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease; }
+button, a { transition: border-color .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease; }
+input, textarea, select { transition: border-color .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease; }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
   outline: 3px solid var(--uux-brand);
   outline-offset: 2px;
