@@ -3,200 +3,71 @@ name: UAT Contract
 on:
   pull_request:
     paths:
+      - 'docs/uat/**'
+      - 'apps/business-skill-studio/**'
+      - 'tests/**'
       - '.github/workflows/uat-contract.yml'
-      - 'tools/babysit-pr40-review-fixes.py'
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
-
-concurrency:
-  group: babysit-pr40-export-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  contents: read
 
 jobs:
-  export-validated-pr40-commit:
-    if: github.event_name == 'pull_request' && github.event.pull_request.number == 40 && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
+  validate-uat-catalogue:
+    runs-on: ubuntu-latest
     steps:
-      - name: Check out PR head branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          fetch-depth: 0
-
-      - name: Apply reviewed fixes
+      - uses: actions/checkout@v5
+      - name: Require exactly ten concrete UAT cases
         shell: bash
         run: |
-          set -euo pipefail
           python - <<'PY'
           import re
           from pathlib import Path
-
-          dashboard = Path('apps/business-skill-studio/.claude/skills/build-dashboard/SKILL.md')
-          text = dashboard.read_text(encoding='utf-8')
-          if 'const pct = total > 0' not in text:
-              pattern = re.compile(
-                  r"(?m)^(?P<indent>\s*)const total = context\.dataset\.data\.reduce\(\(a, b\) => a \+ b, 0\);\n"
-                  r"(?P=indent)const pct = \(\(context\.parsed / total\) \* 100\)\.toFixed\(1\);\n"
-                  r"(?P=indent)return `\$\{context\.label\}: \$\{formatValue\(context\.parsed, 'number'\)\} \(\$\{pct\}%\)`;$"
-              )
-              replacement = (
-                  r"\g<indent>const total = context.dataset.data.reduce((a, b) => a + b, 0);\n"
-                  r"\g<indent>const pct = total > 0\n"
-                  r"\g<indent>    ? ((context.parsed / total) * 100).toFixed(1)\n"
-                  r"\g<indent>    : '0.0';\n"
-                  r"\g<indent>return `${context.label}: ${formatValue(context.parsed, 'number')} (${pct}%)`;"
-              )
-              text, count = pattern.subn(replacement, text, count=1)
-              if count != 1:
-                  raise SystemExit('dashboard percentage block not found')
-              dashboard.write_text(text, encoding='utf-8')
-
-          helper = Path('tools/babysit-pr40-review-fixes.py')
-          helper_text = helper.read_text(encoding='utf-8')
-          if '"build-dashboard/SKILL.md" in path' not in helper_text:
-              pattern = re.compile(
-                  r'(?m)^    if old not in text:\n'
-                  r'        if new in text:\n'
-                  r'            print\(f"already fixed: \{path\}"\)\n'
-                  r'            return$'
-              )
-              replacement = '''    if old not in text:
-                  if new in text or (
-                      "build-dashboard/SKILL.md" in path
-                      and "const pct = total > 0" in text
-                  ):
-                      print(f"already fixed: {path}")
-                      return'''
-              helper_text, count = pattern.subn(replacement, helper_text, count=1)
-              if count != 1:
-                  raise SystemExit('helper fallback block not found')
-
-          helper_text = helper_text.replace(
-              'print(f"{message}\\n")',
-              'print(f"{message}\\\\n")',
-          )
-          helper_text = helper_text.replace(
-              'print(f"\\nSuccessfully packaged skill to: {skill_filename}")',
-              'print(f"\\\\nSuccessfully packaged skill to: {skill_filename}")',
-          )
-          helper.write_text(helper_text, encoding='utf-8')
+          text = Path('docs/uat/acceptance-cases.md').read_text(encoding='utf-8')
+          cases = re.split(r'(?=^## UAT-\d{2}\b)', text, flags=re.M)[1:]
+          assert len(cases) == 10, f'expected exactly 10 UAT cases, found {len(cases)}'
+          expected = [f'UAT-{i:02d}' for i in range(1, 11)]
+          found = [re.match(r'## (UAT-\d{2})', case).group(1) for case in cases]
+          assert found == expected, f'UAT IDs must be sequential: {found}'
+          for case_id, case in zip(found, cases):
+              for field in ['**Person:**', '**Task:**', '**Preconditions:**', '**Steps:**', '**Acceptance criteria:**']:
+                  assert field in case, f'{case_id} missing {field}'
+              assert len(re.search(r'\*\*Person:\*\*\s*(.+)', case).group(1).split()) >= 3
+              assert len(re.search(r'\*\*Task:\*\*\s*(.+)', case).group(1).split()) >= 5
+          print('Validated 10 concrete person/task UAT cases.')
           PY
-          python tools/babysit-pr40-review-fixes.py
 
-      - uses: actions/setup-node@v4
+  application-gates:
+    runs-on: ubuntu-latest
+    env:
+      DATA_SOURCE_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      ALLOW_PRIVATE_DATA_SOURCE_HOSTS: 'true'
+    defaults:
+      run:
+        working-directory: apps/business-skill-studio
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: 22
           cache: npm
           cache-dependency-path: apps/business-skill-studio/package-lock.json
-
-      - name: Validate application gates
-        working-directory: apps/business-skill-studio
-        run: |
-          set -euo pipefail
-          npm ci
-          npm run test:unit
-          npm run typecheck
-          npm run build
-
-      - name: Validate packaging safety
+      - run: npm ci
+      - name: Run unit tests
         shell: bash
         run: |
-          set -euo pipefail
-          script="$GITHUB_WORKSPACE/apps/business-skill-studio/.claude/skills/data-context-extractor/scripts/package_data_skill.py"
-          tmp="$(mktemp -d)"
-          PYTHONPYCACHEPREFIX="$tmp/compile-cache" python -m py_compile "$script"
-          mkdir -p "$tmp/smoke-skill/__pycache__"
-          cat > "$tmp/smoke-skill/SKILL.md" <<'MD'
-          ---
-          name: smoke-skill
-          description: Safe packaging smoke test.
-          ---
-          # Smoke Skill
-          MD
-          printf 'compiled-junk' > "$tmp/smoke-skill/__pycache__/module.pyc"
-          (cd "$tmp/smoke-skill" && python "$script" "$tmp/smoke-skill")
-          test -s "$tmp/dist/smoke-skill.zip"
-          if unzip -l "$tmp/dist/smoke-skill.zip" | grep -E '__pycache__|\.pyc'; then
-            echo 'Archive contains excluded Python bytecode.' >&2
-            exit 1
-          fi
-          if python "$script" "$tmp/smoke-skill" "$tmp/smoke-skill/output"; then
-            echo 'Packaging unexpectedly accepted an output directory inside the skill.' >&2
-            exit 1
-          fi
-          test ! -e "$tmp/smoke-skill/output/smoke-skill.zip"
-
-      - name: Validate review contracts
-        shell: bash
-        run: |
-          set -euo pipefail
-          grep -F 'cancel-in-progress: false' .github/workflows/install-claude-data-skills-once.yml
-          grep -F 'const pct = total > 0' apps/business-skill-studio/.claude/skills/build-dashboard/SKILL.md
-          grep -F 'explicit user opt-in' apps/business-skill-studio/.claude/skills/explore-data/SKILL.md
-          grep -F 'pd.isna(standard_deviation)' apps/business-skill-studio/.claude/skills/statistical-analysis/SKILL.md
-          grep -F 'group-size weights' apps/business-skill-studio/.claude/skills/validate-data/SKILL.md
-          grep -F 'NULL handling' apps/business-skill-studio/.claude/skills/write-query/SKILL.md
-          git diff --check
-
-      - name: Build clean validated commit
-        id: commit
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch origin main
-          git show origin/main:.github/workflows/uat-contract.yml > .github/workflows/uat-contract.yml
-          rm -f .github/workflows/babysit-pr40-review-fixes-v2.yml
-          rm -f tools/babysit-pr40-review-fixes.py
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m 'address remaining Claude data skill review findings'
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Push validated commit to isolated branch
-        shell: bash
-        run: |
-          set -euo pipefail
-          git push --force origin HEAD:refs/heads/agent/pr40-validated-fixes
-
-      - name: Publish validated commit location
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VALIDATED_SHA: ${{ steps.commit.outputs.sha }}
-        shell: bash
-        run: |
-          payload="$(python - <<'PY'
-          import json, os
-          sha = os.environ['VALIDATED_SHA']
-          print(json.dumps({'body': f'Validated PR 40 fixes exported to `agent/pr40-validated-fixes` at `{sha}`. All application and packaging gates passed.'}))
-          PY
-          )"
-          curl --fail-with-body -sS -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H 'Accept: application/vnd.github+json' \
-            -H 'X-GitHub-Api-Version: 2022-11-28' \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/issues/40/comments" \
-            -d "$payload"
-
-      - name: Report failure to PR 40
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          payload="$(python - <<'PY'
-          import json, os
-          run_url = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
-          print(json.dumps({'body': f'Babysit PR 40 validated-export workflow failed: {run_url}'}))
-          PY
-          )"
-          curl --fail-with-body -sS -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H 'Accept: application/vnd.github+json' \
-            -H 'X-GitHub-Api-Version: 2022-11-28' \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/issues/40/comments" \
-            -d "$payload"
+          set +e
+          npm run test:unit > unit-tests.log 2>&1
+          status=$?
+          cat unit-tests.log
+          exit $status
+      - name: Upload unit-test diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: uat-contract-unit-test-diagnostics
+          path: apps/business-skill-studio/unit-tests.log
+          if-no-files-found: warn
+          retention-days: 7
+      - run: npm run typecheck
+      - run: npm run build

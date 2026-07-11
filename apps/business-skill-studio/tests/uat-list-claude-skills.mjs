@@ -22,8 +22,18 @@ async function findSkillFiles(directory) {
 }
 
 function frontmatterValue(content, key) {
-  const match = content.match(new RegExp(`^${key}:\\s*["']?([^\\n"']+)["']?\\s*$`, 'm'))
-  return match?.[1]?.trim()
+  const frontmatter = content.match(/^---\s*\n([\s\S]*?)\n---(?:\s*\n|$)/)?.[1] ?? ''
+  const match = frontmatter.match(new RegExp(`^${key}:\\s*["']?([^\\n"']*)["']?\\s*$`, 'm'))
+  const value = match?.[1]?.trim()
+  if (value !== '>' && value !== '|') return value
+
+  const followingLines = frontmatter.slice(match.index + match[0].length).split('\n').slice(1)
+  const scalarLines = []
+  for (const line of followingLines) {
+    if (!/^\s+/.test(line)) break
+    scalarLines.push(line.trim())
+  }
+  return value === '>' ? scalarLines.join(' ') : scalarLines.join('\n')
 }
 
 const skillFiles = (await findSkillFiles(skillsRoot)).sort()
