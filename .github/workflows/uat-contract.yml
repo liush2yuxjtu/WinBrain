@@ -93,14 +93,20 @@ jobs:
           npm run typecheck
           npm run build
 
-      - name: Validate packaging safety and review markers
+      - name: Compile packaging script
         shell: bash
         run: |
           set -euo pipefail
-          script='apps/business-skill-studio/.claude/skills/data-context-extractor/scripts/package_data_skill.py'
           tmp="$(mktemp -d)"
-          PYTHONPYCACHEPREFIX="$tmp/compile-cache" python -m py_compile "$script"
+          PYTHONPYCACHEPREFIX="$tmp/compile-cache" python -m py_compile \
+            apps/business-skill-studio/.claude/skills/data-context-extractor/scripts/package_data_skill.py
 
+      - name: Package to safe default output
+        shell: bash
+        run: |
+          set -euo pipefail
+          script="$GITHUB_WORKSPACE/apps/business-skill-studio/.claude/skills/data-context-extractor/scripts/package_data_skill.py"
+          tmp="$(mktemp -d)"
           mkdir -p "$tmp/smoke-skill/__pycache__"
           cat > "$tmp/smoke-skill/SKILL.md" <<'MD'
           ---
@@ -110,28 +116,43 @@ jobs:
           # Smoke Skill
           MD
           printf 'compiled-junk' > "$tmp/smoke-skill/__pycache__/module.pyc"
-          (
-            cd "$tmp/smoke-skill"
-            python "$GITHUB_WORKSPACE/$script" "$tmp/smoke-skill"
-          )
+          (cd "$tmp/smoke-skill" && python "$script" "$tmp/smoke-skill")
           test -s "$tmp/dist/smoke-skill.zip"
-          if unzip -l "$tmp/dist/smoke-skill.zip" | grep -E '__pycache__|\.pyc'; then
+          echo "PACKAGING_TEST_ROOT=$tmp" >> "$GITHUB_ENV"
+
+      - name: Exclude Python bytecode from archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          if unzip -l "$PACKAGING_TEST_ROOT/dist/smoke-skill.zip" | grep -E '__pycache__|\.pyc'; then
             echo 'Archive contains excluded Python bytecode.' >&2
             exit 1
           fi
-          if python "$script" "$tmp/smoke-skill" "$tmp/smoke-skill/output"; then
+
+      - name: Reject output inside input skill
+        shell: bash
+        run: |
+          set -euo pipefail
+          script='apps/business-skill-studio/.claude/skills/data-context-extractor/scripts/package_data_skill.py'
+          if python "$script" "$PACKAGING_TEST_ROOT/smoke-skill" "$PACKAGING_TEST_ROOT/smoke-skill/output"; then
             echo 'Packaging unexpectedly accepted an output directory inside the skill.' >&2
             exit 1
           fi
-          test ! -e "$tmp/smoke-skill/output/smoke-skill.zip"
+          test ! -e "$PACKAGING_TEST_ROOT/smoke-skill/output/smoke-skill.zip"
 
+      - name: Validate review markers
+        shell: bash
+        run: |
+          set -euo pipefail
           grep -F 'cancel-in-progress: false' .github/workflows/install-claude-data-skills-once.yml
           grep -F 'const pct = total > 0' apps/business-skill-studio/.claude/skills/build-dashboard/SKILL.md
           grep -F 'explicit user opt-in' apps/business-skill-studio/.claude/skills/explore-data/SKILL.md
           grep -F 'pd.isna(standard_deviation)' apps/business-skill-studio/.claude/skills/statistical-analysis/SKILL.md
           grep -F 'group-size weights' apps/business-skill-studio/.claude/skills/validate-data/SKILL.md
           grep -F 'NULL handling' apps/business-skill-studio/.claude/skills/write-query/SKILL.md
-          git diff --check
+
+      - name: Validate patch whitespace
+        run: git diff --check
 
       - name: Restore normal workflow, remove helpers, and commit
         shell: bash
