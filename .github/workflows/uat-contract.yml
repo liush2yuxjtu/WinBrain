@@ -163,7 +163,7 @@ jobs:
       - name: Validate patch whitespace
         run: git diff --check
 
-      - name: Restore normal workflow, remove helpers, and commit
+      - name: Restore normal workflow and remove temporary helpers
         shell: bash
         run: |
           set -euo pipefail
@@ -171,13 +171,34 @@ jobs:
           git show origin/main:.github/workflows/uat-contract.yml > .github/workflows/uat-contract.yml
           rm -f .github/workflows/babysit-pr40-review-fixes-v2.yml
           rm -f tools/babysit-pr40-review-fixes.py
+          git status --short
+
+      - name: Create review-fix commit
+        shell: bash
+        run: |
+          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'address remaining Claude data skill review findings'
+          if git diff --cached --quiet; then
+            echo 'No local changes remain to commit.'
+          else
+            git commit -m 'address remaining Claude data skill review findings'
+          fi
+
+      - name: Synchronize with remote branch
+        shell: bash
+        run: |
+          set -euo pipefail
           branch="${{ github.event.pull_request.head.ref }}"
           git fetch origin "$branch"
           git rebase "origin/$branch"
+
+      - name: Push persisted review fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="${{ github.event.pull_request.head.ref }}"
           git push origin HEAD:"$branch"
 
       - name: Report failure to PR 40
