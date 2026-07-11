@@ -32,7 +32,7 @@ jobs:
       FRONTEND_RECORD_PASSWORD: winbrain-recording-password
       FRONTEND_START_COMMAND: cd apps/business-skill-studio && npm run start -- --hostname 127.0.0.1 --port 3000
       FRONTEND_RECORD_SCENARIO: business-skill-studio
-      PLAYWRIGHT_CHANNEL: chromium
+      PLAYWRIGHT_CHANNEL: chrome
 
     steps:
       - uses: actions/checkout@v4
@@ -71,14 +71,31 @@ jobs:
         working-directory: apps/business-skill-studio
         run: npm run build
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Chrome
+        run: npx playwright install --with-deps chrome
+
+      - name: Load trusted recorder from base branch
+        id: trusted_recorder
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p .github/.trusted
+          recorder=".github/.trusted/record-frontend.mjs"
+          if [ -n "$BASE_SHA" ]; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+            git show "${BASE_SHA}:tools/record-frontend.mjs" > "$recorder"
+          else
+            cp tools/record-frontend.mjs "$recorder"
+          fi
+          echo "recorder=$recorder" >> "$GITHUB_OUTPUT"
 
       - name: Record UAT flow
         run: |
           rm -rf artifacts/frontend-recording
           mkdir -p artifacts/frontend-recording
-          npm run record:frontend
+          node "${{ steps.trusted_recorder.outputs.recorder }}"
 
       - name: Convert recording to GIF
         run: |
