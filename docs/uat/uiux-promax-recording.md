@@ -7,7 +7,7 @@ This UAT is the release evidence for the UIUXPROMAX redesign of Business Skill S
 | ID | Persona and task | Acceptance criterion | Recorded evidence |
 | --- | --- | --- | --- |
 | `UIUX-UAT-01` | Desktop operations user opens the Skill workbench | At 1440×900, the primary navigation, workbench canvas, and persistent copilot are visible together and retain usable widths | `desktop/01-command-workspace.png`, `desktop/video.webm` |
-| `UIUX-UAT-02` | Keyboard-only user enters the workspace | Tabbing to the first interactive control shows a solid 3px `#0f766e` focus indicator | `desktop/02-keyboard-focus.png`, `desktop/video.webm` |
+| `UIUX-UAT-02` | Keyboard-only user enters the workspace | Keyboard Tab navigation returns to the known “新建 Skill” link and shows a solid 3px `#0f766e` focus indicator without relying on screen coordinates | `desktop/02-keyboard-focus.png`, `desktop/video.webm` |
 | `UIUX-UAT-03` | Low-vision reviewer reads the breadcrumb | Breadcrumb text resolves to the reviewed dark neutral `#52656f`, rather than the previous low-contrast gray | `desktop/video.webm`, `uat-results.json` |
 | `UIUX-UAT-04` | Mobile keyboard user opens and dismisses navigation | At 390×844, the navigation opens, Escape closes it, and focus returns to the menu button | `mobile/01-mobile-navigation-open.png`, `mobile/video.webm` |
 | `UIUX-UAT-05` | iPhone user edits expert context | Form controls resolve to `16px` at widths up to 560px, preventing browser auto-zoom | `mobile/02-mobile-form-focus.png`, `mobile/video.webm` |
