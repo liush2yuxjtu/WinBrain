@@ -12,11 +12,11 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: babysit-pr40-review-fixes-v2
+  group: babysit-pr40-export-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  fix-pr40-review-findings:
+  export-validated-pr40-commit:
     if: github.event_name == 'pull_request' && github.event.pull_request.number == 40 && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -102,20 +102,13 @@ jobs:
           npm run typecheck
           npm run build
 
-      - name: Compile packaging script
-        shell: bash
-        run: |
-          set -euo pipefail
-          tmp="$(mktemp -d)"
-          PYTHONPYCACHEPREFIX="$tmp/compile-cache" python -m py_compile \
-            apps/business-skill-studio/.claude/skills/data-context-extractor/scripts/package_data_skill.py
-
-      - name: Package to safe default output
+      - name: Validate packaging safety
         shell: bash
         run: |
           set -euo pipefail
           script="$GITHUB_WORKSPACE/apps/business-skill-studio/.claude/skills/data-context-extractor/scripts/package_data_skill.py"
           tmp="$(mktemp -d)"
+          PYTHONPYCACHEPREFIX="$tmp/compile-cache" python -m py_compile "$script"
           mkdir -p "$tmp/smoke-skill/__pycache__"
           cat > "$tmp/smoke-skill/SKILL.md" <<'MD'
           ---
@@ -127,29 +120,17 @@ jobs:
           printf 'compiled-junk' > "$tmp/smoke-skill/__pycache__/module.pyc"
           (cd "$tmp/smoke-skill" && python "$script" "$tmp/smoke-skill")
           test -s "$tmp/dist/smoke-skill.zip"
-          echo "PACKAGING_TEST_ROOT=$tmp" >> "$GITHUB_ENV"
-
-      - name: Exclude Python bytecode from archive
-        shell: bash
-        run: |
-          set -euo pipefail
-          if unzip -l "$PACKAGING_TEST_ROOT/dist/smoke-skill.zip" | grep -E '__pycache__|\.pyc'; then
+          if unzip -l "$tmp/dist/smoke-skill.zip" | grep -E '__pycache__|\.pyc'; then
             echo 'Archive contains excluded Python bytecode.' >&2
             exit 1
           fi
-
-      - name: Reject output inside input skill
-        shell: bash
-        run: |
-          set -euo pipefail
-          script='apps/business-skill-studio/.claude/skills/data-context-extractor/scripts/package_data_skill.py'
-          if python "$script" "$PACKAGING_TEST_ROOT/smoke-skill" "$PACKAGING_TEST_ROOT/smoke-skill/output"; then
+          if python "$script" "$tmp/smoke-skill" "$tmp/smoke-skill/output"; then
             echo 'Packaging unexpectedly accepted an output directory inside the skill.' >&2
             exit 1
           fi
-          test ! -e "$PACKAGING_TEST_ROOT/smoke-skill/output/smoke-skill.zip"
+          test ! -e "$tmp/smoke-skill/output/smoke-skill.zip"
 
-      - name: Validate review markers
+      - name: Validate review contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -159,11 +140,10 @@ jobs:
           grep -F 'pd.isna(standard_deviation)' apps/business-skill-studio/.claude/skills/statistical-analysis/SKILL.md
           grep -F 'group-size weights' apps/business-skill-studio/.claude/skills/validate-data/SKILL.md
           grep -F 'NULL handling' apps/business-skill-studio/.claude/skills/write-query/SKILL.md
+          git diff --check
 
-      - name: Validate patch whitespace
-        run: git diff --check
-
-      - name: Restore normal workflow and remove temporary helpers
+      - name: Build clean validated commit
+        id: commit
         shell: bash
         run: |
           set -euo pipefail
@@ -171,35 +151,36 @@ jobs:
           git show origin/main:.github/workflows/uat-contract.yml > .github/workflows/uat-contract.yml
           rm -f .github/workflows/babysit-pr40-review-fixes-v2.yml
           rm -f tools/babysit-pr40-review-fixes.py
-          git status --short
-
-      - name: Create review-fix commit
-        shell: bash
-        run: |
-          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          if git diff --cached --quiet; then
-            echo 'No local changes remain to commit.'
-          else
-            git commit -m 'address remaining Claude data skill review findings'
-          fi
+          git commit -m 'address remaining Claude data skill review findings'
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Synchronize with remote branch
+      - name: Push validated commit to isolated branch
         shell: bash
         run: |
           set -euo pipefail
-          branch="${{ github.event.pull_request.head.ref }}"
-          git fetch origin "$branch"
-          git rebase "origin/$branch"
+          git push --force origin HEAD:refs/heads/agent/pr40-validated-fixes
 
-      - name: Push persisted review fixes
+      - name: Publish validated commit location
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALIDATED_SHA: ${{ steps.commit.outputs.sha }}
         shell: bash
         run: |
-          set -euo pipefail
-          branch="${{ github.event.pull_request.head.ref }}"
-          git push origin HEAD:"$branch"
+          payload="$(python - <<'PY'
+          import json, os
+          sha = os.environ['VALIDATED_SHA']
+          print(json.dumps({'body': f'Validated PR 40 fixes exported to `agent/pr40-validated-fixes` at `{sha}`. All application and packaging gates passed.'}))
+          PY
+          )"
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/issues/40/comments" \
+            -d "$payload"
 
       - name: Report failure to PR 40
         if: failure()
@@ -210,7 +191,7 @@ jobs:
           payload="$(python - <<'PY'
           import json, os
           run_url = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
-          print(json.dumps({'body': f'Babysit PR 40 review-fix transaction failed: {run_url}'}))
+          print(json.dumps({'body': f'Babysit PR 40 validated-export workflow failed: {run_url}'}))
           PY
           )"
           curl --fail-with-body -sS -X POST \
