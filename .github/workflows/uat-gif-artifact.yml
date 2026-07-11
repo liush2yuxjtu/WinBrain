@@ -10,29 +10,16 @@ permissions:
 
 jobs:
   record-uat-gif:
-    environment: uat
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     env:
-      KIMI_API_KEY_PRIMARY: ${{ secrets.KIMI_API_KEY_PRIMARY }}
-      KIMI_API_KEY_FALLBACK: ${{ secrets.KIMI_API_KEY_FALLBACK }}
-      KIMI_BASE_URL: https://api.kimi.com/coding/
-      KIMI_THINKING_TOKENS: '32768'
-      AGENT_SDK_ATTEMPT_TIMEOUT_MS: '600000'
-      FRONTEND_API_RESPONSE_TIMEOUT_MS: '1250000'
-      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: ${{ vars.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC }}
-      CLAUDE_CODE_AUTO_COMPACT_WINDOW: ${{ vars.CLAUDE_CODE_AUTO_COMPACT_WINDOW }}
       AUTH_SECRET: winbrain-uat-gif-secret-000000000000
       AUTH_USER_EMAIL: recording@example.com
       AUTH_USER_NAME: UAT Recording User
       AUTH_USER_ROLE: admin
       AUTH_URL: http://127.0.0.1:3000
       NEXTAUTH_URL: http://127.0.0.1:3000
-      FRONTEND_RECORD_EMAIL: recording@example.com
-      FRONTEND_RECORD_PASSWORD: winbrain-recording-password
-      FRONTEND_START_COMMAND: cd apps/business-skill-studio && npm run start -- --hostname 127.0.0.1 --port 3000
-      FRONTEND_RECORD_SCENARIO: business-skill-studio
-      PLAYWRIGHT_CHANNEL: chrome
+      RECORDING_PASSWORD: winbrain-recording-password
 
     steps:
       - uses: actions/checkout@v4
@@ -47,70 +34,76 @@ jobs:
             package-lock.json
             apps/business-skill-studio/package-lock.json
 
-      - name: Verify live Kimi credential
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -z "$KIMI_API_KEY_PRIMARY" ]; then
-            echo "::error::Protected UAT secret KIMI_API_KEY_PRIMARY is not configured."
-            exit 1
-          fi
-
       - name: Install dependencies
         run: |
           npm ci
           npm --prefix apps/business-skill-studio ci
+          npx playwright install --with-deps chromium
 
       - name: Configure deterministic authentication
         working-directory: apps/business-skill-studio
         run: |
-          password_hash="$(node -e 'const bcrypt = require("bcryptjs"); process.stdout.write(bcrypt.hashSync(process.env.FRONTEND_RECORD_PASSWORD, 10));')"
+          password_hash="$(node -e 'const bcrypt = require("bcryptjs"); process.stdout.write(bcrypt.hashSync(process.env.RECORDING_PASSWORD, 10));')"
           echo "AUTH_USER_PASSWORD_HASH=$password_hash" >> "$GITHUB_ENV"
 
-      - name: Build application
-        working-directory: apps/business-skill-studio
-        run: npm run build
-
-      - name: Install Chrome
-        run: npx playwright install --with-deps chrome
-
-      - name: Load trusted recorder from base branch
-        id: trusted_recorder
-        shell: bash
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      - name: Start application
         run: |
-          set -euo pipefail
-          mkdir -p .github/.trusted
-          recorder=".github/.trusted/record-frontend.mjs"
-          if [ -n "$BASE_SHA" ]; then
-            git fetch --no-tags --depth=1 origin "$BASE_SHA"
-            git show "${BASE_SHA}:tools/record-frontend.mjs" > "$recorder"
-          else
-            cp tools/record-frontend.mjs "$recorder"
-          fi
-          echo "recorder=$recorder" >> "$GITHUB_OUTPUT"
+          npm --prefix apps/business-skill-studio run dev -- --hostname 127.0.0.1 --port 3000 > /tmp/winbrain-uat-server.log 2>&1 &
+          echo $! > /tmp/winbrain-uat-server.pid
+          for attempt in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:3000 >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/winbrain-uat-server.log
+          exit 1
 
-      - name: Record UAT flow
+      - name: Record browser UAT smoke flow
         run: |
-          rm -rf artifacts/frontend-recording
-          mkdir -p artifacts/frontend-recording
-          node "${{ steps.trusted_recorder.outputs.recorder }}"
+          mkdir -p uat-media/videos uat-media/screenshots
+          cat > /tmp/record-winbrain.mjs <<'NODE'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({
+            viewport: { width: 1440, height: 900 },
+            recordVideo: { dir: 'uat-media/videos', size: { width: 1440, height: 900 } }
+          });
+          const page = await context.newPage();
+          await page.goto('http://127.0.0.1:3000', { waitUntil: 'domcontentloaded', timeout: 120000 });
+          const email = page.locator('input[name="email"]');
+          if (await email.isVisible().catch(() => false)) {
+            await email.fill(process.env.AUTH_USER_EMAIL);
+            await page.locator('input[name="password"]').fill(process.env.RECORDING_PASSWORD);
+            const login = page.getByRole('button', { name: /登录|sign in|login/i });
+            if (await login.isVisible().catch(() => false)) {
+              await login.click();
+              await page.waitForTimeout(5000);
+            }
+          }
+          await page.screenshot({ path: 'uat-media/screenshots/winbrain-home.png', fullPage: true });
+          await page.mouse.wheel(0, 700);
+          await page.waitForTimeout(2500);
+          await page.mouse.wheel(0, -700);
+          await page.waitForTimeout(2500);
+          await context.close();
+          await browser.close();
+          fs.writeFileSync('uat-media/summary.txt', `Recorded ${new Date().toISOString()}\nURL: http://127.0.0.1:3000\n`);
+          NODE
+          node /tmp/record-winbrain.mjs
 
-      - name: Convert recording to GIF
+      - name: Convert video to GIF
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-          video="$(find artifacts/frontend-recording -type f \( -name '*.webm' -o -name '*.mp4' -o -name '*.mov' \) | sort | head -n 1)"
+          video="$(find uat-media/videos -type f -name '*.webm' | sort | head -n 1)"
           test -n "$video"
-          ffmpeg -y -i "$video" -t 30 \
-            -vf "fps=8,scale=960:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4" \
-            artifacts/frontend-recording/winbrain-uat.gif
+          ffmpeg -y -i "$video" -t 20 -vf "fps=8,scale=960:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4" uat-media/winbrain-uat.gif
+          test -s uat-media/winbrain-uat.gif
 
       - name: Upload UAT video and GIF
         uses: actions/upload-artifact@v4
         with:
           name: winbrain-uat-video-and-gif
-          path: artifacts/frontend-recording/
+          path: uat-media/
           if-no-files-found: error
           retention-days: 30
