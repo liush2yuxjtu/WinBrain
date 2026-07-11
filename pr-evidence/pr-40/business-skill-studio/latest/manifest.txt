@@ -8,4 +8,4 @@ pr-evidence/pr-40/business-skill-studio/latest/snapshots/01-business-skill-studi
 pr-evidence/pr-40/business-skill-studio/latest/snapshots/02-after-chat-response.png
 pr-evidence/pr-40/business-skill-studio/latest/snapshots/03-after-skill-draft.png
 pr-evidence/pr-40/business-skill-studio/latest/summary.md
-pr-evidence/pr-40/business-skill-studio/latest/video/9212e2838079f3200261c321178717ae.webm
+pr-evidence/pr-40/business-skill-studio/latest/video/76796aaf8cf1f9a71e0078d59155e088.webm
