@@ -105,7 +105,11 @@ async function recordDesktop(browser) {
     await page.screenshot({ path: resolve(directory, '01-command-workspace.png'), fullPage: false })
 
     await verify('UIUX-UAT-02', 'Keyboard focus indicator uses the accessible solid brand color', async () => {
-      await page.locator('body').click({ position: { x: 700, y: 80 } })
+      await page.evaluate(() => {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur()
+        }
+      })
       await page.keyboard.press('Tab')
       const focused = page.locator(':focus')
       const style = await focused.evaluate((element) => {
