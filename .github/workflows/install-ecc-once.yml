@@ -1,0 +1,82 @@
+name: Install ECC once
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: install-ecc-once-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  install-ecc:
+    name: Vendor ECC assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Stop if installation already completed
+        id: guard
+        shell: bash
+        run: |
+          if [[ -f .codex/ecc/INSTALL_WORKFLOW_COMPLETE ]]; then
+            echo "already_installed=true" >> "$GITHUB_OUTPUT"
+            echo "ECC installation was already completed by this workflow."
+          else
+            echo "already_installed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify installer
+        if: steps.guard.outputs.already_installed != 'true'
+        shell: bash
+        run: |
+          test -f .codex/ecc/install-ecc.sh
+          bash -n .codex/ecc/install-ecc.sh
+
+      - name: Install selected ECC assets
+        if: steps.guard.outputs.already_installed != 'true'
+        shell: bash
+        run: bash .codex/ecc/install-ecc.sh
+
+      - name: Validate installed scope
+        if: steps.guard.outputs.already_installed != 'true'
+        shell: bash
+        run: |
+          test -s .codex/ecc/ECC_COMMIT
+          for dir in hooks skills plugins commands agents; do
+            test -d ".codex/ecc/upstream/$dir"
+          done
+          unexpected="$(find .codex/ecc/upstream -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | grep -Ev '^(hooks|skills|plugins|commands|agents)$' || true)"
+          test -z "$unexpected" || { echo "Unexpected directories: $unexpected"; exit 1; }
+
+      - name: Record one-time completion
+        if: steps.guard.outputs.already_installed != 'true'
+        shell: bash
+        run: |
+          {
+            echo "installed_at=${{ github.run_id }}"
+            echo "source_commit=$(cat .codex/ecc/ECC_COMMIT)"
+            echo "workflow_ref=${{ github.workflow_ref }}"
+          } > .codex/ecc/INSTALL_WORKFLOW_COMPLETE
+
+      - name: Commit and push vendored ECC assets
+        if: steps.guard.outputs.already_installed != 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .codex/ecc/upstream .codex/ecc/ECC_COMMIT .codex/ecc/INSTALL_WORKFLOW_COMPLETE
+          if git diff --cached --quiet; then
+            echo "No ECC changes to commit."
+            exit 0
+          fi
+          git commit -m "chore(codex): vendor selected ECC assets"
+          git push origin "HEAD:${{ github.ref_name }}"
