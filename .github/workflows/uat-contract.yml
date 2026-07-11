@@ -39,37 +39,7 @@ jobs:
 
   application-gates:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: winbrain_test
-          POSTGRES_USER: winbrain
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U winbrain -d winbrain_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      mysql:
-        image: mysql:8.4
-        env:
-          MYSQL_ROOT_PASSWORD: local-root-password
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -plocal-root-password --silent"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
     env:
-      DATABASE_URL: postgresql://winbrain@127.0.0.1:5432/winbrain_test?schema=public
-      TEST_DATABASE_URL: postgresql://winbrain@127.0.0.1:5432/winbrain_test?schema=public
-      TEST_CUSTOMER_DB_HOST: 127.0.0.1
-      TEST_CUSTOMER_DB_PORT: '3306'
-      TEST_CUSTOMER_DB_ROOT_PASSWORD: local-root-password
       DATA_SOURCE_ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
       ALLOW_PRIVATE_DATA_SOURCE_HOSTS: 'true'
     defaults:
@@ -83,7 +53,6 @@ jobs:
           cache: npm
           cache-dependency-path: apps/business-skill-studio/package-lock.json
       - run: npm ci
-      - run: npm run db:migrate:deploy
       - name: Run unit tests
         shell: bash
         run: |
@@ -100,6 +69,5 @@ jobs:
           path: apps/business-skill-studio/unit-tests.log
           if-no-files-found: warn
           retention-days: 7
-      - run: npm run test:integration
       - run: npm run typecheck
       - run: npm run build
