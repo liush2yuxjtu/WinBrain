@@ -120,7 +120,7 @@ async function recordDesktop(browser) {
       })
       assert(style.outlineStyle !== 'none', 'Focused control has no visible outline')
       assert(Number.parseFloat(style.outlineWidth) >= 3, `Focus outline is thinner than 3px: ${style.outlineWidth}`)
-      assert(style.outlineColor === 'rgb(15, 118, 110)', `Unexpected focus color: ${style.outlineColor}`)
+      assert(/^rgba?\(15,\s*118,\s*110(?:,\s*1)?\)$/.test(style.outlineColor), `Unexpected focus color: ${style.outlineColor}`)
       return `${style.tag} ${style.label}; ${style.outlineWidth} ${style.outlineColor}`
     })
     await page.screenshot({ path: resolve(directory, '02-keyboard-focus.png'), fullPage: false })
