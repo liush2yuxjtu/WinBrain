@@ -63,7 +63,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: uat-contract-unit-test-diagnostics
-          path: apps/business-skill-studio/unit-tests.log
+          path: |
+            apps/business-skill-studio/unit-tests.log
+            apps/business-skill-studio/lib/agent-sdk.ts
+            apps/business-skill-studio/tests/agent-sdk.test.ts
+            apps/business-skill-studio/package.json
           if-no-files-found: error
           retention-days: 7
       - run: npm run test:integration
