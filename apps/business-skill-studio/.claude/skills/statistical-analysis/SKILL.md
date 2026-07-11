@@ -119,8 +119,12 @@ For business analysts (not data scientists), use straightforward methods:
 
 **Z-score method** (for normally distributed data):
 ```python
-z_scores = (df['value'] - df['value'].mean()) / df['value'].std()
-outliers = df[abs(z_scores) > 3]  # More than 3 standard deviations
+std = df['value'].std()
+if pd.isna(std) or std == 0:
+    outliers = df.iloc[0:0]  # Z-scores are undefined for constant, singleton, or all-null data
+else:
+    z_scores = (df['value'] - df['value'].mean()) / std
+    outliers = df[abs(z_scores) > 3]  # More than 3 standard deviations
 ```
 
 **IQR method** (robust to non-normal distributions):
