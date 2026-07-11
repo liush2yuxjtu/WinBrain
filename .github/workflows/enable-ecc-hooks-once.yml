@@ -1,0 +1,166 @@
+name: Enable ECC hooks once
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  statuses: write
+
+concurrency:
+  group: enable-ecc-hooks-once-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  enable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Guard one-time execution
+        id: guard
+        shell: bash
+        run: |
+          if [[ -f .codex/ecc/HOOKS_RUNTIME_ENABLED ]]; then
+            echo "done=true" >> "$GITHUB_OUTPUT"
+            echo "ECC hooks runtime already enabled."
+          else
+            echo "done=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Vendor exact ECC runtime
+        if: steps.guard.outputs.done != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s .codex/ecc/ECC_COMMIT
+          ECC_SHA="$(tr -d '[:space:]' < .codex/ecc/ECC_COMMIT)"
+          [[ "$ECC_SHA" =~ ^[0-9a-f]{40}$ ]]
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          git clone --filter=blob:none --no-checkout https://github.com/affaan-m/ECC.git "$tmp/ECC"
+          git -C "$tmp/ECC" sparse-checkout init --no-cone
+          printf '/scripts/\n/package.json\n/package-lock.json\n' > "$tmp/ECC/.git/info/sparse-checkout"
+          git -C "$tmp/ECC" checkout "$ECC_SHA"
+          rm -rf .codex/ecc/upstream/scripts
+          cp -a "$tmp/ECC/scripts" .codex/ecc/upstream/scripts
+          for f in package.json package-lock.json; do
+            [[ -f "$tmp/ECC/$f" ]] && cp "$tmp/ECC/$f" ".codex/ecc/upstream/$f"
+          done
+
+      - name: Verify every referenced hook script
+        if: steps.guard.outputs.done != 'true'
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const root = '.codex/ecc/upstream';
+          const cfg = JSON.parse(fs.readFileSync(path.join(root,'hooks/hooks.json'),'utf8'));
+          const refs = new Set();
+          for (const groups of Object.values(cfg.hooks || {})) {
+            for (const group of groups || []) for (const hook of group.hooks || []) {
+              const cmd = hook.command || '';
+              for (const m of cmd.matchAll(/scripts\/hooks\/[A-Za-z0-9._/-]+\.js/g)) refs.add(m[0]);
+            }
+          }
+          const missing = [...refs].filter(p => !fs.existsSync(path.join(root,p)));
+          console.log(`Referenced scripts: ${refs.size}`);
+          if (missing.length) {
+            console.error('Missing runtime scripts:\n' + missing.join('\n'));
+            process.exit(1);
+          }
+          fs.mkdirSync('.codex/ecc/audit',{recursive:true});
+          fs.writeFileSync('.codex/ecc/audit/HOOK_RUNTIME_VERIFIED.json', JSON.stringify({verified_at:new Date().toISOString(), referenced_script_count:refs.size, missing_script_count:0, scripts:[...refs].sort()}, null, 2)+'\n');
+          NODE
+
+      - name: High-confidence secret gate
+        if: steps.guard.outputs.done != 'true'
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import pathlib,re,json,datetime
+          root=pathlib.Path('.codex/ecc/upstream')
+          pats={
+            'private-key':re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),
+            'github-token':re.compile(r'\bgh[pousr]_[A-Za-z0-9]{30,}\b'),
+            'aws-access-key':re.compile(r'\bAKIA[0-9A-Z]{16}\b'),
+            'openai-key':re.compile(r'\bsk-[A-Za-z0-9]{32,}\b'),
+            'slack-token':re.compile(r'\bxox[baprs]-[A-Za-z0-9-]{20,}\b'),
+          }
+          hits=[]; scanned=0
+          for p in root.rglob('*'):
+            if not p.is_file() or p.stat().st_size>2_000_000: continue
+            try: text=p.read_text('utf-8')
+            except Exception: continue
+            scanned+=1
+            for name,rx in pats.items():
+              for m in rx.finditer(text):
+                hits.append({'file':str(p),'line':text.count('\n',0,m.start())+1,'type':name})
+          out={'scanned_text_files':scanned,'high_confidence_count':len(hits),'hits':hits,'scanned_at':datetime.datetime.now(datetime.timezone.utc).isoformat()}
+          pathlib.Path('.codex/ecc/audit').mkdir(parents=True,exist_ok=True)
+          pathlib.Path('.codex/ecc/audit/HIGH_CONFIDENCE_SECRETS.json').write_text(json.dumps(out,indent=2)+'\n')
+          print(json.dumps(out,indent=2))
+          raise SystemExit(1 if hits else 0)
+          PY
+
+      - name: Create cross-platform hook launcher and enable project hooks
+        if: steps.guard.outputs.done != 'true'
+        shell: bash
+        run: |
+          mkdir -p .codex/ecc/enabled .claude
+          cat > .codex/ecc/run-hook-command.cjs <<'NODE'
+          const {spawnSync}=require('child_process');
+          const path=require('path');
+          const encoded=process.argv[2];
+          if(!encoded) process.exit(64);
+          const command=Buffer.from(encoded,'base64').toString('utf8');
+          const env={...process.env,CLAUDE_PLUGIN_ROOT:path.resolve('.codex/ecc/upstream')};
+          const r=spawnSync(command,{shell:true,stdio:'inherit',env});
+          process.exit(r.status ?? 1);
+          NODE
+          node <<'NODE'
+          const fs=require('fs');
+          const src=JSON.parse(fs.readFileSync('.codex/ecc/upstream/hooks/hooks.json','utf8'));
+          for(const groups of Object.values(src.hooks||{})) for(const group of groups||[]) for(const hook of group.hooks||[]) {
+            if(hook.command){
+              const b64=Buffer.from(hook.command,'utf8').toString('base64');
+              hook.command=`node .codex/ecc/run-hook-command.cjs ${b64}`;
+            }
+          }
+          fs.writeFileSync('.codex/ecc/enabled/hooks.json',JSON.stringify(src,null,2)+'\n');
+          let settings={};
+          if(fs.existsSync('.claude/settings.json')) settings=JSON.parse(fs.readFileSync('.claude/settings.json','utf8'));
+          settings.hooks=src.hooks;
+          settings.ecc={enabled:true,sourceCommit:fs.readFileSync('.codex/ecc/ECC_COMMIT','utf8').trim(),profile:'minimal',runtimeRoot:'.codex/ecc/upstream'};
+          fs.writeFileSync('.claude/settings.json',JSON.stringify(settings,null,2)+'\n');
+          NODE
+          {
+            echo "enabled_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "source_commit=$(cat .codex/ecc/ECC_COMMIT)"
+            echo "profile=minimal"
+            echo "high_confidence_secrets=0"
+            echo "missing_hook_scripts=0"
+          } > .codex/ecc/HOOKS_RUNTIME_ENABLED
+
+      - name: Commit enabled runtime
+        if: steps.guard.outputs.done != 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .codex/ecc/upstream/scripts .codex/ecc/upstream/package*.json .codex/ecc/audit .codex/ecc/enabled .codex/ecc/run-hook-command.cjs .codex/ecc/HOOKS_RUNTIME_ENABLED .claude/settings.json
+          git commit -m "chore(codex): enable audited ECC hook runtime"
+          git push origin "HEAD:${{ github.ref_name }}"
+
+      - name: Publish success status
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/$(git rev-parse HEAD)" -f state=success -f context='ECC Hooks Runtime' -f description='Runtime complete; high-confidence secrets 0'
