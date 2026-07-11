@@ -4,6 +4,7 @@ import test from 'node:test'
 
 const designCssUrl = new URL('../app/uiux-promax.css', import.meta.url)
 const layoutUrl = new URL('../app/layout.tsx', import.meta.url)
+const uatDatabaseUrl = new URL('../scripts/uat-database.mjs', import.meta.url)
 const recordingWorkflowUrl = new URL('../../../.github/workflows/uiux-promax-uat-recording.yml', import.meta.url)
 const recorderUrl = new URL('../../../tools/record-uiux-promax-uat.mjs', import.meta.url)
 
@@ -26,7 +27,10 @@ test('UIUXPROMAX includes accessibility and responsive contracts', async () => {
 
   assert.match(css, /:focus-visible/)
   assert.match(css, /outline:\s*3px solid var\(--uux-brand\)/)
+  assert.match(css, /\.nav-label\s*\{\s*color:\s*#52656f/)
   assert.match(css, /\.workbench-breadcrumb\s*\{\s*color:\s*#52656f/)
+  assert.match(css, /font-size:\s*clamp\(23px,\s*1\.5rem \+ 1\.5vw,\s*34px\)/)
+  assert.match(css, /\.metric-card\s*\{[^}]*transition:\s*border-color/)
   assert.match(css, /\.draft-editor\s*\{[^}]*color-scheme:\s*dark/)
   assert.match(css, /\.assistant-panel\s*\{[^}]*color-scheme:\s*dark/)
   assert.match(css, /@media \(max-width: 820px\)[\s\S]*\.assistant-panel\s*\{[^}]*width:\s*100%[^}]*flex-basis:\s*auto/)
@@ -58,5 +62,14 @@ test('UIUXPROMAX has dedicated desktop and mobile UAT recording evidence', async
   assert.match(recorder, /mobile\/video\.webm/)
   assert.match(recorder, /copyFile/)
   assert.match(recorder, /EXDEV/)
+  assert.match(recorder, /rgba\?\\\(15/)
   assert.match(recorder, /async function moveVideo[\s\S]*try[\s\S]*failed to move video/)
+})
+
+test('UAT database diagnostics distinguish exit codes from operating-system signals', async () => {
+  const script = await source(uatDatabaseUrl)
+
+  assert.match(script, /function failureReason\(result\)/)
+  assert.match(script, /result\.status !== null \? `status \$\{result\.status\}` : `signal \$\{result\.signal \|\| 'unknown'\}`/)
+  assert.match(script, /failed with \$\{failureReason\(result\)\}/)
 })
