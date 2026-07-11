@@ -60,12 +60,12 @@ jobs:
               '}',
           ])
           pattern = re.compile(
-              r'async function resolveAgentSdkQuery\(\): Promise<AgentSdkQuery> \{.*?^\}',
+              r'async function resolveAgentSdkQuery\(\): Promise<AgentSdkQuery> \{.*?\n\s*return queryPromise\n\}',
               re.MULTILINE | re.DOTALL,
           )
           text, count = pattern.subn(replacement, text, count=1)
           if count != 1:
-              raise SystemExit('resolveAgentSdkQuery function marker not found')
+              raise SystemExit('resolveAgentSdkQuery complete function marker not found')
           file.write_text(text, encoding='utf-8')
           PY
           git diff --check
