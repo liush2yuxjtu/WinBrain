@@ -9,7 +9,7 @@ $ cd apps/business-skill-studio && npm run start -- --hostname 127.0.0.1 --port 
    - Network:      http://127.0.0.1:3000
 
  ✓ Starting...
- ✓ Ready in 324ms
+ ✓ Ready in 320ms
 Failed to load company setup Error: DATABASE_URL is required when SKILL_STORE_DRIVER=database
     at h (.next/server/chunks/957.js:1:36356)
     at p (.next/server/chunks/716.js:1:4548)
