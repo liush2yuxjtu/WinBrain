@@ -49,22 +49,57 @@ const runtimeEnvironment = {
 }
 const composeArguments = ['compose', '--env-file', envFile, '-f', 'docker-compose.uat.yml']
 
-function run(executable, args, options = {}) {
-  const result = spawnSync(executable, args, {
+function spawn(executable, args, options = {}) {
+  return spawnSync(executable, args, {
     cwd: appDirectory,
     env: runtimeEnvironment,
     stdio: 'inherit',
     shell: process.platform === 'win32',
     ...options
   })
+}
+
+function failureReason(result) {
+  return result.status !== null ? `status ${result.status}` : `signal ${result.signal || 'unknown'}`
+}
+
+function run(executable, args, options = {}) {
+  const result = spawn(executable, args, options)
   if (result.error) throw result.error
   if (result.status !== 0) {
-    throw new Error(`${executable} ${args.join(' ')} exited with status ${result.status}`)
+    throw new Error(`${executable} ${args.join(' ')} failed with ${failureReason(result)}`)
   }
+}
+
+function runBestEffort(executable, args, options = {}) {
+  const result = spawn(executable, args, options)
+  if (result.error) {
+    console.error(`[uat-db] diagnostic command failed to start: ${result.error.message}`)
+    return false
+  }
+  if (result.status !== 0) {
+    console.error(`[uat-db] diagnostic command failed with ${failureReason(result)}: ${executable} ${args.join(' ')}`)
+    return false
+  }
+  return true
 }
 
 function compose(...args) {
   run('docker', [...composeArguments, ...args])
+}
+
+function composeBestEffort(...args) {
+  return runBestEffort('docker', [...composeArguments, ...args])
+}
+
+function diagnose(label) {
+  console.error(`[uat-db] diagnostics after ${label}`)
+  composeBestEffort('ps', '--all')
+  composeBestEffort('logs', '--no-color', '--tail', '200')
+}
+
+function destroyBestEffort() {
+  composeBestEffort('down', '--volumes', '--remove-orphans')
 }
 
 function up() {
@@ -84,11 +119,39 @@ function verify() {
   run(process.execPath, ['scripts/verify-uat-database.mjs'])
 }
 
-function bootstrap() {
+function bootstrapAttempt(attempt, totalAttempts) {
+  console.log(`[uat-db] bootstrap attempt ${attempt}/${totalAttempts}: start services`)
   up()
+  console.log(`[uat-db] bootstrap attempt ${attempt}/${totalAttempts}: apply migrations`)
   migrate()
+  console.log(`[uat-db] bootstrap attempt ${attempt}/${totalAttempts}: seed fixtures`)
   seed()
+  console.log(`[uat-db] bootstrap attempt ${attempt}/${totalAttempts}: verify fixtures and grants`)
   verify()
+}
+
+function bootstrap() {
+  const totalAttempts = 2
+  let lastError
+
+  for (let attempt = 1; attempt <= totalAttempts; attempt += 1) {
+    try {
+      bootstrapAttempt(attempt, totalAttempts)
+      return
+    } catch (error) {
+      lastError = error
+      const message = error instanceof Error ? error.message : String(error)
+      console.error(`[uat-db] bootstrap attempt ${attempt}/${totalAttempts} failed: ${message}`)
+      diagnose(`bootstrap attempt ${attempt}`)
+
+      if (attempt < totalAttempts) {
+        console.warn('[uat-db] removing disposable containers and volumes before one clean retry')
+        destroyBestEffort()
+      }
+    }
+  }
+
+  throw lastError
 }
 
 switch (command) {

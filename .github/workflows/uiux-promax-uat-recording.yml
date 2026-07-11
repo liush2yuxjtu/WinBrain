@@ -1,0 +1,241 @@
+name: UIUXPROMAX UAT Recording
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/uiux-promax-uat-recording.yml'
+      - 'apps/business-skill-studio/app/uiux-promax.css'
+      - 'apps/business-skill-studio/app/layout.tsx'
+      - 'apps/business-skill-studio/app/page.tsx'
+      - 'apps/business-skill-studio/components/studio-shell.tsx'
+      - 'apps/business-skill-studio/tests/uiux-promax.test.ts'
+      - 'tools/record-uiux-promax-uat.mjs'
+      - 'docs/uat/uiux-promax-recording.md'
+  workflow_dispatch:
+
+concurrency:
+  group: uiux-promax-uat-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  record-uiux-uat:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      AUTH_SECRET: winbrain-uiux-uat-only-secret-000000000000
+      AUTH_USER_EMAIL: uiux-uat@example.com
+      AUTH_USER_NAME: UIUX UAT Reviewer
+      AUTH_USER_ROLE: admin
+      AUTH_URL: http://127.0.0.1:3000
+      NEXTAUTH_URL: http://127.0.0.1:3000
+      FRONTEND_RECORD_EMAIL: uiux-uat@example.com
+      FRONTEND_RECORD_PASSWORD: winbrain-uiux-uat-password
+      UIUX_UAT_URL: http://127.0.0.1:3000
+      UIUX_UAT_ARTIFACT_DIR: artifacts/uiux-promax-uat
+      PLAYWRIGHT_CHANNEL: chrome
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/business-skill-studio/package-lock.json
+
+      - name: Prepare evidence directory
+        run: |
+          rm -rf artifacts/uiux-promax-uat
+          mkdir -p artifacts/uiux-promax-uat
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm --prefix apps/business-skill-studio ci
+
+      - name: Configure deterministic authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+          password_hash="$(node -e 'const bcrypt = require("./apps/business-skill-studio/node_modules/bcryptjs"); process.stdout.write(bcrypt.hashSync(process.env.FRONTEND_RECORD_PASSWORD, 10));')"
+          echo "AUTH_USER_PASSWORD_HASH=$password_hash" >> "$GITHUB_ENV"
+
+      - name: Load trusted PR evidence renderer
+        id: trusted_renderer
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          renderer="$RUNNER_TEMP/update-pr-evidence.mjs"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+            git show "${BASE_SHA}:scripts/update-pr-evidence.mjs" > "$renderer"
+          else
+            cp scripts/update-pr-evidence.mjs "$renderer"
+          fi
+          echo "renderer=$renderer" >> "$GITHUB_OUTPUT"
+
+      - name: Build Business Skill Studio
+        id: build_app
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm --prefix apps/business-skill-studio run build 2>&1 | tee artifacts/uiux-promax-uat/build.log
+
+      - name: Install Chrome for Playwright
+        if: ${{ steps.build_app.outcome == 'success' }}
+        run: npx playwright install --with-deps chrome
+
+      - name: Start production application
+        id: start_app
+        if: ${{ steps.build_app.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix apps/business-skill-studio run start -- --hostname 127.0.0.1 --port 3000 > artifacts/uiux-promax-uat/frontend-server.log 2>&1 &
+          app_pid=$!
+          echo "$app_pid" > artifacts/uiux-promax-uat/frontend.pid
+
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/login >/dev/null; then
+              echo "Business Skill Studio is ready."
+              exit 0
+            fi
+            if ! kill -0 "$app_pid" 2>/dev/null; then
+              echo "Application exited before becoming ready." >&2
+              cat artifacts/uiux-promax-uat/frontend-server.log >&2
+              exit 1
+            fi
+            sleep 1
+          done
+
+          echo "Application did not become ready within 60 seconds." >&2
+          cat artifacts/uiux-promax-uat/frontend-server.log >&2
+          exit 1
+
+      - name: Record desktop and mobile UIUX UAT
+        id: record_uat
+        if: ${{ steps.start_app.outcome == 'success' }}
+        continue-on-error: true
+        run: node tools/record-uiux-promax-uat.mjs
+
+      - name: Convert UAT recordings to inline GIF previews
+        id: convert_gifs
+        if: ${{ steps.record_uat.outcome == 'success' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          for viewport in desktop mobile; do
+            video="artifacts/uiux-promax-uat/${viewport}/video.webm"
+            test -s "$video"
+            ffmpeg -y -i "$video" -t 25 \
+              -vf "fps=7,scale=840:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=112[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4" \
+              "artifacts/uiux-promax-uat/${viewport}/recording-preview.gif"
+          done
+
+      - name: Stop production application
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if [ -f artifacts/uiux-promax-uat/frontend.pid ]; then
+            kill "$(cat artifacts/uiux-promax-uat/frontend.pid)" 2>/dev/null || true
+          fi
+
+      - name: Write evidence manifest
+        if: ${{ always() && !cancelled() }}
+        shell: bash
+        run: find artifacts/uiux-promax-uat -type f | sort > artifacts/uiux-promax-uat/manifest.txt
+
+      - name: Upload UIUXPROMAX UAT evidence
+        id: upload
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: uiux-promax-uat-recording
+          path: artifacts/uiux-promax-uat/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish UAT media to PR branch
+        id: publish_media
+        if: ${{ always() && !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "${HEAD_BRANCH}:refs/remotes/origin/${HEAD_BRANCH}"
+          git reset --hard "origin/${HEAD_BRANCH}"
+
+          dest="pr-evidence/pr-${PR_NUMBER}/uiux-promax-uat/latest"
+          rm -rf "$dest"
+          mkdir -p "$dest"
+          cp -R artifacts/uiux-promax-uat/. "$dest/"
+          git add -f "$dest"
+
+          if git diff --cached --quiet; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "chore: publish PR ${PR_NUMBER} UIUXPROMAX UAT recording [skip ci]"
+            pushed=false
+            for attempt in 1 2 3; do
+              if git push origin HEAD:"${HEAD_BRANCH}"; then
+                pushed=true
+                break
+              fi
+              git fetch origin "${HEAD_BRANCH}:refs/remotes/origin/${HEAD_BRANCH}"
+              git rebase "origin/${HEAD_BRANCH}"
+            done
+            if [ "$pushed" != "true" ]; then
+              echo "Failed to publish UIUXPROMAX UAT media after 3 attempts" >&2
+              exit 1
+            fi
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "media_path=$dest" >> "$GITHUB_OUTPUT"
+          echo "media_ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Update PR body with inline UIUX UAT recording
+        if: ${{ always() && !cancelled() && github.event_name == 'pull_request' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+          TEST_OUTCOME: ${{ steps.build_app.outcome == 'success' && steps.start_app.outcome == 'success' && steps.record_uat.outcome == 'success' && steps.convert_gifs.outcome == 'success' && 'success' || 'failure' }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVIDENCE_TITLE: UIUXPROMAX 专项 UAT 录屏证据
+          EVIDENCE_MARKER: uiux-promax-uat-recording
+          EVIDENCE_MEDIA_PATH: ${{ steps.publish_media.outputs.media_path }}
+          EVIDENCE_MEDIA_REF: ${{ steps.publish_media.outputs.media_ref }}
+        run: node "${{ steps.trusted_renderer.outputs.renderer }}"
+
+      - name: Fail when UIUX UAT evidence is incomplete
+        if: ${{ steps.build_app.outcome != 'success' || steps.start_app.outcome != 'success' || steps.record_uat.outcome != 'success' || steps.convert_gifs.outcome != 'success' }}
+        run: exit 1
