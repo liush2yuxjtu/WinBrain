@@ -54,6 +54,7 @@ function run(executable, args, options = {}) {
     cwd: appDirectory,
     env: runtimeEnvironment,
     stdio: 'inherit',
+    shell: process.platform === 'win32',
     ...options
   })
   if (result.error) throw result.error
