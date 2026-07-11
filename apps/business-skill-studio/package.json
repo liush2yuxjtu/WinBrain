@@ -26,7 +26,7 @@
     "uat:db:down": "node scripts/uat-database.mjs down",
     "uat:db:destroy": "node scripts/uat-database.mjs destroy",
     "pretest:unit": "prisma generate",
-    "test:unit": "node --import tsx --test tests/filesystem-skill-repository.test.ts tests/skill-store-validation.test.ts tests/data-source-security.test.ts tests/data-source-crypto.test.ts tests/agent-sdk-profiler.test.ts",
+    "test:unit": "node --import tsx --experimental-test-module-mocks --test tests/filesystem-skill-repository.test.ts tests/skill-store-validation.test.ts tests/data-source-security.test.ts tests/data-source-crypto.test.ts tests/agent-sdk-profiler.test.ts tests/agent-sdk.test.ts",
     "pretest:integration": "prisma generate",
     "test:integration": "node --import tsx --test --test-concurrency=1 tests/prisma-skill-repository.integration.test.ts tests/company-settings.integration.test.ts tests/customer-database.integration.test.ts"
   },
