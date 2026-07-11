@@ -12,6 +12,14 @@ async function source(url: URL): Promise<string> {
   return readFile(url, 'utf8')
 }
 
+function cssRule(css: string, selector: string): string {
+  const start = css.indexOf(`${selector} {`)
+  assert.ok(start !== -1, `${selector} rule not found`)
+  const end = css.indexOf('}', start)
+  assert.ok(end !== -1, `${selector} rule is not closed`)
+  return css.slice(start, end + 1)
+}
+
 test('UIUXPROMAX design layer is loaded after the base application styles', async () => {
   const layout = await source(layoutUrl)
   const designImport = layout.indexOf("import './uiux-promax.css'")
@@ -27,12 +35,13 @@ test('UIUXPROMAX includes accessibility and responsive contracts', async () => {
 
   assert.match(css, /:focus-visible/)
   assert.match(css, /outline:\s*3px solid var\(--uux-brand\)/)
+  assert.match(css, /\.brand-copy span\s*\{\s*color:\s*#52656f/)
   assert.match(css, /\.nav-label\s*\{\s*color:\s*#52656f/)
   assert.match(css, /\.workbench-breadcrumb\s*\{\s*color:\s*#52656f/)
   assert.match(css, /font-size:\s*clamp\(23px,\s*1\.5rem \+ 1\.5vw,\s*34px\)/)
   assert.match(css, /\.metric-card\s*\{[^}]*transition:\s*border-color/)
-  assert.match(css, /\.draft-editor\s*\{[^}]*color-scheme:\s*dark/)
-  assert.match(css, /\.assistant-panel\s*\{[^}]*color-scheme:\s*dark/)
+  assert.match(cssRule(css, '.draft-editor'), /color-scheme:\s*dark/)
+  assert.match(cssRule(css, '.assistant-panel'), /color-scheme:\s*dark/)
   assert.match(css, /@media \(max-width: 820px\)[\s\S]*\.assistant-panel\s*\{[^}]*width:\s*100%[^}]*flex-basis:\s*auto/)
   assert.match(css, /prefers-reduced-motion/)
   assert.match(css, /@media \(max-width: 820px\)/)
@@ -63,6 +72,7 @@ test('UIUXPROMAX has dedicated desktop and mobile UAT recording evidence', async
   assert.match(recorder, /copyFile/)
   assert.match(recorder, /EXDEV/)
   assert.match(recorder, /rgba\?\\\(15/)
+  assert.match(recorder, /page\.locator\('\.mobile-menu-button'\)/)
   assert.match(recorder, /async function moveVideo[\s\S]*try[\s\S]*failed to move video/)
 })
 
@@ -70,6 +80,9 @@ test('UAT database diagnostics distinguish exit codes from operating-system sign
   const script = await source(uatDatabaseUrl)
 
   assert.match(script, /function failureReason\(result\)/)
+  assert.match(script, /if \(!result\) return 'no process result'/)
   assert.match(script, /result\.status !== null \? `status \$\{result\.status\}` : `signal \$\{result\.signal \|\| 'unknown'\}`/)
   assert.match(script, /failed with \$\{failureReason\(result\)\}/)
+  assert.match(script, /function waitForCleanup\(milliseconds\)/)
+  assert.match(script, /waitForCleanup\(2_000\)/)
 })
