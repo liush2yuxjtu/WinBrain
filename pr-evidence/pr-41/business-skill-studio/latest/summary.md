@@ -7,7 +7,7 @@
 - Credential failover: primary -> fallback
 - API response timeout: 1250000ms
 - Final screenshot: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/frontend-page.png
-- Video: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/video/36e79acbceeb2ee0334a2b5dcd212fdc.webm
+- Video: /home/runner/work/WinBrain/WinBrain/artifacts/frontend-recording/video/737c35a3da14d63867821602bde7e675.webm
 
 ## Staged snapshots
 
