@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import test, { mock } from 'node:test'
+import test from 'node:test'
 import type { AgentSdkStreamEvent } from '../lib/agent-sdk'
 import type { ChatRequest, SkillDraftRequest } from '../lib/types'
 import { fallbackSkillDraft } from '../lib/skill-creator'
@@ -34,16 +34,19 @@ let queryImpl: (call: CapturedQueryCall) => FakeQueryHandle = () => {
   throw new Error('queryImpl was not configured for this test')
 }
 
-mock.module('@anthropic-ai/claude-agent-sdk', {
-  exports: {
-    query: (call: CapturedQueryCall) => {
-      capturedCalls.push(call)
-      return queryImpl(call)
-    }
-  }
+const {
+  streamAgentChat,
+  streamSkillDraft,
+  runAgentChat,
+  setAgentSdkQueryForTesting
+} = await import('../lib/agent-sdk')
+
+setAgentSdkQueryForTesting((call: CapturedQueryCall) => {
+  capturedCalls.push(call)
+  return queryImpl(call)
 })
 
-const { streamAgentChat, streamSkillDraft, runAgentChat } = await import('../lib/agent-sdk')
+test.after(() => setAgentSdkQueryForTesting(undefined))
 
 const MANAGED_ENV_KEYS = [
   'KIMI_API_KEY_PRIMARY', 'KIMI_API_KEY_FALLBACK', 'KIMI_API_KEY',
