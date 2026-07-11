@@ -10,6 +10,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: install-claude-data-skills-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   install-and-uat:
     runs-on: ubuntu-latest
