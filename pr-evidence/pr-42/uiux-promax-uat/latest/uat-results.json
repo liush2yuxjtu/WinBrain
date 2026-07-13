@@ -1,0 +1,42 @@
+{
+  "targetUrl": "http://127.0.0.1:3000",
+  "results": [
+    {
+      "id": "UIUX-UAT-01",
+      "name": "Desktop command workspace keeps navigation, canvas, and copilot visible",
+      "status": "PASS",
+      "detail": "sidebar=244px, canvas=788px, assistant=408px"
+    },
+    {
+      "id": "UIUX-UAT-02",
+      "name": "Keyboard focus indicator uses the accessible solid brand color",
+      "status": "PASS",
+      "detail": "A ＋新建 Skill; 3px rgb(15, 118, 110)"
+    },
+    {
+      "id": "UIUX-UAT-03",
+      "name": "Small breadcrumb text uses the WCAG-reviewed dark neutral",
+      "status": "PASS",
+      "detail": "breadcrumb color=rgb(82, 101, 111)"
+    },
+    {
+      "id": "UIUX-UAT-04",
+      "name": "Mobile navigation opens, closes with Escape, and restores focus",
+      "status": "PASS",
+      "detail": "Escape closes navigation and returns keyboard focus to the menu button"
+    },
+    {
+      "id": "UIUX-UAT-05",
+      "name": "Mobile form controls use 16px text to prevent iOS auto-zoom",
+      "status": "PASS",
+      "detail": "expert role input font-size=16px"
+    },
+    {
+      "id": "UIUX-UAT-06",
+      "name": "Narrow mobile layout stacks without horizontal overflow",
+      "status": "PASS",
+      "detail": "viewport=320px, scrollWidth=320px, assistant=320px"
+    }
+  ],
+  "failure": null
+}
